@@ -133,8 +133,14 @@
 }
 
 @layer base {
+  * {
+    border-color: var(--color-border);
+  }
   html, body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
   }
 }
+
 
