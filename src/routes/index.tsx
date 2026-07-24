@@ -24,17 +24,23 @@ function Dashboard() {
 
   return (
     <AppShell>
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-muted-foreground">Welcome back</p>
-          <h1 className="text-3xl font-semibold tracking-tight">{advertiser.name}</h1>
+      <div className="mb-8 rounded-2xl border border-border bg-gradient-to-br from-accent/60 via-secondary to-background p-6 shadow-sm sm:p-8">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-primary">Welcome back 👋</p>
+            <h1 className="mt-1 text-3xl font-semibold tracking-tight">{advertiser.name}</h1>
+            <p className="mt-2 max-w-lg text-sm text-muted-foreground">
+              Put your business on nearby digital screens in just a few taps. No tech skills needed — we'll guide you step by step.
+            </p>
+          </div>
+          <Link to="/campaigns/new">
+            <Button size="lg" className="gap-2 px-6 py-6 text-base shadow-md">
+              <Plus className="h-5 w-5" /> Start a New Ad
+            </Button>
+          </Link>
         </div>
-        <Link to="/campaigns/new">
-          <Button className="gap-1.5">
-            <Plus className="h-4 w-4" /> New Campaign
-          </Button>
-        </Link>
       </div>
+
 
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard label="Live campaigns" value={live} />
