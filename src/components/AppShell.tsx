@@ -1,6 +1,6 @@
 import { Wallet, PlayCircle, ArrowLeft } from "lucide-react";
-import type { ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { useApp } from "@/lib/app-context";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -19,29 +19,68 @@ export function AppShell({
   back?: BackProp;
 }) {
   const { wallet, advertiser } = useApp();
+  const router = useRouter();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // Sidebar: open on first launch; auto-collapse the first time the user
+  // navigates away. After that, respect user's manual choice.
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const initialPathRef = useRef<string | null>(null);
+  const userTouchedRef = useRef(false);
+  useEffect(() => {
+    if (initialPathRef.current === null) {
+      initialPathRef.current = pathname;
+      return;
+    }
+    if (pathname !== initialPathRef.current && !userTouchedRef.current) {
+      setSidebarOpen(false);
+      userTouchedRef.current = true;
+    }
+  }, [pathname]);
+
+  const showBack = pathname !== "/";
+  const backLabel = back?.label ?? "Back";
 
   return (
-    <SidebarProvider>
+    <SidebarProvider
+      open={sidebarOpen}
+      onOpenChange={(v) => {
+        userTouchedRef.current = true;
+        setSidebarOpen(v);
+      }}
+    >
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur">
             <div className="flex items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6">
               <SidebarTrigger />
-              {back && (
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  title={back.label ?? "Back"}
-                  aria-label={back.label ?? "Back"}
-                >
-                  <Link to={back.to}>
+              {showBack &&
+                (back ? (
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title={backLabel}
+                    aria-label={backLabel}
+                  >
+                    <Link to={back.to}>
+                      <ArrowLeft className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title={backLabel}
+                    aria-label={backLabel}
+                    onClick={() => router.history.back()}
+                  >
                     <ArrowLeft className="h-4 w-4" />
-                  </Link>
-                </Button>
-              )}
+                  </Button>
+                ))}
               {title && (
                 <h1 className="min-w-0 truncate text-base font-semibold sm:text-lg">
                   {title}
