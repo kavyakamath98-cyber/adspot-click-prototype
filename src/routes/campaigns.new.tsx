@@ -756,41 +756,63 @@ function Step2({
         Choose from your library, or add a new one — it syncs automatically.
       </p>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[220px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search creatives"
-            className="pl-9"
-          />
+      <div className="mt-4 flex flex-wrap items-end gap-3">
+        <div className="w-full sm:w-64">
+          <Label className="mb-1.5 block text-xs text-muted-foreground">Search</Label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Name, tag, industry"
+              className="pl-9"
+            />
+          </div>
         </div>
-        <MultiSelectPopover
-          label="Industry"
-          options={INDUSTRIES as readonly string[]}
-          selected={industryFilter as Set<string>}
-          onToggle={(v) => toggleIndustry(v as Industry)}
-          onClear={() => setIndustryFilter(new Set())}
-        />
-        <div className="flex rounded-md border border-border p-0.5">
-          {(["all", "in_use", "unused"] as const).map((u) => (
-            <button
-              key={u}
-              type="button"
-              onClick={() => setUsageFilter(u)}
-              className={cn(
-                "rounded-sm px-2.5 py-1 text-xs font-medium capitalize transition-colors",
-                usageFilter === u
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-secondary",
-              )}
-            >
-              {u === "all" ? "All" : u === "in_use" ? "In use" : "Unused"}
-            </button>
-          ))}
+
+        <div className="ml-auto flex flex-wrap items-end gap-3">
+          <div>
+            <Label className="mb-1.5 block text-xs text-muted-foreground">Industry</Label>
+            <MultiSelectPopover
+              label="Any industry"
+              options={INDUSTRIES as readonly string[]}
+              selected={industryFilter as Set<string>}
+              onToggle={(v) => toggleIndustry(v as Industry)}
+              onClear={() => setIndustryFilter(new Set())}
+            />
+          </div>
+          <div>
+            <Label className="mb-1.5 block text-xs text-muted-foreground">Creative status</Label>
+            <Select value={usageFilter} onValueChange={(v) => setUsageFilter(v as typeof usageFilter)}>
+              <SelectTrigger className="w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <div>
+                    <div className="font-medium">All creatives</div>
+                    <div className="text-xs text-muted-foreground">Show every creative in your library</div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="in_use">
+                  <div>
+                    <div className="font-medium">In use in a live campaign</div>
+                    <div className="text-xs text-muted-foreground">Currently running somewhere</div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="unused">
+                  <div>
+                    <div className="font-medium">Not currently used</div>
+                    <div className="text-xs text-muted-foreground">Free to pick without conflicts</div>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
+
+      <p className="mt-5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Your creatives</p>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <button
