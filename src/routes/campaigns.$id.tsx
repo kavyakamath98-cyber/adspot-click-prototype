@@ -679,37 +679,62 @@ function CampaignDetail() {
               Change the start or end date. Additional days will be charged (mock).
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label>Start date</Label>
-              <Input
-                type="date"
-                value={editStart}
-                onChange={(e) => setEditStart(e.target.value)}
-                className="mt-1.5"
-              />
-            </div>
-            <div>
-              <Label>End date</Label>
-              <Input
-                type="date"
-                value={editEnd}
-                min={editStart}
-                onChange={(e) => setEditEnd(e.target.value)}
-                className="mt-1.5"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setScheduleOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={doSaveSchedule} disabled={!editStart || !editEnd || editEnd < editStart}>
-              Save schedule
-            </Button>
-          </DialogFooter>
+          {(() => {
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const startElapsed =
+              campaign.status === "live" && campaign.startDate <= todayStr;
+            const minEnd =
+              startElapsed
+                ? todayStr > editStart
+                  ? todayStr
+                  : editStart
+                : editStart;
+            return (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label>Start date</Label>
+                    <Input
+                      type="date"
+                      value={editStart}
+                      disabled={startElapsed}
+                      onChange={(e) => setEditStart(e.target.value)}
+                      className="mt-1.5"
+                    />
+                    {startElapsed && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Campaign has already started — start date can no longer be changed.
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>End date</Label>
+                    <Input
+                      type="date"
+                      value={editEnd}
+                      min={minEnd}
+                      onChange={(e) => setEditEnd(e.target.value)}
+                      className="mt-1.5"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setScheduleOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={doSaveSchedule}
+                    disabled={!editStart || !editEnd || editEnd < editStart || editEnd < minEnd}
+                  >
+                    Save schedule
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
+
     </AppShell>
   );
 }

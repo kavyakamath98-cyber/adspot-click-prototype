@@ -144,8 +144,13 @@ function Dashboard() {
             {shown.map((c) => {
               const p = PINCODES[c.pincode];
               return (
-                <Link key={c.id} to="/campaigns/$id" params={{ id: c.id }} className="group">
-                  <Card className="p-5 transition-all hover:border-primary/50 hover:shadow-md">
+                <Link
+                  key={c.id}
+                  to="/campaigns/$id"
+                  params={{ id: c.id }}
+                  className="group flex"
+                >
+                  <Card className="flex h-full w-full flex-col p-5 transition-all hover:border-primary/50 hover:shadow-md">
                     <div className="mb-3 flex items-start justify-between gap-3">
                       <div>
                         <h3 className="font-semibold group-hover:text-primary">{c.name}</h3>
@@ -165,8 +170,10 @@ function Dashboard() {
                       />
                     </div>
                     {c.status === "rejected" && c.rejectionReason && (
-                      <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-500/10 dark:text-red-300">
-                        Reason: {c.rejectionReason}
+                      <p className="mt-auto pt-3 text-xs text-red-700 dark:text-red-300">
+                        <span className="rounded-md bg-red-50 px-3 py-2 dark:bg-red-500/10">
+                          Reason: {c.rejectionReason}
+                        </span>
                       </p>
                     )}
                   </Card>
@@ -174,6 +181,7 @@ function Dashboard() {
               );
             })}
           </div>
+
           <div ref={sentinel} className="h-10" />
           {hasMore && (
             <p className="mt-4 text-center text-xs text-muted-foreground">Loading more…</p>
