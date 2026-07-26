@@ -302,23 +302,15 @@ function NewCampaign() {
 
 
   return (
-    <AppShell>
+    <AppShell
+      title={resubmit ? "Fix & Resubmit" : draft ? "Continue Draft" : "Create Campaign"}
+      back={{ to: "/campaigns", label: "Back to campaigns" }}
+    >
       <div className="mb-6">
-        <button
-          onClick={() => navigate({ to: "/" })}
-          className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back to dashboard
-        </button>
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              {resubmit ? "Fix & Resubmit" : draft ? "Continue Draft" : "Create Campaign"}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Step {step} of 6 · {STEP_LABELS[step - 1]}
-            </p>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Step {step} of 6 · {STEP_LABELS[step - 1]}
+          </p>
           <Button variant="outline" onClick={handleSaveDraft} className="gap-1.5">
             <Save className="h-4 w-4" /> Save as Draft
           </Button>

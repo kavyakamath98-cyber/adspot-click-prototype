@@ -43,14 +43,11 @@ function LibraryPage() {
     );
 
   return (
-    <AppShell>
+    <AppShell title="Content Library">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Content Library</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            All your uploaded creatives. Reuse in new campaigns.
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          All your uploaded creatives. Reuse in new campaigns.
+        </p>
         <div className="flex items-center gap-2">
           <div className="relative w-full max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

@@ -242,13 +242,10 @@ function PerformanceReport() {
 
   if (allFacts.length === 0) {
     return (
-      <AppShell>
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight">Campaign Performance</h1>
-          <p className="text-sm text-muted-foreground">
-            Impressions, conversions, footfall and spend across your live ads.
-          </p>
-        </div>
+      <AppShell title="Campaign Performance">
+        <p className="mb-6 text-sm text-muted-foreground">
+          Impressions, conversions, footfall and spend across your live ads.
+        </p>
         <Card>
           <CardContent className="py-16 text-center text-sm text-muted-foreground">
             No performance data yet. Launch a campaign to start seeing analytics here.
@@ -259,14 +256,11 @@ function PerformanceReport() {
   }
 
   return (
-    <AppShell>
+    <AppShell title="Campaign Performance">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Campaign Performance</h1>
-          <p className="text-sm text-muted-foreground">
-            Track how your DOOH ads perform across cities, screens, and creatives.
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Track how your DOOH ads perform across cities, screens, and creatives.
+        </p>
         <div className="flex flex-wrap gap-2">
           <Select value={campaignFilter} onValueChange={setCampaignFilter}>
             <SelectTrigger className="w-56">

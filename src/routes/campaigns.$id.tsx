@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft,
+  
   Calendar,
   Loader2,
   MapPin,
@@ -100,11 +100,11 @@ function CampaignDetail() {
 
   if (!campaign) {
     return (
-      <AppShell>
+      <AppShell title="Campaign not found" back={{ to: "/campaigns" }}>
         <div className="py-16 text-center">
           <p className="text-muted-foreground">Campaign not found.</p>
-          <Link to="/" className="mt-4 inline-block text-sm text-primary underline">
-            Back to dashboard
+          <Link to="/campaigns" className="mt-4 inline-block text-sm text-primary underline">
+            Back to campaigns
           </Link>
         </div>
       </AppShell>
@@ -222,22 +222,12 @@ function CampaignDetail() {
     campaign.status === "approved_scheduled";
 
   return (
-    <AppShell>
-      <button
-        onClick={() => navigate({ to: "/" })}
-        className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back
-      </button>
-
+    <AppShell title={campaign.name} back={{ to: "/campaigns", label: "Back to campaigns" }}>
       {/* Top summary card with schedule controls inline */}
       <Card className="mb-6 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                {campaign.name}
-              </h1>
               <StatusBadge status={campaign.status} />
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
