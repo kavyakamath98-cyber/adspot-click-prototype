@@ -271,8 +271,9 @@ function NewCampaign() {
     } else {
       addCampaign(c);
     }
-    toast.success("Saved as draft");
-    navigate({ to: "/" });
+    toast.success("Saved as draft", {
+      description: "You can keep editing, or leave and come back later.",
+    });
   };
 
   const handlePaySuccess = () => {

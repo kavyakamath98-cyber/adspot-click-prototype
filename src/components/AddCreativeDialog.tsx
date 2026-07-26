@@ -111,7 +111,7 @@ export function AddCreativeDialog({
         onOpenChange(v);
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Creative</DialogTitle>
           <DialogDescription>
