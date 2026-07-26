@@ -37,8 +37,8 @@ import { toast } from "sonner";
 
 const CAMPAIGN_ITEMS = [
   { to: "/campaigns/new", label: "Create Campaign", icon: Plus, exact: false },
-  { to: "/reports/performance", label: "Campaign Performance", icon: LineChart, exact: false },
   { to: "/campaigns", label: "View Campaigns", icon: LayoutGrid, exact: true },
+  { to: "/reports/performance", label: "Campaign Performance", icon: LineChart, exact: false },
 ];
 
 const PAYMENT_ITEMS = [
