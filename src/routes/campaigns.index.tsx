@@ -71,26 +71,28 @@ function CampaignsList() {
 
   return (
     <AppShell title="Your Campaigns">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <p className="text-sm text-muted-foreground">
-          {campaigns.length} total · search, filter and drill into any campaign.
-        </p>
-        <Link to="/campaigns/new">
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" /> New Campaign
-          </Button>
-        </Link>
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search campaigns by name"
-            className="pl-9"
-          />
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <h2 className="text-xl font-semibold text-foreground">
+          {campaigns.length} campaign{campaigns.length === 1 ? "" : "s"}
+        </h2>
+        <span className="text-sm text-muted-foreground">
+          Search, filter and drill into any campaign.
+        </span>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search campaigns by name"
+              className="pl-9"
+            />
+          </div>
+          <Link to="/campaigns/new">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" /> New Campaign
+            </Button>
+          </Link>
         </div>
       </div>
 

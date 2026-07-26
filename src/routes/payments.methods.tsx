@@ -29,9 +29,12 @@ function PaymentMethods() {
 
   return (
     <AppShell title="Payment Methods">
-      <p className="mb-6 text-sm text-muted-foreground">
-        Your Additv wallet funds your campaigns. Top up any time using a saved method.
-      </p>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <h2 className="text-xl font-semibold text-foreground">Wallet & saved methods</h2>
+        <span className="text-sm text-muted-foreground">
+          Your Additv wallet funds your campaigns. Top up any time using a saved method.
+        </span>
+      </div>
 
       <Card className="mb-6 flex flex-wrap items-center justify-between gap-4 p-6">
         <div className="flex items-center gap-4">
