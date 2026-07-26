@@ -12,8 +12,18 @@ import {
   Search,
   Info as InfoIcon,
   Clock,
+  Plus,
+  Filter,
+  X,
 } from "lucide-react";
-import { AppShell, InUseBadge, LocationTagBadge, VideoPlayOverlay } from "@/components/AppShell";
+import {
+  AppShell,
+  InUseBadge,
+  LocationTagBadge,
+  LocationTagPill,
+  VideoPlayOverlay,
+} from "@/components/AppShell";
+import { AddCreativeDialog } from "@/components/AddCreativeDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,10 +46,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useApp } from "@/lib/app-context";
 import {
+  INDUSTRIES,
   LOCATION_SUGGESTIONS,
   LOCATION_TAGS,
   PINCODES,
@@ -47,9 +67,11 @@ import {
   distanceKm,
   type Campaign,
   type Creative,
+  type Industry,
   type LocationTag,
   type Recurrence,
 } from "@/lib/mockData";
+
 
 const searchSchema = z.object({
   creativeId: z.string().optional(),
