@@ -51,7 +51,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/campaigns/$id")({
   head: ({ params }) => ({
     meta: [
-      { title: `Campaign · AdSpot` },
+      { title: `Campaign · Additiv` },
       { name: "description", content: `Manage campaign ${params.id}.` },
     ],
   }),

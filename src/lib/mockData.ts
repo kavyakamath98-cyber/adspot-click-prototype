@@ -1,4 +1,4 @@
-// Hardcoded mock data for the AdSpot frontend prototype.
+// Hardcoded mock data for the Additiv frontend prototype.
 
 export type ScreenAvailability = "available" | "partial" | "booked";
 export type LocationTag =
