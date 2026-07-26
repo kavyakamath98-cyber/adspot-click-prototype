@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dashboard · AdSpot" },
+      { title: "Dashboard · Additiv" },
       { name: "description", content: "Manage your local DOOH ad campaigns." },
     ],
   }),

@@ -60,7 +60,7 @@ const searchSchema = z.object({
 export const Route = createFileRoute("/campaigns/new")({
   head: () => ({
     meta: [
-      { title: "Create Campaign · AdSpot" },
+      { title: "Create Campaign · Additiv" },
       { name: "description", content: "Launch a new hyperlocal DOOH campaign." },
     ],
   }),
