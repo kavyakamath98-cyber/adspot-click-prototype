@@ -37,9 +37,12 @@ const MOCK: Txn[] = [
 function TransactionHistory() {
   return (
     <AppShell title="Transaction History">
-      <p className="mb-6 text-sm text-muted-foreground">
-        Every wallet top-up, campaign spend and refund in one place.
-      </p>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <h2 className="text-xl font-semibold text-foreground">Recent activity</h2>
+        <span className="text-sm text-muted-foreground">
+          Every wallet top-up, campaign spend and refund in one place.
+        </span>
+      </div>
 
       <Card className="divide-y divide-border">
         {MOCK.map((t) => {
