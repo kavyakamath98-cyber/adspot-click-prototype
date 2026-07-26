@@ -286,3 +286,16 @@ function EmptyState({ hasQuery }: { hasQuery: boolean }) {
     </Card>
   );
 }
+
+function HowStep({ n, icon: Icon, title, desc }: { n: number; icon: React.ComponentType<{ className?: string }>; title: string; desc: string }) {
+  return (
+    <div className="flex flex-col items-center rounded-lg border border-border bg-secondary/30 p-4 text-center">
+      <div className="grid h-10 w-10 place-items-center rounded-full bg-background text-primary">
+        <Icon className="h-5 w-5" />
+      </div>
+      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step {n}</p>
+      <p className="mt-1 text-sm font-semibold">{title}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{desc}</p>
+    </div>
+  );
+}
