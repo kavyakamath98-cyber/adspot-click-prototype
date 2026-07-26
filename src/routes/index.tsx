@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, MapPin, Monitor, Plus, Search, TrendingUp } from "lucide-react";
+import { Calendar, Images, MapPin, Monitor, Plus, Rocket, Search, Sparkles, Target, TrendingUp } from "lucide-react";
 import { AppShell, StatusBadge } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
