@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, MapPin, Monitor, Plus, Search, TrendingUp } from "lucide-react";
+import { Calendar, Images, MapPin, Monitor, Plus, Rocket, Search, Sparkles, Target, TrendingUp } from "lucide-react";
 import { AppShell, StatusBadge } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -72,6 +72,51 @@ function Dashboard() {
     io.observe(el);
     return () => io.disconnect();
   }, [hasMore, shown.length]);
+
+  const isEmpty = campaigns.length === 0;
+
+  if (isEmpty) {
+    return (
+      <AppShell>
+        <div className="mb-8 rounded-2xl border border-border bg-gradient-to-br from-accent/60 via-secondary to-background p-6 shadow-sm sm:p-8">
+          <p className="text-sm font-medium text-primary">Welcome 👋</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">{advertiser.name}</h1>
+          <p className="mt-2 max-w-lg text-sm text-muted-foreground">
+            You haven't launched any ads yet. Let's put your business on a screen near you — no tech skills needed.
+          </p>
+        </div>
+
+        <Card className="p-8 sm:p-10">
+          <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary">
+              <Sparkles className="h-6 w-6" />
+            </div>
+            <h2 className="mt-4 text-2xl font-semibold">Launch your first campaign</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Three simple steps. We'll walk you through each one.
+            </p>
+
+            <div className="mt-8 grid w-full gap-4 sm:grid-cols-3">
+              <HowStep n={1} icon={Target} title="Choose a location" desc="Pick your neighbourhood and radius." />
+              <HowStep n={2} icon={Images} title="Add creative & screens" desc="Upload your ad and select nearby screens." />
+              <HowStep n={3} icon={Rocket} title="Launch" desc="Set schedule and budget — you're live." />
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Link to="/campaigns/new">
+                <Button size="lg" className="gap-2 px-6 py-6 text-base shadow-md">
+                  <Plus className="h-5 w-5" /> Create your first campaign
+                </Button>
+              </Link>
+              <Link to="/library" className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                Browse your content library
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -239,5 +284,18 @@ function EmptyState({ hasQuery }: { hasQuery: boolean }) {
         </Link>
       )}
     </Card>
+  );
+}
+
+function HowStep({ n, icon: Icon, title, desc }: { n: number; icon: React.ComponentType<{ className?: string }>; title: string; desc: string }) {
+  return (
+    <div className="flex flex-col items-center rounded-lg border border-border bg-secondary/30 p-4 text-center">
+      <div className="grid h-10 w-10 place-items-center rounded-full bg-background text-primary">
+        <Icon className="h-5 w-5" />
+      </div>
+      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step {n}</p>
+      <p className="mt-1 text-sm font-semibold">{title}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{desc}</p>
+    </div>
   );
 }

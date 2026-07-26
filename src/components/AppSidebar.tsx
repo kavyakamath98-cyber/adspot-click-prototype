@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Images, Plus, LogOut } from "lucide-react";
+import { LayoutDashboard, Images, Plus, LogOut, Megaphone, ChevronRight } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -11,15 +11,22 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useApp } from "@/lib/app-context";
 import { toast } from "sonner";
 
-const NAV = [
+const CAMPAIGN_ITEMS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/library", label: "Content Library", icon: Images, exact: false },
-  { to: "/campaigns/new", label: "Create Campaign", icon: Plus, exact: false, primary: true },
+  { to: "/campaigns/new", label: "Create Campaign", icon: Plus, exact: false },
 ];
 
 export function AppSidebar() {
@@ -30,6 +37,8 @@ export function AppSidebar() {
 
   const isActive = (to: string, exact?: boolean) =>
     exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
+
+  const campaignsOpen = CAMPAIGN_ITEMS.some((i) => isActive(i.to, i.exact));
 
   return (
     <Sidebar collapsible="icon">
@@ -44,27 +53,78 @@ export function AppSidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigate</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV.map((n) => (
-                <SidebarMenuItem key={n.to}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(n.to, n.exact)}
-                    tooltip={n.label}
-                  >
-                    <Link to={n.to} className="flex items-center gap-2">
-                      <n.icon className="h-4 w-4" />
-                      {!collapsed && <span>{n.label}</span>}
+        {collapsed ? (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {CAMPAIGN_ITEMS.map((n) => (
+                  <SidebarMenuItem key={n.to}>
+                    <SidebarMenuButton asChild isActive={isActive(n.to, n.exact)} tooltip={n.label}>
+                      <Link to={n.to} className="flex items-center gap-2">
+                        <n.icon className="h-4 w-4" />
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={isActive("/library")} tooltip="Content Library">
+                    <Link to="/library" className="flex items-center gap-2">
+                      <Images className="h-4 w-4" />
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : (
+          <>
+            <Collapsible defaultOpen={campaignsOpen} className="group/collapsible">
+              <SidebarGroup>
+                <SidebarGroupLabel asChild>
+                  <CollapsibleTrigger className="flex w-full items-center justify-between hover:text-foreground">
+                    <span className="flex items-center gap-2">
+                      <Megaphone className="h-4 w-4" />
+                      Campaigns
+                    </span>
+                    <ChevronRight className="h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                  </CollapsibleTrigger>
+                </SidebarGroupLabel>
+                <CollapsibleContent>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {CAMPAIGN_ITEMS.map((n) => (
+                        <SidebarMenuSubItem key={n.to}>
+                          <SidebarMenuSubButton asChild isActive={isActive(n.to, n.exact)}>
+                            <Link to={n.to} className="flex items-center gap-2">
+                              <n.icon className="h-4 w-4" />
+                              <span>{n.label}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+
+            <SidebarGroup>
+              <SidebarGroupLabel>Library</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={isActive("/library")}>
+                      <Link to="/library" className="flex items-center gap-2">
+                        <Images className="h-4 w-4" />
+                        <span>Content Library</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <div className="flex items-center gap-2 rounded-md px-2 py-2">
