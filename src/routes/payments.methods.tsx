@@ -28,13 +28,10 @@ function PaymentMethods() {
   const { wallet } = useApp();
 
   return (
-    <AppShell>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Payment methods</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your Additv wallet funds your campaigns. Top up any time using a saved method.
-        </p>
-      </div>
+    <AppShell title="Payment Methods">
+      <p className="mb-6 text-sm text-muted-foreground">
+        Your Additv wallet funds your campaigns. Top up any time using a saved method.
+      </p>
 
       <Card className="mb-6 flex flex-wrap items-center justify-between gap-4 p-6">
         <div className="flex items-center gap-4">
