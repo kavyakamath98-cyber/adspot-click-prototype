@@ -80,10 +80,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Additiv — Hyperlocal DOOH ads for small businesses" },
+      { title: "Additv — Hyperlocal DOOH ads for small businesses" },
       { name: "description", content: "Self-serve digital out-of-home advertising for Indian small businesses. Target by pincode, upload creative, and go live in minutes." },
-      { name: "author", content: "Additiv" },
-      { property: "og:title", content: "Additiv — Hyperlocal DOOH ads" },
+      { name: "author", content: "Additv" },
+      { property: "og:title", content: "Additv — Hyperlocal DOOH ads" },
       { property: "og:description", content: "Self-serve DOOH ad platform for local Indian businesses." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

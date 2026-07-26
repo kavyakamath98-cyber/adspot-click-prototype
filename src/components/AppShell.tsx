@@ -31,7 +31,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="grid h-8 w-8 place-items-center rounded-md bg-primary text-primary-foreground">
               <span className="text-sm font-bold">A</span>
             </div>
-            <span className="text-lg font-semibold tracking-tight">Additiv</span>
+            <span className="text-lg font-semibold tracking-tight">Additv</span>
           </Link>
           <nav className="hidden gap-1 md:flex">
             {nav.map((n) => {
