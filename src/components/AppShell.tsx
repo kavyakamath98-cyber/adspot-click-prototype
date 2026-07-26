@@ -1,13 +1,33 @@
 import { Wallet, PlayCircle, ArrowLeft } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { useApp } from "@/lib/app-context";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 
 type BackProp = { to: string; label?: string };
+
+// Module-scope so it persists across route remounts of AppShell.
+// Tracks whether we've already auto-collapsed the sidebar once.
+let autoCollapsedOnce = false;
+let userTouchedSidebar = false;
+
+function SidebarAutoCollapse() {
+  const { setOpen, setOpenMobile, isMobile } = useSidebar();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  useEffect(() => {
+    if (autoCollapsedOnce || userTouchedSidebar) return;
+    if (pathname === "/") return; // still on landing page
+    autoCollapsedOnce = true;
+    if (isMobile) setOpenMobile(false);
+    else setOpen(false);
+  }, [pathname, isMobile, setOpen, setOpenMobile]);
+
+  return null;
+}
 
 export function AppShell({
   children,
@@ -22,21 +42,7 @@ export function AppShell({
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  // Sidebar: open on first launch; auto-collapse the first time the user
-  // navigates away. After that, respect user's manual choice.
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const initialPathRef = useRef<string | null>(null);
-  const userTouchedRef = useRef(false);
-  useEffect(() => {
-    if (initialPathRef.current === null) {
-      initialPathRef.current = pathname;
-      return;
-    }
-    if (pathname !== initialPathRef.current && !userTouchedRef.current) {
-      setSidebarOpen(false);
-      userTouchedRef.current = true;
-    }
-  }, [pathname]);
 
   const showBack = pathname !== "/";
   const backLabel = back?.label ?? "Back";
@@ -45,10 +51,12 @@ export function AppShell({
     <SidebarProvider
       open={sidebarOpen}
       onOpenChange={(v) => {
-        userTouchedRef.current = true;
+        userTouchedSidebar = true;
         setSidebarOpen(v);
       }}
     >
+      <SidebarAutoCollapse />
+
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
