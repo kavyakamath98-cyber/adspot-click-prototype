@@ -990,14 +990,15 @@ function Step3({
   selected: string[];
   setSelected: (v: string[]) => void;
 }) {
-  const [tagFilter, setTagFilter] = useState<LocationTag | "all">("all");
+  const [tagFilter, setTagFilter] = useState<Set<LocationTag>>(new Set());
   const [visible, setVisible] = useState(SCREEN_PAGE);
   const sentinel = useRef<HTMLDivElement | null>(null);
 
   const filtered = useMemo(
-    () => (tagFilter === "all" ? screens : screens.filter((s) => s.locationTag === tagFilter)),
+    () => (tagFilter.size === 0 ? screens : screens.filter((s) => tagFilter.has(s.locationTag))),
     [screens, tagFilter],
   );
+
 
   useEffect(() => setVisible(SCREEN_PAGE), [tagFilter, screens.length]);
 
@@ -1056,21 +1057,27 @@ function Step3({
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <TagChip active={tagFilter === "all"} onClick={() => setTagFilter("all")} label={`All (${screens.length})`} />
-        {LOCATION_TAGS.map((t) => {
-          const count = screens.filter((s) => s.locationTag === t).length;
-          if (count === 0) return null;
-          return (
-            <TagChip
-              key={t}
-              active={tagFilter === t}
-              onClick={() => setTagFilter(t)}
-              label={`${t} (${count})`}
-            />
-          );
-        })}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <MultiSelectPopover
+          label="Location type"
+          options={LOCATION_TAGS as readonly string[]}
+          selected={tagFilter as Set<string>}
+          onToggle={(v) =>
+            setTagFilter((prev) => {
+              const next = new Set(prev);
+              const t = v as LocationTag;
+              if (next.has(t)) next.delete(t);
+              else next.add(t);
+              return next;
+            })
+          }
+          onClear={() => setTagFilter(new Set())}
+        />
+        <span className="text-xs text-muted-foreground">
+          {filtered.length} of {screens.length} screens
+        </span>
       </div>
+
 
       <div className="mt-5 divide-y divide-border rounded-lg border">
         {shown.map((s) => {
@@ -1091,7 +1098,7 @@ function Step3({
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{s.venue}</span>
-                  <LocationTagBadge tag={s.locationTag} />
+                  <LocationTagPill tag={s.locationTag} />
                   <AvailabilityBadge a={s.availability} />
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
