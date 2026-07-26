@@ -1,26 +1,25 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
-  Loader2,
   MapPin,
   Monitor,
-  Upload,
   AlertTriangle,
-  Image as ImageIcon,
-  Film,
+  Save,
+  Search,
+  Info as InfoIcon,
+  Clock,
 } from "lucide-react";
-import { AppShell } from "@/components/AppShell";
+import { AppShell, InUseBadge, LocationTagBadge, VideoPlayOverlay } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Dialog,
@@ -30,20 +29,32 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useApp } from "@/lib/app-context";
 import {
+  LOCATION_SUGGESTIONS,
+  LOCATION_TAGS,
   PINCODES,
   SCREENS,
   distanceKm,
-  type Creative,
   type Campaign,
+  type Creative,
+  type LocationTag,
+  type Recurrence,
 } from "@/lib/mockData";
 
 const searchSchema = z.object({
   creativeId: z.string().optional(),
   resubmitId: z.string().optional(),
+  draftId: z.string().optional(),
 });
 
 export const Route = createFileRoute("/campaigns/new")({
@@ -60,46 +71,94 @@ export const Route = createFileRoute("/campaigns/new")({
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 type FitMode = "contain" | "cover" | "fill";
 
+const STEP_LABELS = ["Details & Targeting", "Creative", "Screens", "Preview", "Schedule", "Payment"];
+
 function NewCampaign() {
-  const { creativeId, resubmitId } = Route.useSearch();
+  const { creativeId, resubmitId, draftId } = Route.useSearch();
   const navigate = useNavigate();
-  const { creatives, addCreative, addCampaign, chargeWallet, simulateApproval, campaigns, updateCampaign } = useApp();
+  const {
+    creatives,
+    addCampaign,
+    updateCampaign,
+    chargeWallet,
+    simulateApproval,
+    campaigns,
+  } = useApp();
 
   const resubmit = resubmitId ? campaigns.find((c) => c.id === resubmitId) : undefined;
+  const draft = draftId ? campaigns.find((c) => c.id === draftId) : undefined;
+  const source = resubmit ?? draft;
 
-  const [step, setStep] = useState<Step>(resubmit ? 2 : 1);
-  const [name, setName] = useState(resubmit?.name ?? "New Campaign");
+  const [step, setStep] = useState<Step>(1);
+  const [visited, setVisited] = useState<Set<Step>>(new Set([1]));
+
+  const [name, setName] = useState(source?.name ?? "New Campaign");
 
   // Step 1 — targeting
-  const [pincode, setPincode] = useState(resubmit?.pincode ?? "560034");
-  const [radius, setRadius] = useState<number>(resubmit?.radiusKm ?? 3);
-  const p = PINCODES[pincode];
+  const [pincode, setPincode] = useState(source?.pincode ?? "560034");
+  const [radius, setRadius] = useState<number>(source?.radiusKm ?? 3);
+  const [locationLabel, setLocationLabel] = useState<string>(
+    source?.locationLabel ?? PINCODES[source?.pincode ?? "560034"]?.label ?? "",
+  );
+  const [centerLat, setCenterLat] = useState<number>(source?.centerLat ?? PINCODES["560034"].lat);
+  const [centerLng, setCenterLng] = useState<number>(source?.centerLng ?? PINCODES["560034"].lng);
 
-  const inRangeScreens = useMemo(() => {
-    if (!p) return [];
-    return SCREENS.filter((s) => distanceKm(p.lat, p.lng, s.lat, s.lng) <= radius);
-  }, [p, radius]);
+  const inRangeScreens = useMemo(
+    () => SCREENS.filter((s) => distanceKm(centerLat, centerLng, s.lat, s.lng) <= radius),
+    [centerLat, centerLng, radius],
+  );
+
+  const tagCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const t of LOCATION_TAGS) map[t] = 0;
+    for (const s of inRangeScreens) map[s.locationTag] = (map[s.locationTag] ?? 0) + 1;
+    return map;
+  }, [inRangeScreens]);
 
   // Step 2 — creative
   const [selectedCreativeId, setSelectedCreativeId] = useState<string | undefined>(
-    creativeId ?? resubmit?.creativeId,
+    creativeId ?? source?.creativeId,
   );
-  const [uploadChecking, setUploadChecking] = useState(false);
+  const selectedCreative = creatives.find((c) => c.id === selectedCreativeId);
+  const [playSec, setPlaySec] = useState<number>(source?.playSec ?? 5);
+  useEffect(() => {
+    if (!selectedCreative) return;
+    const cap = selectedCreative.type === "video" ? 30 : 10;
+    const dflt = selectedCreative.type === "video" ? 10 : 5;
+    setPlaySec((prev) => (prev > cap ? cap : prev || dflt));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCreativeId]);
 
-  // Step 3 — preview fit
-  const [fitMode, setFitMode] = useState<FitMode>(resubmit?.fitMode ?? "contain");
+  // Step 3 — screens
+  const [selectedScreens, setSelectedScreens] = useState<string[]>(source?.screenIds ?? []);
 
-  // Step 4 — screen selection
-  const [selectedScreens, setSelectedScreens] = useState<string[]>(resubmit?.screenIds ?? []);
+  // Step 4 — preview
+  const [fitMode, setFitMode] = useState<FitMode>(source?.fitMode ?? "contain");
 
   // Step 5 — schedule
   const today = new Date().toISOString().split("T")[0];
-  const [startDate, setStartDate] = useState<string>(resubmit?.startDate ?? today);
+  const isNewCreative = !!selectedCreative && !selectedCreative.previouslyApproved;
+  const minStartDate = useMemo(() => {
+    if (isNewCreative) {
+      const d = new Date();
+      d.setDate(d.getDate() + 2);
+      return d.toISOString().slice(0, 10);
+    }
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }, [isNewCreative]);
+
+  const [startDate, setStartDate] = useState<string>(source?.startDate ?? minStartDate);
   const [endDate, setEndDate] = useState<string>(
-    resubmit?.endDate ?? new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
+    source?.endDate ?? new Date(Date.now() + 8 * 86400000).toISOString().split("T")[0],
   );
-  const [dpStart, setDpStart] = useState<string>("");
-  const [dpEnd, setDpEnd] = useState<string>("");
+  useEffect(() => {
+    if (new Date(startDate) < new Date(minStartDate)) setStartDate(minStartDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [minStartDate]);
+
+  const [recurrence, setRecurrence] = useState<Recurrence>(source?.recurrence ?? "none");
 
   const days = useMemo(() => {
     const d1 = new Date(startDate);
@@ -116,70 +175,95 @@ function NewCampaign() {
   }, [selectedScreens, days]);
 
   const scheduleValid =
-    new Date(startDate) >= new Date(today) && new Date(endDate) > new Date(startDate);
+    new Date(startDate) >= new Date(minStartDate) && new Date(endDate) > new Date(startDate);
   const meetsMinimums = days >= 3 && totalCost >= 999;
 
-  // Step 6 — payment
   const [payOpen, setPayOpen] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
 
-  const selectedCreative = creatives.find((c) => c.id === selectedCreativeId);
+  const canReachStep = (target: Step): boolean => {
+    // A step is reachable if visited (jump back), or if all prior steps' minimum validity is met.
+    if (visited.has(target)) return true;
+    for (let s = 1; s < target; s++) {
+      if (!stepValid(s as Step)) return false;
+    }
+    return true;
+  };
 
-  const canNext = (): boolean => {
-    switch (step) {
+  function stepValid(s: Step): boolean {
+    switch (s) {
       case 1:
-        return /^\d{6}$/.test(pincode) && !!p && inRangeScreens.length > 0;
+        return !!locationLabel && !!pincode && inRangeScreens.length > 0 && name.trim().length > 0;
       case 2:
-        return !!selectedCreative && !uploadChecking && selectedCreative.status !== "rejected";
+        return !!selectedCreative && selectedCreative.status !== "rejected";
       case 3:
-        return true;
-      case 4:
         return selectedScreens.length > 0;
+      case 4:
+        return true;
       case 5:
         return scheduleValid && meetsMinimums;
       default:
         return true;
     }
+  }
+
+  const goStep = (s: Step) => {
+    if (!canReachStep(s)) return;
+    setStep(s);
+    setVisited((v) => new Set(v).add(s));
   };
 
   const goNext = () => {
-    if (step < 6 && canNext()) setStep(((step as number) + 1) as Step);
+    if (step < 6 && stepValid(step)) goStep(((step as number) + 1) as Step);
   };
   const goBack = () => {
-    if (step > 1) setStep(((step as number) - 1) as Step);
+    if (step > 1) goStep(((step as number) - 1) as Step);
+  };
+
+  const buildCampaign = (status: Campaign["status"]): Campaign => ({
+    id: source?.id && status === "draft" ? source.id : `cmp_${Date.now()}`,
+    name: name.trim() || "Untitled campaign",
+    status,
+    pincode,
+    radiusKm: radius,
+    centerLat,
+    centerLng,
+    locationLabel,
+    screenIds: selectedScreens,
+    creativeId: selectedCreative?.id ?? source?.creativeId ?? "",
+    startDate,
+    endDate,
+    totalBudget: totalCost,
+    spendToDate: 0,
+    estimatedImpressions: 0,
+    createdAt: source?.createdAt ?? new Date().toISOString(),
+    fitMode,
+    playSec,
+    recurrence,
+  });
+
+  const handleSaveDraft = () => {
+    const c = buildCampaign("draft");
+    if (draft) {
+      updateCampaign(draft.id, c);
+    } else {
+      addCampaign(c);
+    }
+    toast.success("Saved as draft");
+    navigate({ to: "/" });
   };
 
   const handlePaySuccess = () => {
-    if (!selectedCreative || !p) return;
+    if (!selectedCreative) return;
     if (!chargeWallet(totalCost)) {
       setPayError("Insufficient wallet balance. Please top up and try again.");
       return;
     }
-    const newCampaign: Campaign = {
-      id: `cmp_${Date.now()}`,
-      name,
-      status: "pending_approval",
-      pincode,
-      radiusKm: radius,
-      centerLat: p.lat,
-      centerLng: p.lng,
-      screenIds: selectedScreens,
-      creativeId: selectedCreative.id,
-      startDate,
-      endDate,
-      daypartStart: dpStart || undefined,
-      daypartEnd: dpEnd || undefined,
-      totalBudget: totalCost,
-      spendToDate: 0,
-      estimatedImpressions: 0,
-      createdAt: new Date().toISOString(),
-      fitMode,
-    };
+    const newCampaign = buildCampaign("pending_approval");
     addCampaign(newCampaign);
     simulateApproval(newCampaign.id);
-    if (resubmit) {
-      updateCampaign(resubmit.id, { status: "completed" });
-    }
+    if (resubmit) updateCampaign(resubmit.id, { status: "completed" });
+    if (draft) updateCampaign(draft.id, { status: "completed" });
     setPayOpen(false);
     toast.success("Payment successful — campaign submitted for review");
     navigate({ to: "/campaigns/$id", params: { id: newCampaign.id } });
@@ -197,55 +281,62 @@ function NewCampaign() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">
-              {resubmit ? "Fix & Resubmit" : "Create Campaign"}
+              {resubmit ? "Fix & Resubmit" : draft ? "Continue Draft" : "Create Campaign"}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">Step {step} of 6</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Step {step} of 6 · {STEP_LABELS[step - 1]}
+            </p>
           </div>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="max-w-xs"
-            placeholder="Campaign name"
-          />
+          <Button variant="outline" onClick={handleSaveDraft} className="gap-1.5">
+            <Save className="h-4 w-4" /> Save as Draft
+          </Button>
         </div>
-        <Stepper current={step} />
+        <Stepper current={step} canReach={canReachStep} onJump={goStep} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div>
           {step === 1 && (
             <Step1
-              pincode={pincode}
-              setPincode={setPincode}
+              name={name}
+              setName={setName}
+              locationLabel={locationLabel}
+              setLocation={(loc) => {
+                setLocationLabel(loc.label);
+                setPincode(loc.pincode);
+                setCenterLat(loc.lat);
+                setCenterLng(loc.lng);
+              }}
               radius={radius}
               setRadius={setRadius}
               inRangeCount={inRangeScreens.length}
+              tagCounts={tagCounts}
             />
           )}
           {step === 2 && (
             <Step2
-              selectedCreative={selectedCreative}
-              setSelectedCreativeId={setSelectedCreativeId}
-              uploadChecking={uploadChecking}
-              setUploadChecking={setUploadChecking}
               creatives={creatives}
-              addCreative={addCreative}
+              campaigns={campaigns}
+              selectedId={selectedCreativeId}
+              setSelectedId={setSelectedCreativeId}
+              playSec={playSec}
+              setPlaySec={setPlaySec}
             />
           )}
           {step === 3 && (
             <Step3
-              creative={selectedCreative!}
               screens={inRangeScreens}
-              fitMode={fitMode}
-              setFitMode={setFitMode}
-            />
-          )}
-          {step === 4 && (
-            <Step4
-              screens={inRangeScreens}
-              creative={selectedCreative!}
+              creative={selectedCreative}
               selected={selectedScreens}
               setSelected={setSelectedScreens}
+            />
+          )}
+          {step === 4 && selectedCreative && (
+            <Step4
+              creative={selectedCreative}
+              screens={inRangeScreens.filter((s) => selectedScreens.includes(s.id))}
+              fitMode={fitMode}
+              setFitMode={setFitMode}
             />
           )}
           {step === 5 && (
@@ -254,26 +345,25 @@ function NewCampaign() {
               setStartDate={setStartDate}
               endDate={endDate}
               setEndDate={setEndDate}
-              dpStart={dpStart}
-              setDpStart={setDpStart}
-              dpEnd={dpEnd}
-              setDpEnd={setDpEnd}
               days={days}
               totalCost={totalCost}
-              minToday={today}
+              minStart={minStartDate}
               scheduleValid={scheduleValid}
               meetsMinimums={meetsMinimums}
+              recurrence={recurrence}
+              setRecurrence={setRecurrence}
+              isNewCreative={isNewCreative}
             />
           )}
-          {step === 6 && (
+          {step === 6 && selectedCreative && (
             <Step6
               name={name}
-              pincode={pincode}
+              locationLabel={locationLabel}
               radius={radius}
               screens={selectedScreens.length}
               days={days}
               totalCost={totalCost}
-              creative={selectedCreative!}
+              creative={selectedCreative}
               onPay={() => {
                 setPayError(null);
                 setPayOpen(true);
@@ -281,27 +371,33 @@ function NewCampaign() {
             />
           )}
 
-          <div className="mt-6 flex justify-between">
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
             <Button variant="ghost" onClick={goBack} disabled={step === 1}>
               <ArrowLeft className="mr-1 h-4 w-4" /> Back
             </Button>
-            {step < 6 ? (
-              <Button onClick={goNext} disabled={!canNext()}>
-                Next <ArrowRight className="ml-1 h-4 w-4" />
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleSaveDraft} className="gap-1.5">
+                <Save className="h-4 w-4" /> Save as Draft
               </Button>
-            ) : null}
+              {step < 6 && (
+                <Button onClick={goNext} disabled={!stepValid(step)}>
+                  Next <ArrowRight className="ml-1 h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
         <SummaryCard
           name={name}
-          pincode={pincode}
+          locationLabel={locationLabel}
           radius={radius}
           inRange={inRangeScreens.length}
           creative={selectedCreative}
           selectedScreens={selectedScreens.length}
           days={days}
           totalCost={totalCost}
+          playSec={playSec}
         />
       </div>
 
@@ -309,9 +405,7 @@ function NewCampaign() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Simulate Payment</DialogTitle>
-            <DialogDescription>
-              This is a mock payment. Choose an outcome to demo the flow.
-            </DialogDescription>
+            <DialogDescription>This is a mock payment. Choose an outcome to demo the flow.</DialogDescription>
           </DialogHeader>
           <div className="my-2 rounded-md bg-secondary/50 p-4">
             <div className="flex justify-between text-sm">
@@ -327,10 +421,7 @@ function NewCampaign() {
             </Alert>
           )}
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setPayError("Card declined by issuing bank. Please try a different method.")}
-            >
+            <Button variant="outline" onClick={() => setPayError("Card declined by issuing bank. Please try a different method.")}>
               Simulate Failure
             </Button>
             <Button onClick={handlePaySuccess}>Simulate Success</Button>
@@ -343,43 +434,49 @@ function NewCampaign() {
 
 /* ---------- Stepper ---------- */
 
-const STEP_LABELS = [
-  "Targeting",
-  "Creative",
-  "Preview",
-  "Screens",
-  "Schedule",
-  "Payment",
-];
-
-function Stepper({ current }: { current: Step }) {
+function Stepper({
+  current,
+  canReach,
+  onJump,
+}: {
+  current: Step;
+  canReach: (s: Step) => boolean;
+  onJump: (s: Step) => void;
+}) {
   return (
     <div className="mt-6 flex items-center gap-2 overflow-x-auto pb-1">
       {STEP_LABELS.map((label, i) => {
         const idx = (i + 1) as Step;
         const active = idx === current;
         const done = idx < current;
+        const reachable = canReach(idx);
         return (
           <div key={label} className="flex items-center gap-2">
-            <div
+            <button
+              type="button"
+              onClick={() => reachable && onJump(idx)}
+              disabled={!reachable}
               className={cn(
-                "flex h-7 min-w-7 items-center justify-center rounded-full border text-xs font-medium",
-                done && "border-primary bg-primary text-primary-foreground",
+                "flex items-center gap-2 rounded-full border px-2 py-1 text-xs font-medium transition-colors",
+                done && "border-primary bg-primary/10 text-primary",
                 active && "border-primary text-primary",
-                !done && !active && "border-border text-muted-foreground",
+                !done && !active && reachable && "border-border text-muted-foreground hover:bg-secondary",
+                !reachable && "border-border text-muted-foreground opacity-50 cursor-not-allowed",
               )}
+              title={reachable ? "Jump to this step" : "Complete earlier steps first"}
             >
-              {done ? <Check className="h-3.5 w-3.5" /> : idx}
-            </div>
-            <span
-              className={cn(
-                "text-sm",
-                active ? "font-medium text-foreground" : "text-muted-foreground",
-              )}
-            >
-              {label}
-            </span>
-            {i < STEP_LABELS.length - 1 && <div className="mx-1 h-px w-6 bg-border" />}
+              <span
+                className={cn(
+                  "flex h-5 min-w-5 items-center justify-center rounded-full text-[10px]",
+                  done ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground/70",
+                  active && "bg-primary text-primary-foreground",
+                )}
+              >
+                {done ? <Check className="h-3 w-3" /> : idx}
+              </span>
+              <span className="whitespace-nowrap">{label}</span>
+            </button>
+            {i < STEP_LABELS.length - 1 && <div className="mx-1 h-px w-4 bg-border" />}
           </div>
         );
       })}
@@ -390,105 +487,152 @@ function Stepper({ current }: { current: Step }) {
 /* ---------- Step 1 ---------- */
 
 function Step1({
-  pincode,
-  setPincode,
+  name,
+  setName,
+  locationLabel,
+  setLocation,
   radius,
   setRadius,
   inRangeCount,
+  tagCounts,
 }: {
-  pincode: string;
-  setPincode: (v: string) => void;
+  name: string;
+  setName: (v: string) => void;
+  locationLabel: string;
+  setLocation: (loc: (typeof LOCATION_SUGGESTIONS)[number]) => void;
   radius: number;
   setRadius: (v: number) => void;
   inRangeCount: number;
+  tagCounts: Record<string, number>;
 }) {
-  const valid = /^\d{6}$/.test(pincode);
-  const p = PINCODES[pincode];
+  const [query, setQuery] = useState(locationLabel);
+  const [open, setOpen] = useState(false);
+
+  const suggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return LOCATION_SUGGESTIONS;
+    return LOCATION_SUGGESTIONS.filter(
+      (s) => s.label.toLowerCase().includes(q) || s.city.toLowerCase().includes(q) || s.pincode.includes(q),
+    );
+  }, [query]);
+
   return (
     <Card className="p-6">
-      <h2 className="text-lg font-semibold">Where should this ad run?</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Reach people in a specific neighborhood by targeting a pincode.
-      </p>
+      <div>
+        <Label htmlFor="cname" className="text-base">Campaign name</Label>
+        <Input
+          id="cname"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g., Diwali Weekend Push"
+          className="mt-1.5 text-base"
+        />
+        <p className="mt-1 text-xs text-muted-foreground">Give your ad a clear, memorable name.</p>
+      </div>
 
-      <Tabs defaultValue="pincode" className="mt-6">
-        <TabsList>
-          <TabsTrigger value="pincode">Target by Pincode</TabsTrigger>
-          <TabsTrigger value="map">Target by Map Location</TabsTrigger>
-        </TabsList>
-        <TabsContent value="pincode" className="mt-4 space-y-6">
-          <div>
-            <Label htmlFor="pin">Pincode</Label>
-            <Input
-              id="pin"
-              value={pincode}
-              onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="6-digit pincode"
-              className="mt-1.5 max-w-xs"
-            />
-            {!valid && pincode.length > 0 && (
-              <p className="mt-1 text-xs text-destructive">Enter a valid 6-digit pincode.</p>
-            )}
-            {p && (
-              <p className="mt-1 text-xs text-muted-foreground">Detected: {p.label}</p>
-            )}
-          </div>
+      <div className="mt-6">
+        <h2 className="text-lg font-semibold">Where should this ad run?</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Search a neighborhood, area, or pincode — we'll pin the center on the map.
+        </p>
 
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <Label>Radius</Label>
-              <span className="text-sm font-medium">{radius.toFixed(1)} km</span>
+        <div className="relative mt-4">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setTimeout(() => setOpen(false), 150)}
+            placeholder="Search for a place, e.g. Indiranagar, Bangalore"
+            className="pl-9"
+          />
+          {open && suggestions.length > 0 && (
+            <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border bg-popover shadow-lg">
+              {suggestions.map((s) => (
+                <button
+                  key={s.pincode}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setLocation(s);
+                    setQuery(s.label);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-secondary"
+                >
+                  <MapPin className="h-4 w-4 text-primary" />
+                  <div className="flex-1">
+                    <div className="font-medium">{s.label}</div>
+                    <div className="text-xs text-muted-foreground">Pincode {s.pincode}</div>
+                  </div>
+                </button>
+              ))}
             </div>
-            <Slider
-              value={[radius]}
-              min={0.5}
-              max={15}
-              step={0.5}
-              onValueChange={(v) => setRadius(v[0])}
-              className="max-w-md"
-            />
-          </div>
+          )}
+        </div>
+      </div>
 
-          <div className="rounded-lg border border-border/60 bg-muted/40 p-6">
-            <div className="relative mx-auto flex h-56 w-56 items-center justify-center">
-              <div className="absolute inset-0 rounded-full bg-primary/10" />
-              <div
-                className="absolute rounded-full border-2 border-dashed border-primary/60 bg-primary/5"
-                style={{
-                  width: `${Math.min(100, (radius / 15) * 100)}%`,
-                  height: `${Math.min(100, (radius / 15) * 100)}%`,
-                }}
-              />
-              <div className="relative grid h-6 w-6 place-items-center rounded-full bg-primary text-primary-foreground shadow-md">
-                <MapPin className="h-3 w-3" />
-              </div>
+      <div className="mt-6">
+        <div className="mb-2 flex items-center justify-between">
+          <Label>Radius</Label>
+          <span className="text-sm font-medium">{radius.toFixed(1)} km</span>
+        </div>
+        <Slider
+          value={[radius]}
+          min={0.5}
+          max={15}
+          step={0.5}
+          onValueChange={(v) => setRadius(v[0])}
+          className="max-w-md"
+        />
+      </div>
+
+      <div className="mt-6 rounded-lg border border-border/60 bg-muted/40 p-6">
+        <div className="relative mx-auto flex h-56 w-56 items-center justify-center">
+          <div className="absolute inset-0 rounded-full bg-primary/10" />
+          <div
+            className="absolute rounded-full border-2 border-dashed border-primary/60 bg-primary/5"
+            style={{
+              width: `${Math.min(100, (radius / 15) * 100)}%`,
+              height: `${Math.min(100, (radius / 15) * 100)}%`,
+            }}
+          />
+          <div className="relative grid h-6 w-6 place-items-center rounded-full bg-primary text-primary-foreground shadow-md">
+            <MapPin className="h-3 w-3" />
+          </div>
+        </div>
+        <p className="mt-2 text-center text-xs text-muted-foreground">Cosmetic radius preview</p>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-border/60 bg-secondary/40 p-4">
+        <div className="flex items-center gap-3">
+          <Monitor className="h-5 w-5 text-primary" />
+          {inRangeCount > 0 ? (
+            <div className="text-sm">
+              <span className="font-semibold">{inRangeCount} screens</span> available in this area
             </div>
-            <p className="mt-2 text-center text-xs text-muted-foreground">
-              Cosmetic radius preview
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/40 p-4">
-            <Monitor className="h-5 w-5 text-primary" />
-            {inRangeCount > 0 ? (
-              <div className="text-sm">
-                <span className="font-semibold">{inRangeCount} screens</span> available in this area
-              </div>
-            ) : valid ? (
-              <div className="text-sm text-muted-foreground">
-                No screens found. Try widening the radius or a different pincode.
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">Enter a pincode to see available screens.</div>
-            )}
-          </div>
-        </TabsContent>
-        <TabsContent value="map" className="mt-4">
-          <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-            Map targeting is available in the full product. Use pincode targeting for now.
-          </div>
-        </TabsContent>
-      </Tabs>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              No screens found. Try widening the radius or a different area.
+            </div>
+          )}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {LOCATION_TAGS.map((t) => {
+            const n = tagCounts[t] ?? 0;
+            if (n === 0) return null;
+            return (
+              <span key={t} className="inline-flex items-center gap-1.5 rounded-full bg-background px-2.5 py-1 text-xs">
+                <LocationTagBadge tag={t} />
+                <span className="font-semibold">{n}</span>
+              </span>
+            );
+          })}
+        </div>
+      </div>
     </Card>
   );
 }
@@ -496,306 +640,170 @@ function Step1({
 /* ---------- Step 2 ---------- */
 
 function Step2({
-  selectedCreative,
-  setSelectedCreativeId,
-  uploadChecking,
-  setUploadChecking,
   creatives,
-  addCreative,
+  campaigns,
+  selectedId,
+  setSelectedId,
+  playSec,
+  setPlaySec,
 }: {
-  selectedCreative?: Creative;
-  setSelectedCreativeId: (id: string) => void;
-  uploadChecking: boolean;
-  setUploadChecking: (v: boolean) => void;
   creatives: Creative[];
-  addCreative: (c: Creative) => Creative;
+  campaigns: Campaign[];
+  selectedId?: string;
+  setSelectedId: (id: string) => void;
+  playSec: number;
+  setPlaySec: (v: number) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const selected = creatives.find((c) => c.id === selectedId);
+  const inUseByLive = (creativeId: string) =>
+    campaigns.some(
+      (c) => (c.creativeId === creativeId || c.pendingCreativeId === creativeId) && c.status === "live",
+    );
+  const available = creatives.filter((c) => c.status !== "rejected");
 
-  const handleFile = (file: File) => {
-    const isVideo = file.type.startsWith("video/");
-    const url = URL.createObjectURL(file);
-    setUploadChecking(true);
-
-    const loadMeta = new Promise<{ w: number; h: number; d?: number }>((resolve) => {
-      if (isVideo) {
-        const v = document.createElement("video");
-        v.preload = "metadata";
-        v.onloadedmetadata = () => resolve({ w: v.videoWidth, h: v.videoHeight, d: Math.round(v.duration) });
-        v.src = url;
-      } else {
-        const img = new Image();
-        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
-        img.src = url;
-      }
-    });
-
-    loadMeta.then((meta) => {
-      const created: Creative = {
-        id: `cre_${Date.now()}`,
-        name: file.name.replace(/\.[^.]+$/, ""),
-        type: isVideo ? "video" : "image",
-        url,
-        width: meta.w || 1920,
-        height: meta.h || 1080,
-        sizeKB: Math.round(file.size / 1024),
-        durationSec: meta.d,
-        uploadedAt: new Date().toISOString().slice(0, 10),
-        tags: ["uploaded"],
-        status: "pending",
-      };
-      addCreative(created);
-      setSelectedCreativeId(created.id);
-      setTimeout(() => {
-        created.status = "approved";
-        setUploadChecking(false);
-        toast.success("Content passed brand-safety check");
-      }, 1600);
-    });
-  };
+  const cap = selected?.type === "video" ? 30 : 10;
 
   return (
     <Card className="p-6">
-      <h2 className="text-lg font-semibold">Upload creative or pick from library</h2>
+      <h2 className="text-lg font-semibold">Pick a creative</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Images and videos supported. We'll auto-check for brand safety.
+        Choose from your library. Need a new one?{" "}
+        <a href="/library" className="text-primary underline">Add it in the Content Library</a>.
       </p>
 
-      <div
-        className="mt-6 rounded-lg border-2 border-dashed border-border/70 bg-muted/30 p-8 text-center transition-colors hover:bg-muted/50"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          const f = e.dataTransfer.files?.[0];
-          if (f) handleFile(f);
-        }}
-      >
-        <Upload className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-        <p className="text-sm font-medium">Drag and drop an image or video</p>
-        <p className="mt-1 text-xs text-muted-foreground">or</p>
-        <Button
-          className="mt-3"
-          variant="secondary"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploadChecking}
-        >
-          Choose file
-        </Button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*,video/*"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handleFile(f);
-          }}
-        />
-      </div>
-
-      {uploadChecking && (
-        <div className="mt-4 flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Checking your content for brand safety...
+      {available.length === 0 ? (
+        <div className="mt-6 rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+          You don't have any creatives yet. Add one from the Content Library.
         </div>
-      )}
-
-      {selectedCreative && !uploadChecking && (
-        <div className="mt-4 flex items-start gap-4 rounded-lg border p-4">
-          <div className="h-24 w-32 shrink-0 overflow-hidden rounded bg-muted">
-            {selectedCreative.type === "image" ? (
-              <img src={selectedCreative.url} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <video src={selectedCreative.url} className="h-full w-full object-cover" muted />
-            )}
-          </div>
-          <div className="flex-1 text-sm">
-            <div className="flex items-center gap-2">
-              {selectedCreative.type === "image" ? <ImageIcon className="h-4 w-4" /> : <Film className="h-4 w-4" />}
-              <span className="font-medium">{selectedCreative.name}</span>
-              {selectedCreative.status === "approved" && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
-                  <Check className="h-3 w-3" /> Approved
-                </span>
-              )}
-              {selectedCreative.status === "rejected" && (
-                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">
-                  Rejected
-                </span>
-              )}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {selectedCreative.width}×{selectedCreative.height} · {(selectedCreative.sizeKB / 1024).toFixed(1)} MB
-              {selectedCreative.durationSec ? ` · ${selectedCreative.durationSec}s` : ""}
-            </p>
-            {selectedCreative.status === "rejected" && selectedCreative.rejectionReason && (
-              <p className="mt-1 text-xs text-red-600">Reason: {selectedCreative.rejectionReason}</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-6">
-        <h3 className="mb-3 text-sm font-medium">Or pick from your library</h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {creatives
-            .filter((c) => c.status !== "rejected")
-            .map((c) => {
-              const active = c.id === selectedCreative?.id;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setSelectedCreativeId(c.id)}
-                  className={cn(
-                    "group overflow-hidden rounded-lg border text-left transition-all",
-                    active ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary/50",
-                  )}
-                >
-                  <div className="aspect-video bg-muted">
-                    {c.type === "image" ? (
-                      <img src={c.url} className="h-full w-full object-cover" alt="" />
-                    ) : (
-                      <video src={c.url} className="h-full w-full object-cover" muted />
-                    )}
-                  </div>
-                  <div className="p-2 text-xs">
-                    <div className="truncate font-medium">{c.name}</div>
-                    <div className="text-muted-foreground">{c.width}×{c.height}</div>
-                  </div>
-                </button>
-              );
-            })}
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-/* ---------- Step 3 ---------- */
-
-function Step3({
-  creative,
-  screens,
-  fitMode,
-  setFitMode,
-}: {
-  creative: Creative;
-  screens: { width: number; height: number }[];
-  fitMode: FitMode;
-  setFitMode: (v: FitMode) => void;
-}) {
-  const dims = Array.from(new Set(screens.map((s) => `${s.width}x${s.height}`))).map((d) => {
-    const [w, h] = d.split("x").map(Number);
-    return { w, h };
-  });
-
-  return (
-    <Card className="p-6">
-      <h2 className="text-lg font-semibold">Preview across screen sizes</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        See how your creative renders on each screen shape.
-      </p>
-
-      <div className="mt-4 flex items-center gap-2">
-        {(["contain", "cover", "fill"] as FitMode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => setFitMode(m)}
-            className={cn(
-              "rounded-md border px-3 py-1.5 text-sm capitalize transition-colors",
-              fitMode === m
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border hover:bg-secondary",
-            )}
-          >
-            {m === "contain" ? "Fit" : m === "cover" ? "Fill" : "Stretch"}
-          </button>
-        ))}
-      </div>
-
-      {fitMode === "fill" && (
-        <Alert variant="destructive" className="mt-4">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Distortion warning</AlertTitle>
-          <AlertDescription>
-            Stretch mode may visibly distort your creative. Fit or Fill are recommended.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <div className="mt-6 flex flex-wrap gap-6">
-        {dims.map(({ w, h }) => {
-          const isLandscape = w > h;
-          const displayW = isLandscape ? 320 : 180;
-          const displayH = (displayW * h) / w;
-          return (
-            <div key={`${w}x${h}`} className="text-center">
-              <div
-                className="overflow-hidden rounded-md border-4 border-neutral-800 bg-black shadow-lg"
-                style={{ width: displayW, height: displayH }}
-              >
-                {creative.type === "image" ? (
-                  <img
-                    src={creative.url}
-                    alt=""
-                    className="h-full w-full"
-                    style={{ objectFit: fitMode }}
-                  />
-                ) : (
-                  <video
-                    src={creative.url}
-                    className="h-full w-full"
-                    style={{ objectFit: fitMode }}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                  />
+      ) : (
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {available.map((c) => {
+            const active = c.id === selectedId;
+            const locked = inUseByLive(c.id);
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setSelectedId(c.id)}
+                className={cn(
+                  "group overflow-hidden rounded-lg border text-left transition-all",
+                  active ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary/50",
                 )}
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {w}×{h} · {isLandscape ? "Landscape" : "Portrait"}
+              >
+                <div className="relative aspect-video bg-muted">
+                  {c.type === "image" ? (
+                    <img src={c.url} className="h-full w-full object-cover" alt="" />
+                  ) : (
+                    <>
+                      <video src={c.url} className="h-full w-full object-cover" muted />
+                      <VideoPlayOverlay />
+                    </>
+                  )}
+                  {locked && (
+                    <div className="absolute right-2 top-2">
+                      <InUseBadge />
+                    </div>
+                  )}
+                </div>
+                <div className="p-2 text-xs">
+                  <div className="truncate font-medium">{c.name}</div>
+                  <div className="text-muted-foreground">
+                    {c.type.toUpperCase()} · {c.width}×{c.height}
+                    {c.industry ? ` · ${c.industry}` : ""}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {selected && (
+        <div className="mt-6 rounded-lg border bg-secondary/30 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-medium">Playtime per loop</p>
+              <p className="text-xs text-muted-foreground">
+                {selected.type === "video"
+                  ? "Videos can play up to 30 seconds per loop."
+                  : "Images can display up to 10 seconds per loop."}
               </p>
             </div>
-          );
-        })}
-      </div>
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+              {playSec}s
+            </span>
+          </div>
+          <Slider
+            value={[playSec]}
+            min={1}
+            max={cap}
+            step={1}
+            onValueChange={(v) => setPlaySec(v[0])}
+            className="mt-3"
+          />
+          <p className="mt-2 text-sm">
+            This creative will play for <b>{playSec} seconds</b> per loop.
+          </p>
+        </div>
+      )}
     </Card>
   );
 }
 
-/* ---------- Step 4 ---------- */
+/* ---------- Step 3 (Screens) ---------- */
 
-function Step4({
+const SCREEN_PAGE = 8;
+
+function Step3({
   screens,
   creative,
   selected,
   setSelected,
 }: {
   screens: typeof SCREENS;
-  creative: Creative;
+  creative?: Creative;
   selected: string[];
   setSelected: (v: string[]) => void;
 }) {
-  const availableDims = new Set(
-    screens.map((s) => `${s.width}x${s.height}`),
+  const [tagFilter, setTagFilter] = useState<LocationTag | "all">("all");
+  const [visible, setVisible] = useState(SCREEN_PAGE);
+  const sentinel = useRef<HTMLDivElement | null>(null);
+
+  const filtered = useMemo(
+    () => (tagFilter === "all" ? screens : screens.filter((s) => s.locationTag === tagFilter)),
+    [screens, tagFilter],
   );
-  // A screen has a "matching preview" if its dim was among in-range dims. Always true here — mark
-  // "unmatched" any screen whose orientation doesn't match the creative's aspect ratio strongly.
-  const creativeLandscape = creative.width > creative.height;
-  const isMatched = (s: (typeof SCREENS)[number]) => {
-    const scrLandscape = s.width > s.height;
-    return scrLandscape === creativeLandscape;
-  };
+
+  useEffect(() => setVisible(SCREEN_PAGE), [tagFilter, screens.length]);
+
+  useEffect(() => {
+    if (visible >= filtered.length) return;
+    const el = sentinel.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible((v) => v + SCREEN_PAGE);
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visible, filtered.length]);
+
+  const shown = filtered.slice(0, visible);
+
+  const creativeLandscape = creative ? creative.width > creative.height : true;
+  const isMatched = (s: (typeof SCREENS)[number]) => (s.width > s.height) === creativeLandscape;
 
   const toggle = (id: string) => {
     setSelected(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
   };
 
   const selectAllAvailable = () => {
-    const ids = screens.filter((s) => s.availability !== "booked" && isMatched(s)).map((s) => s.id);
-    setSelected(ids);
+    const ids = filtered.filter((s) => s.availability !== "booked" && isMatched(s)).map((s) => s.id);
+    setSelected(Array.from(new Set([...selected, ...ids])));
   };
 
   const total = selected.reduce((sum, id) => {
@@ -823,8 +831,24 @@ function Step4({
         </div>
       </div>
 
+      <div className="mt-4 flex flex-wrap gap-2">
+        <TagChip active={tagFilter === "all"} onClick={() => setTagFilter("all")} label={`All (${screens.length})`} />
+        {LOCATION_TAGS.map((t) => {
+          const count = screens.filter((s) => s.locationTag === t).length;
+          if (count === 0) return null;
+          return (
+            <TagChip
+              key={t}
+              active={tagFilter === t}
+              onClick={() => setTagFilter(t)}
+              label={`${t} (${count})`}
+            />
+          );
+        })}
+      </div>
+
       <div className="mt-5 divide-y divide-border rounded-lg border">
-        {screens.map((s) => {
+        {shown.map((s) => {
           const matched = isMatched(s);
           const booked = s.availability === "booked";
           const disabled = booked || !matched;
@@ -832,19 +856,17 @@ function Step4({
           return (
             <div
               key={s.id}
-              className={cn(
-                "flex items-center gap-4 px-4 py-3",
-                disabled && "opacity-60",
-              )}
-              title={!matched ? "This screen's orientation doesn't match your creative's preview." : ""}
+              className={cn("flex items-center gap-4 px-4 py-3", disabled && "opacity-60")}
+              title={!matched ? "This screen's orientation doesn't match your creative." : ""}
             >
               <Checkbox checked={checked} disabled={disabled} onCheckedChange={() => toggle(s.id)} />
               <div className="grid h-10 w-10 place-items-center rounded bg-secondary">
                 <Monitor className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{s.venue}</span>
+                  <LocationTagBadge tag={s.locationTag} />
                   <AvailabilityBadge a={s.availability} />
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -858,12 +880,37 @@ function Step4({
             </div>
           );
         })}
+        {filtered.length === 0 && (
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            No screens match this filter.
+          </div>
+        )}
       </div>
+      <div ref={sentinel} className="h-6" />
+      {visible < filtered.length && (
+        <p className="mt-3 text-center text-xs text-muted-foreground">Loading more screens…</p>
+      )}
 
       {selected.length === 0 && (
         <p className="mt-3 text-xs text-muted-foreground">Select at least one screen to continue.</p>
       )}
     </Card>
+  );
+}
+
+function TagChip({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border bg-background text-muted-foreground hover:bg-secondary",
+      )}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -877,43 +924,156 @@ function AvailabilityBadge({ a }: { a: string }) {
   return <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", map[a])}>{label}</span>;
 }
 
-/* ---------- Step 5 ---------- */
+/* ---------- Step 4 (Preview) ---------- */
+
+function Step4({
+  creative,
+  screens,
+  fitMode,
+  setFitMode,
+}: {
+  creative: Creative;
+  screens: { width: number; height: number }[];
+  fitMode: FitMode;
+  setFitMode: (v: FitMode) => void;
+}) {
+  const dims = Array.from(new Set(screens.map((s) => `${s.width}x${s.height}`))).map((d) => {
+    const [w, h] = d.split("x").map(Number);
+    return { w, h };
+  });
+
+  return (
+    <Card className="p-6">
+      <h2 className="text-lg font-semibold">Preview on your selected screens</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        We only show previews for the dimensions actually in use — {screens.length} selected screen{screens.length === 1 ? "" : "s"}, {dims.length} unique size{dims.length === 1 ? "" : "s"}.
+      </p>
+
+      <div className="mt-4 flex items-center gap-2">
+        {(["contain", "cover", "fill"] as FitMode[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => setFitMode(m)}
+            className={cn(
+              "rounded-md border px-3 py-1.5 text-sm capitalize transition-colors",
+              fitMode === m
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border hover:bg-secondary",
+            )}
+          >
+            {m === "contain" ? "Fit" : m === "cover" ? "Fill" : "Stretch"}
+          </button>
+        ))}
+      </div>
+
+      {fitMode === "fill" && (
+        <Alert variant="destructive" className="mt-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Distortion warning</AlertTitle>
+          <AlertDescription>Stretch mode may visibly distort your creative. Fit or Fill are recommended.</AlertDescription>
+        </Alert>
+      )}
+
+      {dims.length === 0 ? (
+        <div className="mt-6 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+          Select screens in the previous step to see previews here.
+        </div>
+      ) : (
+        <div className="mt-6 flex flex-wrap gap-6">
+          {dims.map(({ w, h }) => {
+            const isLandscape = w > h;
+            const displayW = isLandscape ? 320 : 180;
+            const displayH = (displayW * h) / w;
+            return (
+              <div key={`${w}x${h}`} className="text-center">
+                <div
+                  className="overflow-hidden rounded-md border-4 border-neutral-800 bg-black shadow-lg"
+                  style={{ width: displayW, height: displayH }}
+                >
+                  {creative.type === "image" ? (
+                    <img src={creative.url} alt="" className="h-full w-full" style={{ objectFit: fitMode }} />
+                  ) : (
+                    <video
+                      src={creative.url}
+                      className="h-full w-full"
+                      style={{ objectFit: fitMode }}
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                    />
+                  )}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {w}×{h} · {isLandscape ? "Landscape" : "Portrait"}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ---------- Step 5 (Schedule) ---------- */
 
 function Step5({
   startDate,
   setStartDate,
   endDate,
   setEndDate,
-  dpStart,
-  setDpStart,
-  dpEnd,
-  setDpEnd,
   days,
   totalCost,
-  minToday,
+  minStart,
   scheduleValid,
   meetsMinimums,
+  recurrence,
+  setRecurrence,
+  isNewCreative,
 }: {
   startDate: string;
   setStartDate: (v: string) => void;
   endDate: string;
   setEndDate: (v: string) => void;
-  dpStart: string;
-  setDpStart: (v: string) => void;
-  dpEnd: string;
-  setDpEnd: (v: string) => void;
   days: number;
   totalCost: number;
-  minToday: string;
+  minStart: string;
   scheduleValid: boolean;
   meetsMinimums: boolean;
+  recurrence: Recurrence;
+  setRecurrence: (v: Recurrence) => void;
+  isNewCreative: boolean;
 }) {
+  const dateRangeText = useMemo(() => {
+    const fmt = (d: string) =>
+      new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    return `${days} day${days === 1 ? "" : "s"} · ${fmt(startDate)} – ${fmt(endDate)}`;
+  }, [startDate, endDate, days]);
+
+  const recurrenceLabel: Record<Recurrence, string> = {
+    none: "Does not repeat",
+    weekdays: "Every weekday",
+    weekends: "Every weekend",
+    weekly: "Weekly",
+    monthly: "Monthly",
+  };
+
   return (
     <Card className="p-6">
       <h2 className="text-lg font-semibold">Schedule & budget</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Minimum 3 days and ₹999 total.
-      </p>
+      <p className="mt-1 text-sm text-muted-foreground">Minimum 3 days and ₹999 total.</p>
+
+      {isNewCreative && (
+        <Alert className="mt-4 border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <Clock className="h-4 w-4" />
+          <AlertTitle>New creatives need 48 hours for review</AlertTitle>
+          <AlertDescription>
+            Because this creative hasn't cleared review before, the earliest start date is 2 days from today.
+            Reusing a previously-approved creative removes this wait.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div>
@@ -921,7 +1081,7 @@ function Step5({
           <Input
             type="date"
             value={startDate}
-            min={minToday}
+            min={minStart}
             onChange={(e) => setStartDate(e.target.value)}
             className="mt-1.5"
           />
@@ -936,30 +1096,33 @@ function Step5({
             className="mt-1.5"
           />
         </div>
-        <div>
-          <Label>Daypart start (optional)</Label>
-          <Input
-            type="time"
-            value={dpStart}
-            onChange={(e) => setDpStart(e.target.value)}
-            className="mt-1.5"
-          />
-        </div>
-        <div>
-          <Label>Daypart end (optional)</Label>
-          <Input
-            type="time"
-            value={dpEnd}
-            onChange={(e) => setDpEnd(e.target.value)}
-            className="mt-1.5"
-          />
-        </div>
+      </div>
+
+      <div className="mt-4">
+        <Label>Repeat</Label>
+        <Select value={recurrence} onValueChange={(v) => setRecurrence(v as Recurrence)}>
+          <SelectTrigger className="mt-1.5">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Does not repeat</SelectItem>
+            <SelectItem value="weekdays">Every weekday (Mon–Fri)</SelectItem>
+            <SelectItem value="weekends">Every weekend (Sat–Sun)</SelectItem>
+            <SelectItem value="weekly">Weekly on selected day(s)</SelectItem>
+            <SelectItem value="monthly">Monthly</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Runs {recurrenceLabel[recurrence].toLowerCase()} between the start and end dates above.
+        </p>
       </div>
 
       {!scheduleValid && (
         <Alert variant="destructive" className="mt-4">
           <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>End date must be after start date, and start date can't be in the past.</AlertDescription>
+          <AlertDescription>
+            End date must be after start date, and start date must be on or after {new Date(minStart).toLocaleDateString("en-IN")}.
+          </AlertDescription>
         </Alert>
       )}
       {scheduleValid && !meetsMinimums && (
@@ -972,11 +1135,14 @@ function Step5({
       )}
 
       <div className="mt-6 rounded-lg border bg-secondary/40 p-4">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Duration</span>
-          <span className="font-medium">{days} days</span>
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <InfoIcon className="h-4 w-4 text-primary" />
+          {dateRangeText}
         </div>
-        <div className="mt-1 flex justify-between text-sm">
+        <div className="mt-2 text-xs text-muted-foreground">
+          Repeats: {recurrenceLabel[recurrence]}
+        </div>
+        <div className="mt-3 flex justify-between text-sm">
           <span className="text-muted-foreground">Total budget</span>
           <span className="text-lg font-semibold">₹{totalCost.toLocaleString("en-IN")}</span>
         </div>
@@ -985,11 +1151,11 @@ function Step5({
   );
 }
 
-/* ---------- Step 6 ---------- */
+/* ---------- Step 6 (Payment) ---------- */
 
 function Step6({
   name,
-  pincode,
+  locationLabel,
   radius,
   screens,
   days,
@@ -998,7 +1164,7 @@ function Step6({
   onPay,
 }: {
   name: string;
-  pincode: string;
+  locationLabel: string;
   radius: number;
   screens: number;
   days: number;
@@ -1014,17 +1180,20 @@ function Step6({
       </p>
 
       <div className="mt-6 grid gap-6 md:grid-cols-[200px_1fr]">
-        <div className="overflow-hidden rounded-lg border bg-muted">
+        <div className="relative overflow-hidden rounded-lg border bg-muted">
           {creative.type === "image" ? (
             <img src={creative.url} alt="" className="h-full w-full object-cover" />
           ) : (
-            <video src={creative.url} className="h-full w-full object-cover" muted autoPlay loop />
+            <>
+              <video src={creative.url} className="h-full w-full object-cover" muted autoPlay loop />
+              <VideoPlayOverlay />
+            </>
           )}
         </div>
         <dl className="grid grid-cols-2 gap-4 text-sm">
           <SummaryRow label="Campaign" value={name} />
           <SummaryRow label="Creative" value={creative.name} />
-          <SummaryRow label="Targeting" value={`${PINCODES[pincode]?.label ?? pincode} · ${radius} km`} />
+          <SummaryRow label="Location" value={`${locationLabel} · ${radius} km`} />
           <SummaryRow label="Screens" value={`${screens}`} />
           <SummaryRow label="Duration" value={`${days} days`} />
           <SummaryRow label="Total" value={`₹${totalCost.toLocaleString("en-IN")}`} highlight />
@@ -1047,35 +1216,38 @@ function SummaryRow({ label, value, highlight }: { label: string; value: string;
   );
 }
 
-/* ---------- Sidebar summary ---------- */
+/* ---------- Sidebar ---------- */
 
 function SummaryCard({
   name,
-  pincode,
+  locationLabel,
   radius,
   inRange,
   creative,
   selectedScreens,
   days,
   totalCost,
+  playSec,
 }: {
   name: string;
-  pincode: string;
+  locationLabel: string;
   radius: number;
   inRange: number;
   creative?: Creative;
   selectedScreens: number;
   days: number;
   totalCost: number;
+  playSec: number;
 }) {
   return (
     <Card className="sticky top-24 h-fit p-5">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">Summary</p>
       <h3 className="mt-1 text-base font-semibold">{name}</h3>
       <dl className="mt-4 space-y-2 text-sm">
-        <Row k="Pincode" v={`${pincode} · ${radius} km`} />
+        <Row k="Location" v={`${locationLabel || "—"} · ${radius} km`} />
         <Row k="Screens in range" v={`${inRange}`} />
         <Row k="Creative" v={creative?.name ?? "—"} />
+        <Row k="Playtime" v={creative ? `${playSec}s/loop` : "—"} />
         <Row k="Selected screens" v={`${selectedScreens}`} />
         <Row k="Duration" v={`${days} days`} />
       </dl>
