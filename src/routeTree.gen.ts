@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ReportsPerformanceRouteImport } from './routes/reports.performance'
 import { Route as CampaignsNewRouteImport } from './routes/campaigns.new'
 import { Route as CampaignsIdRouteImport } from './routes/campaigns.$id'
 
@@ -22,6 +23,11 @@ const LibraryRoute = LibraryRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsPerformanceRoute = ReportsPerformanceRouteImport.update({
+  id: '/reports/performance',
+  path: '/reports/performance',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CampaignsNewRoute = CampaignsNewRouteImport.update({
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/library': typeof LibraryRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/campaigns/new': typeof CampaignsNewRoute
+  '/reports/performance': typeof ReportsPerformanceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/campaigns/new': typeof CampaignsNewRoute
+  '/reports/performance': typeof ReportsPerformanceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,30 @@ export interface FileRoutesById {
   '/library': typeof LibraryRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/campaigns/new': typeof CampaignsNewRoute
+  '/reports/performance': typeof ReportsPerformanceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/library' | '/campaigns/$id' | '/campaigns/new'
+  fullPaths:
+    | '/'
+    | '/library'
+    | '/campaigns/$id'
+    | '/campaigns/new'
+    | '/reports/performance'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/library' | '/campaigns/$id' | '/campaigns/new'
-  id: '__root__' | '/' | '/library' | '/campaigns/$id' | '/campaigns/new'
+  to:
+    | '/'
+    | '/library'
+    | '/campaigns/$id'
+    | '/campaigns/new'
+    | '/reports/performance'
+  id:
+    | '__root__'
+    | '/'
+    | '/library'
+    | '/campaigns/$id'
+    | '/campaigns/new'
+    | '/reports/performance'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +92,7 @@ export interface RootRouteChildren {
   LibraryRoute: typeof LibraryRoute
   CampaignsIdRoute: typeof CampaignsIdRoute
   CampaignsNewRoute: typeof CampaignsNewRoute
+  ReportsPerformanceRoute: typeof ReportsPerformanceRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -83,6 +109,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports/performance': {
+      id: '/reports/performance'
+      path: '/reports/performance'
+      fullPath: '/reports/performance'
+      preLoaderRoute: typeof ReportsPerformanceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/campaigns/new': {
@@ -107,7 +140,18 @@ const rootRouteChildren: RootRouteChildren = {
   LibraryRoute: LibraryRoute,
   CampaignsIdRoute: CampaignsIdRoute,
   CampaignsNewRoute: CampaignsNewRoute,
+  ReportsPerformanceRoute: ReportsPerformanceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
