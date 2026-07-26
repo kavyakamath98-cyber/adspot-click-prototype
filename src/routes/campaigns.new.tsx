@@ -281,15 +281,22 @@ function NewCampaign() {
       setPayError("Insufficient wallet balance. Please top up and try again.");
       return;
     }
-    const newCampaign = buildCampaign("pending_approval");
+    const creativePending = selectedCreative.status === "pending";
+    const initialStatus: Campaign["status"] = creativePending ? "draft" : "pending_approval";
+    const newCampaign = buildCampaign(initialStatus);
     addCampaign(newCampaign);
-    simulateApproval(newCampaign.id);
+    if (!creativePending) simulateApproval(newCampaign.id);
     if (resubmit) updateCampaign(resubmit.id, { status: "completed" });
     if (draft) updateCampaign(draft.id, { status: "completed" });
     setPayOpen(false);
-    toast.success("Payment successful — campaign submitted for review");
+    if (creativePending) {
+      toast.success("Saved as draft — we'll submit for review once your new creative clears brand-safety.");
+    } else {
+      toast.success("Payment successful — campaign submitted for review");
+    }
     navigate({ to: "/campaigns/$id", params: { id: newCampaign.id } });
   };
+
 
   return (
     <AppShell>
@@ -681,68 +688,178 @@ function Step2({
     campaigns.some(
       (c) => (c.creativeId === creativeId || c.pendingCreativeId === creativeId) && c.status === "live",
     );
-  const available = creatives.filter((c) => c.status !== "rejected");
 
+  const [industryFilter, setIndustryFilter] = useState<Set<Industry>>(new Set());
+  const [usageFilter, setUsageFilter] = useState<"all" | "in_use" | "unused">("all");
+  const [q, setQ] = useState("");
+  const [visible, setVisible] = useState(12);
+  const [addOpen, setAddOpen] = useState(false);
+  const sentinel = useRef<HTMLDivElement | null>(null);
+
+  const available = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return creatives.filter((c) => {
+      if (c.status === "rejected") return false;
+      if (industryFilter.size > 0 && (!c.industry || !industryFilter.has(c.industry as Industry))) {
+        return false;
+      }
+      if (usageFilter !== "all") {
+        const used = inUseByLive(c.id);
+        if (usageFilter === "in_use" && !used) return false;
+        if (usageFilter === "unused" && used) return false;
+      }
+      if (s) {
+        const hay = `${c.name} ${c.industry ?? ""} ${c.tags.join(" ")}`.toLowerCase();
+        if (!hay.includes(s)) return false;
+      }
+      return true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creatives, campaigns, industryFilter, usageFilter, q]);
+
+  useEffect(() => setVisible(12), [q, usageFilter, industryFilter]);
+
+  useEffect(() => {
+    if (visible >= available.length) return;
+    const el = sentinel.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setVisible((v) => v + 12);
+      },
+      { rootMargin: "200px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visible, available.length]);
+
+  const shown = available.slice(0, visible);
   const cap = selected?.type === "video" ? 30 : 10;
+  const imageOptions = [3, 5, 7, 10];
+  const videoOptions = [10, 15, 20, 25, 30];
+  const playOptions = selected?.type === "video" ? videoOptions : imageOptions;
+
+  const toggleIndustry = (i: Industry) => {
+    setIndustryFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  };
 
   return (
     <Card className="p-6">
       <h2 className="text-lg font-semibold">Pick a creative</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Choose from your library. Need a new one?{" "}
-        <a href="/library" className="text-primary underline">Add it in the Content Library</a>.
+        Choose from your library, or add a new one — it syncs automatically.
       </p>
 
-      {available.length === 0 ? (
-        <div className="mt-6 rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          You don't have any creatives yet. Add one from the Content Library.
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search creatives"
+            className="pl-9"
+          />
         </div>
-      ) : (
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {available.map((c) => {
-            const active = c.id === selectedId;
-            const locked = inUseByLive(c.id);
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setSelectedId(c.id)}
-                className={cn(
-                  "group overflow-hidden rounded-lg border text-left transition-all",
-                  active ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary/50",
+        <MultiSelectPopover
+          label="Industry"
+          options={INDUSTRIES as readonly string[]}
+          selected={industryFilter as Set<string>}
+          onToggle={(v) => toggleIndustry(v as Industry)}
+          onClear={() => setIndustryFilter(new Set())}
+        />
+        <div className="flex rounded-md border border-border p-0.5">
+          {(["all", "in_use", "unused"] as const).map((u) => (
+            <button
+              key={u}
+              type="button"
+              onClick={() => setUsageFilter(u)}
+              className={cn(
+                "rounded-sm px-2.5 py-1 text-xs font-medium capitalize transition-colors",
+                usageFilter === u
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-secondary",
+              )}
+            >
+              {u === "all" ? "All" : u === "in_use" ? "In use" : "Unused"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <button
+          type="button"
+          onClick={() => setAddOpen(true)}
+          className="group flex aspect-video flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border/70 bg-muted/20 text-center transition-colors hover:border-primary/60 hover:bg-primary/5"
+        >
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 text-primary group-hover:bg-primary/20">
+            <Plus className="h-5 w-5" />
+          </div>
+          <span className="text-xs font-medium">Add creative</span>
+        </button>
+
+        {shown.map((c) => {
+          const active = c.id === selectedId;
+          const locked = inUseByLive(c.id);
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setSelectedId(c.id)}
+              className={cn(
+                "group overflow-hidden rounded-lg border text-left transition-all",
+                active ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary/50",
+              )}
+            >
+              <div className="relative aspect-video bg-muted">
+                {c.type === "image" ? (
+                  <img src={c.url} className="h-full w-full object-cover" alt="" />
+                ) : (
+                  <>
+                    <video src={c.url} className="h-full w-full object-cover" muted />
+                    <VideoPlayOverlay />
+                  </>
                 )}
-              >
-                <div className="relative aspect-video bg-muted">
-                  {c.type === "image" ? (
-                    <img src={c.url} className="h-full w-full object-cover" alt="" />
-                  ) : (
-                    <>
-                      <video src={c.url} className="h-full w-full object-cover" muted />
-                      <VideoPlayOverlay />
-                    </>
-                  )}
-                  {locked && (
-                    <div className="absolute right-2 top-2">
-                      <InUseBadge />
-                    </div>
-                  )}
-                </div>
-                <div className="p-2 text-xs">
-                  <div className="truncate font-medium">{c.name}</div>
-                  <div className="text-muted-foreground">
-                    {c.type.toUpperCase()} · {c.width}×{c.height}
-                    {c.industry ? ` · ${c.industry}` : ""}
+                {locked && (
+                  <div className="absolute right-2 top-2">
+                    <InUseBadge />
                   </div>
+                )}
+                {c.status === "pending" && (
+                  <div className="absolute left-2 top-2 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
+                    In review
+                  </div>
+                )}
+              </div>
+              <div className="p-2 text-xs">
+                <div className="truncate font-medium">{c.name}</div>
+                <div className="text-muted-foreground">
+                  {c.type.toUpperCase()} · {c.width}×{c.height}
+                  {c.industry ? ` · ${c.industry}` : ""}
                 </div>
-              </button>
-            );
-          })}
-        </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <div ref={sentinel} className="h-4" />
+      {visible < available.length && (
+        <p className="mt-2 text-center text-xs text-muted-foreground">Loading more…</p>
+      )}
+      {available.length === 0 && (
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          No creatives match. Add one to get started.
+        </p>
       )}
 
       {selected && (
         <div className="mt-6 rounded-lg border bg-secondary/30 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="font-medium">Playtime per loop</p>
               <p className="text-xs text-muted-foreground">
@@ -751,26 +868,112 @@ function Step2({
                   : "Images can display up to 10 seconds per loop."}
               </p>
             </div>
-            <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-              {playSec}s
-            </span>
+            <Select
+              value={String(Math.min(playSec, cap))}
+              onValueChange={(v) => setPlaySec(Number(v))}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {playOptions.map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n} seconds
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <Slider
-            value={[playSec]}
-            min={1}
-            max={cap}
-            step={1}
-            onValueChange={(v) => setPlaySec(v[0])}
-            className="mt-3"
-          />
-          <p className="mt-2 text-sm">
-            This creative will play for <b>{playSec} seconds</b> per loop.
-          </p>
+          {selected.status === "pending" && (
+            <Alert className="mt-3 border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+              <Clock className="h-4 w-4" />
+              <AlertDescription>
+                This creative is still under brand-safety review. Your campaign will be saved as a
+                draft on submit and auto-queued once the creative is approved.
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       )}
+
+      <AddCreativeDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onCreated={(cr) => setSelectedId(cr.id)}
+      />
     </Card>
   );
 }
+
+function MultiSelectPopover({
+  label,
+  options,
+  selected,
+  onToggle,
+  onClear,
+}: {
+  label: string;
+  options: readonly string[];
+  selected: Set<string>;
+  onToggle: (v: string) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const count = selected.size;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <Filter className="h-3.5 w-3.5" />
+          {label}
+          {count > 0 && (
+            <span className="ml-0.5 rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+              {count}
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-0" align="start">
+        <Command>
+          <CommandInput placeholder={`Search ${label.toLowerCase()}...`} />
+          <CommandList>
+            <CommandEmpty>No matches.</CommandEmpty>
+            <CommandGroup>
+              {options.map((o) => {
+                const active = selected.has(o);
+                return (
+                  <CommandItem key={o} onSelect={() => onToggle(o)}>
+                    <div
+                      className={cn(
+                        "mr-2 grid h-4 w-4 place-items-center rounded border",
+                        active ? "border-primary bg-primary text-primary-foreground" : "border-border",
+                      )}
+                    >
+                      {active && <Check className="h-3 w-3" />}
+                    </div>
+                    <span>{o}</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+          {count > 0 && (
+            <div className="border-t p-2">
+              <button
+                type="button"
+                onClick={onClear}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" /> Clear all
+              </button>
+            </div>
+          )}
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 
 /* ---------- Step 3 (Screens) ---------- */
 
