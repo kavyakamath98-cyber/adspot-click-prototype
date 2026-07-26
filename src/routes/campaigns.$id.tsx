@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Calendar,
@@ -9,12 +9,18 @@ import {
   Pause,
   Play,
   RefreshCw,
-  Upload,
-  X,
+  Square,
   AlertTriangle,
   Clock,
+  ChevronLeft,
 } from "lucide-react";
-import { AppShell, StatusBadge } from "@/components/AppShell";
+import {
+  AppShell,
+  InUseBadge,
+  LocationTagBadge,
+  StatusBadge,
+  VideoPlayOverlay,
+} from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,6 +34,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   BarChart,
   Bar,
@@ -38,7 +45,7 @@ import {
   Tooltip,
 } from "recharts";
 import { useApp } from "@/lib/app-context";
-import { SCREENS, PINCODES, type Creative } from "@/lib/mockData";
+import { SCREENS, PINCODES } from "@/lib/mockData";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/campaigns/$id")({
@@ -58,8 +65,10 @@ function CampaignDetail() {
     campaigns,
     creatives,
     updateCampaign,
-    addCreative,
     simulateReplaceCreativeReview,
+    pauseCampaign,
+    resumeCampaign,
+    stopCampaign,
   } = useApp();
 
   const campaign = campaigns.find((c) => c.id === id);
@@ -69,17 +78,21 @@ function CampaignDetail() {
     : undefined;
 
   const [replaceOpen, setReplaceOpen] = useState(false);
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [extendOpen, setExtendOpen] = useState(false);
-  const [newEnd, setNewEnd] = useState<string>(campaign?.endDate ?? "");
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [stopOpen, setStopOpen] = useState(false);
+  const [resumeOpen, setResumeOpen] = useState(false);
+  const [resumeMode, setResumeMode] = useState<"keep_end" | "shift_end">("shift_end");
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [editStart, setEditStart] = useState(campaign?.startDate ?? "");
+  const [editEnd, setEditEnd] = useState(campaign?.endDate ?? "");
+  const [selectedScreenId, setSelectedScreenId] = useState<string | null>(null);
 
-  // Simulate impression ticker for live campaigns
+  // Impression ticker for live campaigns
   useEffect(() => {
     if (!campaign || campaign.status !== "live") return;
     const t = setInterval(() => {
       updateCampaign(campaign.id, {
-        estimatedImpressions: campaign.estimatedImpressions + Math.floor(30 + Math.random() * 60),
+        estimatedImpressions:
+          campaign.estimatedImpressions + Math.floor(30 + Math.random() * 60),
       });
     }, 3000);
     return () => clearInterval(t);
@@ -104,7 +117,7 @@ function CampaignDetail() {
 
   const p = PINCODES[campaign.pincode];
 
-  // Chart data
+  // Chart data — overall or per-screen
   const chartData = useMemo(() => {
     const days = Math.max(
       1,
@@ -112,41 +125,53 @@ function CampaignDetail() {
         (new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / 86400000,
       ) + 1,
     );
+    const seedBase =
+      selectedScreenId
+        ? selectedScreenId.length * 13 + campaign.id.length
+        : campaign.id.length;
+    const perScreenFactor = selectedScreenId ? 1 / Math.max(1, screens.length) : 1;
     return Array.from({ length: Math.min(days, 14) }, (_, i) => {
       const d = new Date(campaign.startDate);
       d.setDate(d.getDate() + i);
-      const seed = (i + 1) * 137 + campaign.id.length;
-      const plays = 220 + (seed % 400);
+      const seed = (i + 1) * 137 + seedBase;
+      const plays = Math.round((220 + (seed % 400)) * perScreenFactor);
       return {
         day: d.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
         plays,
       };
     });
-  }, [campaign.startDate, campaign.endDate, campaign.id]);
+  }, [
+    campaign.startDate,
+    campaign.endDate,
+    campaign.id,
+    selectedScreenId,
+    screens.length,
+  ]);
 
   const totalPlays = chartData.reduce((s, d) => s + d.plays, 0);
-  const estImpressions = campaign.status === "live" ? campaign.estimatedImpressions || totalPlays * 25 : totalPlays * 25;
+  const estImpressions =
+    campaign.status === "live" && !selectedScreenId
+      ? campaign.estimatedImpressions || totalPlays * 25
+      : totalPlays * 25;
 
-  const handleReplaceFile = (file: File) => {
-    const isVideo = file.type.startsWith("video/");
-    const url = URL.createObjectURL(file);
-    const newCreative: Creative = {
-      id: `cre_${Date.now()}`,
-      name: file.name.replace(/\.[^.]+$/, ""),
-      type: isVideo ? "video" : "image",
-      url,
-      width: 1920,
-      height: 1080,
-      sizeKB: Math.round(file.size / 1024),
-      uploadedAt: new Date().toISOString().slice(0, 10),
-      tags: ["replacement"],
-      status: "pending",
-    };
-    addCreative(newCreative);
-    simulateReplaceCreativeReview(campaign.id, newCreative.id);
-    setReplaceOpen(false);
-    toast.info("New creative submitted for review. Current creative stays live until it clears.");
-  };
+  const selectedScreen = selectedScreenId ? screens.find((s) => s.id === selectedScreenId) : null;
+
+  const totalDays = Math.max(
+    1,
+    Math.round(
+      (new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) /
+        86400000,
+    ) + 1,
+  );
+  const today = new Date();
+  const elapsedDays = Math.max(
+    0,
+    Math.min(
+      totalDays,
+      Math.round((today.getTime() - new Date(campaign.startDate).getTime()) / 86400000) + 1,
+    ),
+  );
+  const remainingDays = Math.max(0, totalDays - elapsedDays);
 
   const pickFromLibrary = (cid: string) => {
     simulateReplaceCreativeReview(campaign.id, cid);
@@ -154,39 +179,47 @@ function CampaignDetail() {
     toast.info("New creative submitted for review.");
   };
 
-  const pauseCampaign = () => {
-    updateCampaign(campaign.id, { status: "paused" });
+  const doPause = () => {
+    pauseCampaign(campaign.id);
     toast.success("Campaign paused");
   };
 
-  const resumeCampaign = () => {
-    // Recompute end date: add pauseDays. For prototype: bump end date by 2 days.
-    const newEndDate = new Date(campaign.endDate);
-    newEndDate.setDate(newEndDate.getDate() + 2);
-    updateCampaign(campaign.id, {
-      status: "live",
-      endDate: newEndDate.toISOString().slice(0, 10),
-    });
-    toast.success(`Campaign resumed. New end date: ${newEndDate.toLocaleDateString("en-IN")}`);
+  const openResume = () => {
+    setResumeMode("shift_end");
+    setResumeOpen(true);
   };
 
-  const remainingBudget = Math.max(0, campaign.totalBudget - campaign.spendToDate);
-  const proRataRefund = Math.round(remainingBudget * 0.9); // 10% cancellation fee
-
-  const doCancel = () => {
-    updateCampaign(campaign.id, { status: "completed" });
-    setCancelOpen(false);
-    toast.success(`Campaign cancelled. ₹${proRataRefund.toLocaleString("en-IN")} refunded (mock).`);
+  const doResume = () => {
+    resumeCampaign(campaign.id, resumeMode);
+    setResumeOpen(false);
+    toast.success(
+      resumeMode === "shift_end"
+        ? "Campaign resumed. End date shifted to preserve full run."
+        : "Campaign resumed. Original end date kept.",
+    );
   };
 
-  const doExtend = () => {
-    updateCampaign(campaign.id, { endDate: newEnd });
-    setExtendOpen(false);
-    toast.success("Campaign extended");
+  const doStop = () => {
+    const refund = stopCampaign(campaign.id);
+    setStopOpen(false);
+    toast.success(
+      `Campaign stopped. ₹${refund.toLocaleString("en-IN")} refunded to wallet (mock).`,
+    );
+  };
+
+  const doSaveSchedule = () => {
+    updateCampaign(campaign.id, { startDate: editStart, endDate: editEnd });
+    setScheduleOpen(false);
+    toast.success("Schedule updated");
   };
 
   const contentUnderReviewBanner =
     campaign.status === "pending_approval" && new Date(campaign.startDate) < new Date();
+
+  const canEditSchedule =
+    campaign.status === "live" ||
+    campaign.status === "paused" ||
+    campaign.status === "approved_scheduled";
 
   return (
     <AppShell>
@@ -197,63 +230,113 @@ function CampaignDetail() {
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-semibold tracking-tight">{campaign.name}</h1>
-            <StatusBadge status={campaign.status} />
+      {/* Top summary card with schedule controls inline */}
+      <Card className="mb-6 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                {campaign.name}
+              </h1>
+              <StatusBadge status={campaign.status} />
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Created {new Date(campaign.createdAt).toLocaleDateString("en-IN")}
+            </p>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Created {new Date(campaign.createdAt).toLocaleDateString("en-IN")}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {(campaign.status === "live" || campaign.status === "paused") && (
-            <Button variant="secondary" onClick={() => setReplaceOpen(true)} className="gap-1.5">
-              <RefreshCw className="h-4 w-4" /> Replace Creative
-            </Button>
-          )}
-          {campaign.status === "live" && (
-            <Button variant="outline" onClick={pauseCampaign} className="gap-1.5">
-              <Pause className="h-4 w-4" /> Pause
-            </Button>
-          )}
-          {campaign.status === "paused" && (
-            <Button variant="outline" onClick={resumeCampaign} className="gap-1.5">
-              <Play className="h-4 w-4" /> Resume
-            </Button>
-          )}
-          {(campaign.status === "live" || campaign.status === "paused" || campaign.status === "approved_scheduled") && (
-            <>
+          <div className="flex flex-wrap gap-2">
+            {(campaign.status === "live" || campaign.status === "paused") && (
               <Button
-                variant="outline"
-                onClick={() => {
-                  setNewEnd(campaign.endDate);
-                  setExtendOpen(true);
-                }}
+                variant="secondary"
+                onClick={() => setReplaceOpen(true)}
                 className="gap-1.5"
               >
-                <Calendar className="h-4 w-4" /> Extend
+                <RefreshCw className="h-4 w-4" /> Replace Creative
               </Button>
+            )}
+            {campaign.status === "live" && (
+              <Button variant="outline" onClick={doPause} className="gap-1.5">
+                <Pause className="h-4 w-4" /> Pause
+              </Button>
+            )}
+            {campaign.status === "paused" && (
+              <Button variant="outline" onClick={openResume} className="gap-1.5">
+                <Play className="h-4 w-4" /> Resume
+              </Button>
+            )}
+            {canEditSchedule && (
               <Button
                 variant="outline"
-                onClick={() => setCancelOpen(true)}
+                onClick={() => setStopOpen(true)}
                 className="gap-1.5 text-destructive hover:text-destructive"
               >
-                <X className="h-4 w-4" /> Cancel
+                <Square className="h-4 w-4" /> Stop Campaign
               </Button>
-            </>
-          )}
-          {campaign.status === "rejected" && (
-            <Link to="/campaigns/new" search={{ resubmitId: campaign.id }}>
-              <Button className="gap-1.5">
-                <RefreshCw className="h-4 w-4" /> Fix & Resubmit
-              </Button>
-            </Link>
+            )}
+            {campaign.status === "rejected" && (
+              <Link to="/campaigns/new" search={{ resubmitId: campaign.id }}>
+                <Button className="gap-1.5">
+                  <RefreshCw className="h-4 w-4" /> Fix & Resubmit
+                </Button>
+              </Link>
+            )}
+            {campaign.status === "draft" && (
+              <Link to="/campaigns/new" search={{ draftId: campaign.id }}>
+                <Button className="gap-1.5">Continue draft</Button>
+              </Link>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+          <div className="rounded-lg border bg-secondary/30 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Calendar className="h-4 w-4 text-primary" />
+              {new Date(campaign.startDate).toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}{" "}
+              →{" "}
+              {new Date(campaign.endDate).toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+              <MiniStat label="Total" value={`${totalDays} days`} />
+              <MiniStat label="Elapsed" value={`${elapsedDays} days`} />
+              <MiniStat label="Remaining" value={`${remainingDays} days`} />
+            </div>
+            {campaign.recurrence && campaign.recurrence !== "none" && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Repeats:{" "}
+                <span className="font-medium text-foreground">
+                  {campaign.recurrence === "weekdays"
+                    ? "Every weekday"
+                    : campaign.recurrence === "weekends"
+                      ? "Every weekend"
+                      : campaign.recurrence.charAt(0).toUpperCase() + campaign.recurrence.slice(1)}
+                </span>
+              </p>
+            )}
+          </div>
+          {canEditSchedule && (
+            <Button
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => {
+                setEditStart(campaign.startDate);
+                setEditEnd(campaign.endDate);
+                setScheduleOpen(true);
+              }}
+            >
+              <Calendar className="h-4 w-4" /> Adjust schedule
+            </Button>
           )}
         </div>
-      </div>
+      </Card>
 
       {campaign.status === "rejected" && campaign.rejectionReason && (
         <Alert variant="destructive" className="mb-6">
@@ -270,7 +353,7 @@ function CampaignDetail() {
           <Clock className="h-4 w-4" />
           <AlertTitle>Start delayed — content is still under review</AlertTitle>
           <AlertDescription>
-            Your campaign's start date has arrived, but nothing will run on-screen until brand-safety review completes. We never show unapproved content.
+            Your campaign's start date has arrived, but nothing will run on-screen until brand-safety review completes.
           </AlertDescription>
         </Alert>
       )}
@@ -280,7 +363,7 @@ function CampaignDetail() {
           <Loader2 className="h-4 w-4 animate-spin" />
           <AlertTitle>New creative "{pendingCreative.name}" is under review</AlertTitle>
           <AlertDescription>
-            The current creative stays live until the new one clears review. This can take a few seconds in this demo.
+            The current creative stays live until the new one clears review.
           </AlertDescription>
         </Alert>
       )}
@@ -297,25 +380,34 @@ function CampaignDetail() {
             </div>
             {currentCreative && (
               <div className="grid gap-4 sm:grid-cols-[240px_1fr]">
-                <div className="aspect-video overflow-hidden rounded border-4 border-neutral-800 bg-black">
+                <div className="relative aspect-video overflow-hidden rounded border-4 border-neutral-800 bg-black">
                   {currentCreative.type === "image" ? (
-                    <img src={currentCreative.url} alt="" className="h-full w-full" style={{ objectFit: campaign.fitMode }} />
-                  ) : (
-                    <video
+                    <img
                       src={currentCreative.url}
+                      alt=""
                       className="h-full w-full"
                       style={{ objectFit: campaign.fitMode }}
-                      muted
-                      autoPlay
-                      loop
-                      playsInline
                     />
+                  ) : (
+                    <>
+                      <video
+                        src={currentCreative.url}
+                        className="h-full w-full"
+                        style={{ objectFit: campaign.fitMode }}
+                        muted
+                        autoPlay
+                        loop
+                        playsInline
+                      />
+                      <VideoPlayOverlay />
+                    </>
                   )}
                 </div>
                 <div className="text-sm">
                   <div className="font-medium">{currentCreative.name}</div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {currentCreative.type} · {currentCreative.width}×{currentCreative.height}
+                    {campaign.playSec ? ` · ${campaign.playSec}s per loop` : ""}
                   </p>
                 </div>
               </div>
@@ -328,11 +420,14 @@ function CampaignDetail() {
                   <StatusBadge status="pending" />
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[160px_1fr]">
-                  <div className="aspect-video overflow-hidden rounded border-2 border-dashed border-border/70 bg-muted">
+                  <div className="relative aspect-video overflow-hidden rounded border-2 border-dashed border-border/70 bg-muted">
                     {pendingCreative.type === "image" ? (
                       <img src={pendingCreative.url} alt="" className="h-full w-full object-contain" />
                     ) : (
-                      <video src={pendingCreative.url} className="h-full w-full object-contain" muted />
+                      <>
+                        <video src={pendingCreative.url} className="h-full w-full object-contain" muted />
+                        <VideoPlayOverlay />
+                      </>
                     )}
                   </div>
                   <div className="text-sm text-muted-foreground">
@@ -343,38 +438,30 @@ function CampaignDetail() {
             )}
           </Card>
 
-          {/* Screens */}
-          <Card className="p-5">
-            <h2 className="mb-3 font-semibold">Screens ({screens.length})</h2>
-            <div className="divide-y divide-border rounded-lg border">
-              {screens.map((s) => (
-                <div key={s.id} className="flex items-center gap-3 px-4 py-3 text-sm">
-                  <div className="grid h-8 w-8 place-items-center rounded bg-secondary">
-                    <Monitor className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium">{s.venue}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {s.venueType} · {s.city} · {s.pincode}
-                    </div>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {s.width}×{s.height}
-                  </div>
-                  <div className="w-16 text-right text-sm font-medium">₹{s.pricePerDay}/d</div>
-                </div>
-              ))}
-              {screens.length === 0 && (
-                <div className="p-6 text-center text-sm text-muted-foreground">No screens selected.</div>
-              )}
-            </div>
-          </Card>
-
-          {/* Reporting */}
+          {/* Reporting (moved above screens) */}
           <Card className="p-5">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold">Reporting <span className="text-xs font-normal text-muted-foreground">(Estimated)</span></h2>
-              <div className="text-xs text-muted-foreground">Daily plays across selected screens</div>
+              <div>
+                <h2 className="font-semibold">
+                  Reporting <span className="text-xs font-normal text-muted-foreground">(Estimated)</span>
+                </h2>
+                {selectedScreen ? (
+                  <div className="mt-1 flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground">Showing:</span>
+                    <span className="font-medium">{selectedScreen.venue}</span>
+                    <button
+                      className="inline-flex items-center gap-0.5 text-primary underline"
+                      onClick={() => setSelectedScreenId(null)}
+                    >
+                      <ChevronLeft className="h-3 w-3" /> Back to overall
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Overall across all {screens.length} screens. Click a screen below to drill in.
+                  </p>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <Stat label="Est. plays" value={totalPlays.toLocaleString("en-IN")} />
@@ -401,6 +488,13 @@ function CampaignDetail() {
             </div>
             <p className="mt-2 text-xs text-muted-foreground">All numbers are estimated for demo purposes.</p>
           </Card>
+
+          {/* Screens (now below reporting), with infinite scroll + click to drill */}
+          <ScreensSection
+            screens={screens}
+            selectedScreenId={selectedScreenId}
+            onSelect={(id) => setSelectedScreenId(id === selectedScreenId ? null : id)}
+          />
         </div>
 
         {/* Sidebar */}
@@ -410,27 +504,11 @@ function CampaignDetail() {
             <div className="mt-3 space-y-2 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <MapPin className="h-4 w-4" />
-                <span>{p?.label ?? campaign.pincode}</span>
+                <span>{campaign.locationLabel ?? p?.label ?? campaign.pincode}</span>
               </div>
-              <div className="text-muted-foreground">Radius: <span className="text-foreground">{campaign.radiusKm} km</span></div>
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <h3 className="text-sm font-semibold">Schedule</h3>
-            <div className="mt-3 space-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span>
-                  {new Date(campaign.startDate).toLocaleDateString("en-IN")} →{" "}
-                  {new Date(campaign.endDate).toLocaleDateString("en-IN")}
-                </span>
+              <div className="text-muted-foreground">
+                Radius: <span className="text-foreground">{campaign.radiusKm} km</span>
               </div>
-              {campaign.daypartStart && (
-                <div className="text-muted-foreground">
-                  Daypart: <span className="text-foreground">{campaign.daypartStart} – {campaign.daypartEnd}</span>
-                </div>
-              )}
             </div>
           </Card>
 
@@ -464,35 +542,13 @@ function CampaignDetail() {
           <DialogHeader>
             <DialogTitle>Replace creative</DialogTitle>
             <DialogDescription>
-              Upload a new creative or pick one from your library. The current creative stays live until the new one clears review.
+              Pick a new creative from your library. The current creative stays live until the new one clears review. To add a brand-new asset,{" "}
+              <a href="/library" className="text-primary underline">
+                upload it via the Content Library
+              </a>{" "}
+              first.
             </DialogDescription>
           </DialogHeader>
-
-          <div
-            className="rounded-lg border-2 border-dashed border-border/70 bg-muted/30 p-6 text-center"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              const f = e.dataTransfer.files?.[0];
-              if (f) handleReplaceFile(f);
-            }}
-          >
-            <Upload className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
-            <p className="text-sm">Drop a file here, or</p>
-            <Button className="mt-2" size="sm" variant="secondary" onClick={() => inputRef.current?.click()}>
-              Choose file
-            </Button>
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*,video/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleReplaceFile(f);
-              }}
-            />
-          </div>
 
           <div>
             <h4 className="mb-2 text-sm font-medium">From your library</h4>
@@ -506,11 +562,14 @@ function CampaignDetail() {
                     onClick={() => pickFromLibrary(c.id)}
                     className="overflow-hidden rounded-md border text-left hover:border-primary"
                   >
-                    <div className="aspect-video bg-muted">
+                    <div className="relative aspect-video bg-muted">
                       {c.type === "image" ? (
                         <img src={c.url} alt="" className="h-full w-full object-cover" />
                       ) : (
-                        <video src={c.url} muted className="h-full w-full object-cover" />
+                        <>
+                          <video src={c.url} muted className="h-full w-full object-cover" />
+                          <VideoPlayOverlay />
+                        </>
                       )}
                     </div>
                     <div className="truncate p-1.5 text-xs">{c.name}</div>
@@ -521,60 +580,227 @@ function CampaignDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Cancel modal */}
-      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+      {/* Stop campaign modal */}
+      <Dialog open={stopOpen} onOpenChange={setStopOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cancel campaign?</DialogTitle>
+            <DialogTitle>Stop this campaign?</DialogTitle>
             <DialogDescription>
-              This ends the campaign immediately. A pro-rata refund will be issued for unused budget (mock).
+              This is permanent. Once stopped, the campaign cannot be resumed — different from Pause,
+              which is temporary and resumable.
             </DialogDescription>
           </DialogHeader>
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>This action can't be undone</AlertTitle>
+            <AlertDescription>
+              A pro-rata refund (minus 10% cancellation fee) will be returned to your wallet.
+            </AlertDescription>
+          </Alert>
           <div className="rounded-md bg-secondary/50 p-4 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Unused budget</span>
-              <span className="font-medium">₹{remainingBudget.toLocaleString("en-IN")}</span>
+              <span className="font-medium">
+                ₹{Math.max(0, campaign.totalBudget - campaign.spendToDate).toLocaleString("en-IN")}
+              </span>
             </div>
             <div className="mt-1 flex justify-between">
               <span className="text-muted-foreground">Cancellation fee (10%)</span>
-              <span className="font-medium">−₹{Math.round(remainingBudget * 0.1).toLocaleString("en-IN")}</span>
+              <span className="font-medium">
+                −₹
+                {Math.round(
+                  Math.max(0, campaign.totalBudget - campaign.spendToDate) * 0.1,
+                ).toLocaleString("en-IN")}
+              </span>
             </div>
             <div className="mt-2 flex justify-between border-t pt-2">
               <span>Estimated refund</span>
-              <span className="text-base font-semibold">₹{proRataRefund.toLocaleString("en-IN")}</span>
+              <span className="text-base font-semibold">
+                ₹
+                {Math.round(
+                  Math.max(0, campaign.totalBudget - campaign.spendToDate) * 0.9,
+                ).toLocaleString("en-IN")}
+              </span>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelOpen(false)}>Keep running</Button>
-            <Button variant="destructive" onClick={doCancel}>Cancel campaign</Button>
+            <Button variant="outline" onClick={() => setStopOpen(false)}>
+              Keep running
+            </Button>
+            <Button variant="destructive" onClick={doStop}>
+              Stop campaign permanently
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Extend modal */}
-      <Dialog open={extendOpen} onOpenChange={setExtendOpen}>
+      {/* Resume choice modal */}
+      <Dialog open={resumeOpen} onOpenChange={setResumeOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Extend campaign</DialogTitle>
-            <DialogDescription>Pick a new end date. Additional cost will be charged (mock).</DialogDescription>
+            <DialogTitle>Resume campaign</DialogTitle>
+            <DialogDescription>
+              Your campaign was paused. How should we handle the end date?
+            </DialogDescription>
           </DialogHeader>
-          <div>
-            <Label>New end date</Label>
-            <Input
-              type="date"
-              value={newEnd}
-              min={campaign.endDate}
-              onChange={(e) => setNewEnd(e.target.value)}
-              className="mt-1.5"
-            />
+          <RadioGroup value={resumeMode} onValueChange={(v) => setResumeMode(v as "keep_end" | "shift_end")}>
+            <label className="flex cursor-pointer items-start gap-3 rounded-md border p-3 hover:bg-secondary/40">
+              <RadioGroupItem value="shift_end" className="mt-1" />
+              <div className="text-sm">
+                <div className="font-medium">Shift end date forward (recommended)</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  Preserves your full originally-purchased duration by extending the end date by the paused days.
+                </div>
+              </div>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3 rounded-md border p-3 hover:bg-secondary/40">
+              <RadioGroupItem value="keep_end" className="mt-1" />
+              <div className="text-sm">
+                <div className="font-medium">Keep original end date</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  Ends on the original date; the remaining active run is shorter by the paused duration.
+                </div>
+              </div>
+            </label>
+          </RadioGroup>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResumeOpen(false)}>Cancel</Button>
+            <Button onClick={doResume}>Resume</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule adjust modal */}
+      <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adjust schedule</DialogTitle>
+            <DialogDescription>
+              Change the start or end date. Additional days will be charged (mock).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label>Start date</Label>
+              <Input
+                type="date"
+                value={editStart}
+                onChange={(e) => setEditStart(e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label>End date</Label>
+              <Input
+                type="date"
+                value={editEnd}
+                min={editStart}
+                onChange={(e) => setEditEnd(e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setExtendOpen(false)}>Cancel</Button>
-            <Button onClick={doExtend} disabled={newEnd <= campaign.endDate}>Extend</Button>
+            <Button variant="outline" onClick={() => setScheduleOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={doSaveSchedule} disabled={!editStart || !editEnd || editEnd < editStart}>
+              Save schedule
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </AppShell>
+  );
+}
+
+const SCREEN_PAGE_SIZE = 6;
+
+function ScreensSection({
+  screens,
+  selectedScreenId,
+  onSelect,
+}: {
+  screens: typeof SCREENS;
+  selectedScreenId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const [visible, setVisible] = useState(SCREEN_PAGE_SIZE);
+  const sentinel = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (visible >= screens.length) return;
+    const el = sentinel.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setVisible((v) => v + SCREEN_PAGE_SIZE);
+      },
+      { rootMargin: "150px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visible, screens.length]);
+
+  const shown = screens.slice(0, visible);
+
+  return (
+    <Card className="p-5">
+      <h2 className="mb-3 font-semibold">Screens ({screens.length})</h2>
+      <div className="divide-y divide-border rounded-lg border">
+        {shown.map((s) => {
+          const active = s.id === selectedScreenId;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => onSelect(s.id)}
+              className={cnLocal(
+                "flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors",
+                active ? "bg-primary/10" : "hover:bg-secondary/40",
+              )}
+            >
+              <div className="grid h-8 w-8 place-items-center rounded bg-secondary">
+                <Monitor className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{s.venue}</span>
+                  <LocationTagBadge tag={s.locationTag} />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {s.venueType} · {s.city} · {s.pincode}
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {s.width}×{s.height}
+              </div>
+              <div className="w-16 text-right text-sm font-medium">₹{s.pricePerDay}/d</div>
+            </button>
+          );
+        })}
+        {screens.length === 0 && (
+          <div className="p-6 text-center text-sm text-muted-foreground">No screens selected.</div>
+        )}
+      </div>
+      <div ref={sentinel} className="h-6" />
+      {visible < screens.length && (
+        <p className="mt-3 text-center text-xs text-muted-foreground">Loading more screens…</p>
+      )}
+    </Card>
+  );
+}
+
+function cnLocal(...xs: (string | false | undefined)[]) {
+  return xs.filter(Boolean).join(" ");
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-background p-2">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-sm font-semibold">{value}</div>
+    </div>
   );
 }
 
@@ -586,3 +812,6 @@ function Stat({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+// Suppress unused warning for InUseBadge/imports kept for optional future rendering
+void InUseBadge;
