@@ -1,34 +1,47 @@
-## 1. Sidebar — collapsible "Campaigns" group
+## Changes
 
-Edit `src/components/AppSidebar.tsx`:
+### 1. AddCreativeDialog — constrain height
 
-- Structure into two top-level sections:
-  - **Campaigns** (collapsible group, default open, using shadcn `Collapsible` + `SidebarGroup`/`SidebarGroupLabel` with a chevron trigger):
-    - Dashboard → `/`
-    - Create Campaign → `/campaigns/new`
-  - **Library** (standalone item): Content Library → `/library`
-- Group stays auto-open when a child route is active. When sidebar is collapsed to icon-only, render the two campaign items as flat icon buttons (Collapsible group header hidden) so they remain reachable.
-- Dashboard (`/`) remains the default landing route — no routing change needed.
+`src/components/AddCreativeDialog.tsx`: change `DialogContent` from `max-w-lg` to `max-w-lg max-h-[85vh] overflow-y-auto` so the dialog is a clearly bounded modal, not a full-height sheet. Body content scrolls inside if needed; header/footer stay visible via existing shadcn layout.
 
-## 2. Dashboard empty state (no campaigns)
+### 2. Save as Draft — no redirect
 
-Edit `src/routes/index.tsx`. Today the dashboard always renders the welcome banner + stat cards + filters + list; `EmptyState` only shows when the filtered list is empty but stats/filters still render.
+`src/routes/campaigns.new.tsx`: in the Save-as-Draft handler, remove the `navigate({ to: "/" })` (or `/campaigns`) call. Keep the existing `toast.success("Draft saved")`. User stays on the wizard step they were on.
 
-New behavior when `campaigns.length === 0` (true empty account, not a filter miss):
+### 3. Pick a Creative (Wizard Step 2) — better search/filter UX
 
-- Hide the stat-card row and the status-filter chips + search (nothing to filter).
-- Keep the welcome banner, but swap subcopy to onboarding-focused: "You haven't launched any ads yet. Let's put your business on a screen near you."
-- Replace the campaigns grid with a larger, friendlier **first-run panel** containing:
-  - A short 3-step "How it works" strip (Choose location → Pick creative & screens → Launch), each as an icon + one-line label.
-  - Primary CTA: "Create your first campaign" → `/campaigns/new`.
-  - Secondary link: "Browse your content library" → `/library` (muted, since library may also be empty; still useful entry point).
-- Keep the existing filter-miss `EmptyState` (used when campaigns exist but filters return zero) unchanged.
+In `src/routes/campaigns.new.tsx` Step 2 header row:
+
+- Layout: `Search input (narrower, ~w-64)` — gap — pushed right: `Industry` multi-select filter + `Usage` filter, each as a labeled dropdown/popover (shadcn `Select` or `DropdownMenu` with checkboxes).
+- Add a small section heading **"Your creatives"** above the grid so users understand what they're picking from.
+- Rename the current "In use / All / Unused" segmented control to a proper **Usage** filter with clearer labels:
+  - **All creatives** (default)
+  - **In use in a live campaign**
+  - **Not currently used**
+  Each option gets a one-line helper in the dropdown so it's obvious what it means.
+- Keep the "+" tile and industry chips on cards unchanged.
+- Empty-state copy updates to reference active filters ("No creatives match these filters").
+
+### 4. Screen dimensions — data + filter
+
+Two parts:
+
+**a. Mock data.** In `src/lib/mockData.ts`, normalize every screen's `width`/`height` so each screen uses one of these five presets:
+
+| Preset | W×H |
+|---|---|
+| 1920×1080 (Full HD landscape) | 1920×1080 |
+| 1080×1920 (Full HD portrait) | 1080×1920 |
+| 16:9 (generic landscape) | 1280×720 |
+| 9:16 (generic portrait) | 720×1280 |
+| 300×250 (MPU) | 300×250 |
+
+Distribute across existing ~50 screens so all 5 presets are represented. Keep every other field (location, tag, pricing) intact. Update the Step 4 preview simulator list to render these same 5 presets.
+
+**b. Filter on Screen Selection (Step 3).** Add a **Dimensions** multi-select filter next to the existing location-tag filter, listing the same 5 presets with counts. Selecting one or more filters the screen list. Preset label shown on each screen card as a small pill (e.g., `1920×1080`).
 
 ## Out of scope
 
-- No color/typography changes, no data model changes, no other routes touched.
-
-## Technical notes
-
-- Use `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` from `@/components/ui/collapsible` wrapping a `SidebarGroup`; chevron rotates via `data-[state=open]` class. This is the shadcn-documented pattern for collapsible sidebar groups.
-- Detect true-empty via `campaigns.length === 0` before the `useMemo` filter; branch the render early so infinite-scroll effects don't run.
+- No color/typography changes.
+- No changes to Home, sidebar, campaign detail, reports, payments, or library beyond items above.
+- No changes to pricing logic even though dimensions shift; existing per-screen prices stay as authored.

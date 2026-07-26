@@ -59,12 +59,14 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useApp } from "@/lib/app-context";
 import {
+  DIMENSION_PRESETS,
   INDUSTRIES,
   LOCATION_SUGGESTIONS,
   LOCATION_TAGS,
   PINCODES,
   SCREENS,
   distanceKm,
+  presetIdFor,
   type Campaign,
   type Creative,
   type Industry,
@@ -271,8 +273,9 @@ function NewCampaign() {
     } else {
       addCampaign(c);
     }
-    toast.success("Saved as draft");
-    navigate({ to: "/" });
+    toast.success("Saved as draft", {
+      description: "You can keep editing, or leave and come back later.",
+    });
   };
 
   const handlePaySuccess = () => {
@@ -755,41 +758,63 @@ function Step2({
         Choose from your library, or add a new one — it syncs automatically.
       </p>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[220px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search creatives"
-            className="pl-9"
-          />
+      <div className="mt-4 flex flex-wrap items-end gap-3">
+        <div className="w-full sm:w-64">
+          <Label className="mb-1.5 block text-xs text-muted-foreground">Search</Label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Name, tag, industry"
+              className="pl-9"
+            />
+          </div>
         </div>
-        <MultiSelectPopover
-          label="Industry"
-          options={INDUSTRIES as readonly string[]}
-          selected={industryFilter as Set<string>}
-          onToggle={(v) => toggleIndustry(v as Industry)}
-          onClear={() => setIndustryFilter(new Set())}
-        />
-        <div className="flex rounded-md border border-border p-0.5">
-          {(["all", "in_use", "unused"] as const).map((u) => (
-            <button
-              key={u}
-              type="button"
-              onClick={() => setUsageFilter(u)}
-              className={cn(
-                "rounded-sm px-2.5 py-1 text-xs font-medium capitalize transition-colors",
-                usageFilter === u
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-secondary",
-              )}
-            >
-              {u === "all" ? "All" : u === "in_use" ? "In use" : "Unused"}
-            </button>
-          ))}
+
+        <div className="ml-auto flex flex-wrap items-end gap-3">
+          <div>
+            <Label className="mb-1.5 block text-xs text-muted-foreground">Industry</Label>
+            <MultiSelectPopover
+              label="Any industry"
+              options={INDUSTRIES as readonly string[]}
+              selected={industryFilter as Set<string>}
+              onToggle={(v) => toggleIndustry(v as Industry)}
+              onClear={() => setIndustryFilter(new Set())}
+            />
+          </div>
+          <div>
+            <Label className="mb-1.5 block text-xs text-muted-foreground">Creative status</Label>
+            <Select value={usageFilter} onValueChange={(v) => setUsageFilter(v as typeof usageFilter)}>
+              <SelectTrigger className="w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <div>
+                    <div className="font-medium">All creatives</div>
+                    <div className="text-xs text-muted-foreground">Show every creative in your library</div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="in_use">
+                  <div>
+                    <div className="font-medium">In use in a live campaign</div>
+                    <div className="text-xs text-muted-foreground">Currently running somewhere</div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="unused">
+                  <div>
+                    <div className="font-medium">Not currently used</div>
+                    <div className="text-xs text-muted-foreground">Free to pick without conflicts</div>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
+
+      <p className="mt-5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Your creatives</p>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <button
@@ -853,7 +878,7 @@ function Step2({
       )}
       {available.length === 0 && (
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          No creatives match. Add one to get started.
+          No creatives match these filters. Try clearing filters or adding a new creative.
         </p>
       )}
 
@@ -991,16 +1016,22 @@ function Step3({
   setSelected: (v: string[]) => void;
 }) {
   const [tagFilter, setTagFilter] = useState<Set<LocationTag>>(new Set());
+  const [dimFilter, setDimFilter] = useState<Set<string>>(new Set());
   const [visible, setVisible] = useState(SCREEN_PAGE);
   const sentinel = useRef<HTMLDivElement | null>(null);
 
   const filtered = useMemo(
-    () => (tagFilter.size === 0 ? screens : screens.filter((s) => tagFilter.has(s.locationTag))),
-    [screens, tagFilter],
+    () =>
+      screens.filter((s) => {
+        if (tagFilter.size > 0 && !tagFilter.has(s.locationTag)) return false;
+        if (dimFilter.size > 0 && !dimFilter.has(presetIdFor(s.width, s.height))) return false;
+        return true;
+      }),
+    [screens, tagFilter, dimFilter],
   );
 
 
-  useEffect(() => setVisible(SCREEN_PAGE), [tagFilter, screens.length]);
+  useEffect(() => setVisible(SCREEN_PAGE), [tagFilter, dimFilter, screens.length]);
 
   useEffect(() => {
     if (visible >= filtered.length) return;
@@ -1072,6 +1103,26 @@ function Step3({
             })
           }
           onClear={() => setTagFilter(new Set())}
+        />
+        <MultiSelectPopover
+          label="Dimensions"
+          options={DIMENSION_PRESETS.map((p) => p.label)}
+          selected={
+            new Set(
+              DIMENSION_PRESETS.filter((p) => dimFilter.has(p.id)).map((p) => p.label),
+            )
+          }
+          onToggle={(labelValue) => {
+            const preset = DIMENSION_PRESETS.find((p) => p.label === labelValue);
+            if (!preset) return;
+            setDimFilter((prev) => {
+              const next = new Set(prev);
+              if (next.has(preset.id)) next.delete(preset.id);
+              else next.add(preset.id);
+              return next;
+            });
+          }}
+          onClear={() => setDimFilter(new Set())}
         />
         <span className="text-xs text-muted-foreground">
           {filtered.length} of {screens.length} screens

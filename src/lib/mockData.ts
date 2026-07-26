@@ -250,7 +250,7 @@ function mkScreens(): Screen[] {
   seeds.forEach((s, i) => {
     const [venue, pin, dLat, dLng, avail] = s;
     const p = PINCODES[pin];
-    const portrait = i % 3 === 0;
+    const preset = DIMENSION_PRESETS[i % DIMENSION_PRESETS.length];
     const price = 150 + ((i * 37) % 451);
     let vt: Screen["venueType"] = venueTypes[i % venueTypes.length];
     // Force Mall venueType when venue name contains "Mall"
@@ -269,8 +269,8 @@ function mkScreens(): Screen[] {
       pincode: pin,
       lat: p.lat + dLat,
       lng: p.lng + dLng,
-      width: portrait ? 1080 : 1920,
-      height: portrait ? 1920 : 1080,
+      width: preset.width,
+      height: preset.height,
       pricePerDay: Math.round(price / 10) * 10,
       availability: avail,
     });
@@ -281,6 +281,28 @@ function mkScreens(): Screen[] {
     locationTag: tagFromVenueType(s.venueType),
   }));
 }
+
+// Standard screen dimension presets — all screens use one of these five.
+export interface DimensionPreset {
+  id: string;
+  label: string;
+  width: number;
+  height: number;
+}
+
+export const DIMENSION_PRESETS: DimensionPreset[] = [
+  { id: "fhd_land", label: "1920×1080 (Full HD landscape)", width: 1920, height: 1080 },
+  { id: "fhd_port", label: "1080×1920 (Full HD portrait)", width: 1080, height: 1920 },
+  { id: "hd_land", label: "1280×720 (16:9 landscape)", width: 1280, height: 720 },
+  { id: "hd_port", label: "720×1280 (9:16 portrait)", width: 720, height: 1280 },
+  { id: "mpu", label: "300×250 (MPU)", width: 300, height: 250 },
+];
+
+export const presetIdFor = (w: number, h: number): string => {
+  const p = DIMENSION_PRESETS.find((x) => x.width === w && x.height === h);
+  return p?.id ?? `${w}x${h}`;
+};
+export const presetLabelShort = (w: number, h: number): string => `${w}×${h}`;
 
 export const SCREENS: Screen[] = mkScreens();
 
