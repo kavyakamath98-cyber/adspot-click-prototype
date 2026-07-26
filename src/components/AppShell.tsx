@@ -1,11 +1,23 @@
-import { Wallet, PlayCircle } from "lucide-react";
+import { Wallet, PlayCircle, ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { useApp } from "@/lib/app-context";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 
-export function AppShell({ children }: { children: ReactNode }) {
+type BackProp = { to: string; label?: string };
+
+export function AppShell({
+  children,
+  title,
+  back,
+}: {
+  children: ReactNode;
+  title?: string;
+  back?: BackProp;
+}) {
   const { wallet, advertiser } = useApp();
 
   return (
@@ -14,8 +26,27 @@ export function AppShell({ children }: { children: ReactNode }) {
         <AppSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur">
-            <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
+            <div className="flex items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6">
               <SidebarTrigger />
+              {back && (
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  title={back.label ?? "Back"}
+                  aria-label={back.label ?? "Back"}
+                >
+                  <Link to={back.to}>
+                    <ArrowLeft className="h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
+              {title && (
+                <h1 className="min-w-0 truncate text-base font-semibold sm:text-lg">
+                  {title}
+                </h1>
+              )}
               <div className="ml-auto flex items-center gap-2 sm:gap-3">
                 <div className="flex items-center gap-2 rounded-md border border-border/60 bg-secondary/40 px-3 py-1.5 text-sm">
                   <Wallet className="h-4 w-4 text-muted-foreground" />
