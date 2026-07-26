@@ -37,7 +37,7 @@ function Home() {
 
   if (isEmpty) {
     return (
-      <AppShell>
+      <AppShell title="Home">
         <WelcomeBanner
           name={advertiser.name}
           subtitle="You haven't launched any ads yet. Let's put your business on a screen near you — no tech skills needed."
@@ -71,7 +71,7 @@ function Home() {
   }
 
   return (
-    <AppShell>
+    <AppShell title="Home">
       <WelcomeBanner
         name={advertiser.name}
         subtitle="Put your business on nearby digital screens in just a few taps. Pick up where you left off below."

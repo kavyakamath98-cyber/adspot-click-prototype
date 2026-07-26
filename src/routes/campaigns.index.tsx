@@ -70,14 +70,11 @@ function CampaignsList() {
   }, [hasMore, shown.length]);
 
   return (
-    <AppShell>
+    <AppShell title="Your Campaigns">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Your campaigns</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {campaigns.length} total · search, filter and drill into any campaign.
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          {campaigns.length} total · search, filter and drill into any campaign.
+        </p>
         <Link to="/campaigns/new">
           <Button className="gap-2">
             <Plus className="h-4 w-4" /> New Campaign
