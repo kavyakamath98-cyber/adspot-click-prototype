@@ -876,7 +876,7 @@ function Step2({
       )}
       {available.length === 0 && (
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          No creatives match. Add one to get started.
+          No creatives match these filters. Try clearing filters or adding a new creative.
         </p>
       )}
 
@@ -1014,16 +1014,22 @@ function Step3({
   setSelected: (v: string[]) => void;
 }) {
   const [tagFilter, setTagFilter] = useState<Set<LocationTag>>(new Set());
+  const [dimFilter, setDimFilter] = useState<Set<string>>(new Set());
   const [visible, setVisible] = useState(SCREEN_PAGE);
   const sentinel = useRef<HTMLDivElement | null>(null);
 
   const filtered = useMemo(
-    () => (tagFilter.size === 0 ? screens : screens.filter((s) => tagFilter.has(s.locationTag))),
-    [screens, tagFilter],
+    () =>
+      screens.filter((s) => {
+        if (tagFilter.size > 0 && !tagFilter.has(s.locationTag)) return false;
+        if (dimFilter.size > 0 && !dimFilter.has(presetIdFor(s.width, s.height))) return false;
+        return true;
+      }),
+    [screens, tagFilter, dimFilter],
   );
 
 
-  useEffect(() => setVisible(SCREEN_PAGE), [tagFilter, screens.length]);
+  useEffect(() => setVisible(SCREEN_PAGE), [tagFilter, dimFilter, screens.length]);
 
   useEffect(() => {
     if (visible >= filtered.length) return;
@@ -1095,6 +1101,26 @@ function Step3({
             })
           }
           onClear={() => setTagFilter(new Set())}
+        />
+        <MultiSelectPopover
+          label="Dimensions"
+          options={DIMENSION_PRESETS.map((p) => p.label)}
+          selected={
+            new Set(
+              DIMENSION_PRESETS.filter((p) => dimFilter.has(p.id)).map((p) => p.label),
+            )
+          }
+          onToggle={(labelValue) => {
+            const preset = DIMENSION_PRESETS.find((p) => p.label === labelValue);
+            if (!preset) return;
+            setDimFilter((prev) => {
+              const next = new Set(prev);
+              if (next.has(preset.id)) next.delete(preset.id);
+              else next.add(preset.id);
+              return next;
+            });
+          }}
+          onClear={() => setDimFilter(new Set())}
         />
         <span className="text-xs text-muted-foreground">
           {filtered.length} of {screens.length} screens
