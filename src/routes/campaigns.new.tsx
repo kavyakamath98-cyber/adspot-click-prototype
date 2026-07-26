@@ -750,8 +750,8 @@ function Step2({
         Choose from your library, or add a new one — it syncs automatically.
       </p>
 
-      <div className="mt-4 flex flex-wrap items-end gap-3">
-        <div className="w-full sm:w-64">
+      <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,16rem)_1fr]">
+        <div>
           <Label className="mb-1.5 block text-xs text-muted-foreground">Search</Label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -764,8 +764,8 @@ function Step2({
           </div>
         </div>
 
-        <div className="ml-auto flex flex-wrap items-end gap-3">
-          <div>
+        <div className="flex flex-wrap items-end gap-3 md:justify-end">
+          <div className="min-w-0">
             <Label className="mb-1.5 block text-xs text-muted-foreground">Industry</Label>
             <MultiSelectPopover
               label="Any industry"
@@ -775,10 +775,10 @@ function Step2({
               onClear={() => setIndustryFilter(new Set())}
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <Label className="mb-1.5 block text-xs text-muted-foreground">Creative status</Label>
             <Select value={usageFilter} onValueChange={(v) => setUsageFilter(v as typeof usageFilter)}>
-              <SelectTrigger className="w-56">
+              <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
