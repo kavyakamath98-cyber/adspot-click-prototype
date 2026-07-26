@@ -1,107 +1,59 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, Images, MapPin, Monitor, Plus, Rocket, Search, Sparkles, Target, TrendingUp } from "lucide-react";
-import { AppShell, StatusBadge } from "@/components/AppShell";
+import {
+  ArrowRight,
+  BarChart3,
+  CreditCard,
+  Images,
+  LayoutGrid,
+  Plus,
+  Rocket,
+  Sparkles,
+  Target,
+  TrendingUp,
+} from "lucide-react";
+import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { useApp } from "@/lib/app-context";
-import { PINCODES, type CampaignStatus } from "@/lib/mockData";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dashboard · Additv" },
-      { name: "description", content: "Manage your local DOOH ad campaigns." },
+      { title: "Home · Additv" },
+      { name: "description", content: "Your Additv home — launch and manage local DOOH ad campaigns." },
+      { property: "og:title", content: "Home · Additv" },
+      { property: "og:description", content: "Your Additv home — launch and manage local DOOH ad campaigns." },
     ],
   }),
-  component: Dashboard,
+  component: Home,
 });
 
-const STATUS_FILTERS: { key: CampaignStatus | "all"; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "live", label: "Live" },
-  { key: "pending_approval", label: "Pending" },
-  { key: "approved_scheduled", label: "Scheduled" },
-  { key: "paused", label: "Paused" },
-  { key: "draft", label: "Draft" },
-  { key: "rejected", label: "Rejected" },
-  { key: "completed", label: "Completed" },
-];
-
-const PAGE = 8;
-
-function Dashboard() {
-  const { campaigns, advertiser } = useApp();
+function Home() {
+  const { campaigns, advertiser, wallet } = useApp();
   const live = campaigns.filter((c) => c.status === "live").length;
   const pending = campaigns.filter((c) => c.status === "pending_approval").length;
   const totalSpend = campaigns.reduce((s, c) => s + c.spendToDate, 0);
-
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState<CampaignStatus | "all">("all");
-  const [visible, setVisible] = useState(PAGE);
-  const sentinel = useRef<HTMLDivElement | null>(null);
-
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    return campaigns.filter((c) => {
-      if (status !== "all" && c.status !== status) return false;
-      if (s && !c.name.toLowerCase().includes(s)) return false;
-      return true;
-    });
-  }, [campaigns, q, status]);
-
-  const shown = filtered.slice(0, visible);
-  const hasMore = visible < filtered.length;
-
-  useEffect(() => setVisible(PAGE), [q, status]);
-
-  useEffect(() => {
-    if (!hasMore) return;
-    const el = sentinel.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setVisible((v) => v + PAGE);
-        }
-      },
-      { rootMargin: "200px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [hasMore, shown.length]);
-
   const isEmpty = campaigns.length === 0;
 
   if (isEmpty) {
     return (
       <AppShell>
-        <div className="mb-8 rounded-2xl border border-border bg-gradient-to-br from-accent/60 via-secondary to-background p-6 shadow-sm sm:p-8">
-          <p className="text-sm font-medium text-primary">Welcome 👋</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">{advertiser.name}</h1>
-          <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-            You haven't launched any ads yet. Let's put your business on a screen near you — no tech skills needed.
-          </p>
-        </div>
-
+        <WelcomeBanner
+          name={advertiser.name}
+          subtitle="You haven't launched any ads yet. Let's put your business on a screen near you — no tech skills needed."
+        />
         <Card className="p-8 sm:p-10">
           <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
             <div className="grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary">
               <Sparkles className="h-6 w-6" />
             </div>
             <h2 className="mt-4 text-2xl font-semibold">Launch your first campaign</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Three simple steps. We'll walk you through each one.
-            </p>
-
+            <p className="mt-2 text-sm text-muted-foreground">Three simple steps. We'll walk you through each one.</p>
             <div className="mt-8 grid w-full gap-4 sm:grid-cols-3">
               <HowStep n={1} icon={Target} title="Choose a location" desc="Pick your neighbourhood and radius." />
               <HowStep n={2} icon={Images} title="Add creative & screens" desc="Upload your ad and select nearby screens." />
               <HowStep n={3} icon={Rocket} title="Launch" desc="Set schedule and budget — you're live." />
             </div>
-
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link to="/campaigns/new">
                 <Button size="lg" className="gap-2 px-6 py-6 text-base shadow-md">
@@ -120,22 +72,11 @@ function Dashboard() {
 
   return (
     <AppShell>
-      <div className="mb-8 rounded-2xl border border-border bg-gradient-to-br from-accent/60 via-secondary to-background p-6 shadow-sm sm:p-8">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-primary">Welcome back 👋</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight">{advertiser.name}</h1>
-            <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-              Put your business on nearby digital screens in just a few taps. No tech skills needed — we'll guide you step by step.
-            </p>
-          </div>
-          <Link to="/campaigns/new">
-            <Button size="lg" className="gap-2 px-6 py-6 text-base shadow-md">
-              <Plus className="h-5 w-5" /> Start a New Ad
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <WelcomeBanner
+        name={advertiser.name}
+        subtitle="Put your business on nearby digital screens in just a few taps. Pick up where you left off below."
+        cta
+      />
 
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard label="Live campaigns" value={live} />
@@ -144,106 +85,69 @@ function Dashboard() {
         <StatCard label="Lifetime spend" value={`₹${totalSpend.toLocaleString("en-IN")}`} />
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Your campaigns</h2>
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search campaigns by name"
-            className="pl-9"
-          />
-        </div>
+      <h2 className="mb-3 text-lg font-semibold">Jump back in</h2>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <QuickTile
+          to="/campaigns/new"
+          icon={Plus}
+          title="Create a campaign"
+          desc="Start a new ad in a few taps."
+          accent
+        />
+        <QuickTile
+          to="/campaigns"
+          icon={LayoutGrid}
+          title="View campaigns"
+          desc={`${campaigns.length} campaigns · ${live} live now`}
+        />
+        <QuickTile
+          to="/reports/performance"
+          icon={BarChart3}
+          title="Campaign performance"
+          desc="Impressions, spend and reach analytics."
+        />
+        <QuickTile
+          to="/library"
+          icon={Images}
+          title="Content Library"
+          desc="Manage your creatives and assets."
+        />
+        <QuickTile
+          to="/payments/methods"
+          icon={CreditCard}
+          title="Payment methods"
+          desc={`Wallet balance ₹${wallet.toLocaleString("en-IN")}`}
+        />
+        <QuickTile
+          to="/payments/transactions"
+          icon={TrendingUp}
+          title="Transaction history"
+          desc="Top-ups, spends and refunds."
+        />
       </div>
-
-      <div className="mb-4 flex flex-wrap gap-2">
-        {STATUS_FILTERS.map((f) => {
-          const active = status === f.key;
-          const count =
-            f.key === "all"
-              ? campaigns.length
-              : campaigns.filter((c) => c.status === f.key).length;
-          return (
-            <button
-              key={f.key}
-              onClick={() => setStatus(f.key)}
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-muted-foreground hover:bg-secondary/60",
-              )}
-            >
-              {f.label} <span className="opacity-70">· {count}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {filtered.length === 0 ? (
-        <EmptyState hasQuery={q.length > 0 || status !== "all"} />
-      ) : (
-        <>
-          <div className="grid gap-4 lg:grid-cols-2">
-            {shown.map((c) => {
-              const p = PINCODES[c.pincode];
-              return (
-                <Link
-                  key={c.id}
-                  to="/campaigns/$id"
-                  params={{ id: c.id }}
-                  className="group flex"
-                >
-                  <Card className="flex h-full w-full flex-col p-5 transition-all hover:border-primary/50 hover:shadow-md">
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-semibold group-hover:text-primary">{c.name}</h3>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          Created {new Date(c.createdAt).toLocaleDateString("en-IN")}
-                        </p>
-                      </div>
-                      <StatusBadge status={c.status} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <Info icon={MapPin} label={`${c.locationLabel ?? p?.label ?? c.pincode} · ${c.radiusKm} km`} />
-                      <Info icon={Monitor} label={`${c.screenIds.length} screens`} />
-                      <Info icon={Calendar} label={`${fmt(c.startDate)} → ${fmt(c.endDate)}`} />
-                      <Info
-                        icon={TrendingUp}
-                        label={`₹${c.spendToDate.toLocaleString("en-IN")} / ₹${c.totalBudget.toLocaleString("en-IN")}`}
-                      />
-                    </div>
-                    {c.status === "rejected" && c.rejectionReason && (
-                      <p className="mt-auto pt-3 text-xs text-red-700 dark:text-red-300">
-                        <span className="rounded-md bg-red-50 px-3 py-2 dark:bg-red-500/10">
-                          Reason: {c.rejectionReason}
-                        </span>
-                      </p>
-                    )}
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
-
-          <div ref={sentinel} className="h-10" />
-          {hasMore && (
-            <p className="mt-4 text-center text-xs text-muted-foreground">Loading more…</p>
-          )}
-          {!hasMore && filtered.length > PAGE && (
-            <p className="mt-4 text-center text-xs text-muted-foreground">
-              Showing all {filtered.length} campaigns
-            </p>
-          )}
-        </>
-      )}
     </AppShell>
   );
 }
 
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+function WelcomeBanner({ name, subtitle, cta }: { name: string; subtitle: string; cta?: boolean }) {
+  return (
+    <div className="mb-8 rounded-2xl border border-border bg-gradient-to-br from-accent/60 via-secondary to-background p-6 shadow-sm sm:p-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-primary">Welcome back 👋</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">{name}</h1>
+          <p className="mt-2 max-w-lg text-sm text-muted-foreground">{subtitle}</p>
+        </div>
+        {cta && (
+          <Link to="/campaigns/new">
+            <Button size="lg" className="gap-2 px-6 py-6 text-base shadow-md">
+              <Plus className="h-5 w-5" /> Start a New Ad
+            </Button>
+          </Link>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function StatCard({ label, value }: { label: string; value: number | string }) {
@@ -255,35 +159,37 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
   );
 }
 
-function Info({ icon: Icon, label }: { icon: React.ComponentType<{ className?: string }>; label: string }) {
+function QuickTile({
+  to,
+  icon: Icon,
+  title,
+  desc,
+  accent,
+}: {
+  to: string;
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  desc: string;
+  accent?: boolean;
+}) {
   return (
-    <div className="flex items-center gap-2 text-muted-foreground">
-      <Icon className="h-4 w-4 shrink-0" />
-      <span className="truncate">{label}</span>
-    </div>
-  );
-}
-
-function EmptyState({ hasQuery }: { hasQuery: boolean }) {
-  return (
-    <Card className="flex flex-col items-center justify-center gap-4 p-16 text-center">
-      <div className="grid h-14 w-14 place-items-center rounded-full bg-secondary">
-        <Monitor className="h-6 w-6 text-muted-foreground" />
-      </div>
-      <div>
-        <h3 className="text-lg font-semibold">
-          {hasQuery ? "No campaigns match your filters" : "No campaigns yet"}
-        </h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {hasQuery ? "Try a different search or clear the filters." : "Launch your first hyperlocal DOOH campaign in minutes."}
-        </p>
-      </div>
-      {!hasQuery && (
-        <Link to="/campaigns/new">
-          <Button>Create your first campaign</Button>
-        </Link>
-      )}
-    </Card>
+    <Link to={to} className="group block">
+      <Card
+        className={
+          "flex h-full items-start gap-4 p-5 transition-all hover:border-primary/50 hover:shadow-md " +
+          (accent ? "border-primary/40 bg-primary/5" : "")
+        }
+      >
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold group-hover:text-primary">{title}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{desc}</p>
+        </div>
+        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+      </Card>
+    </Link>
   );
 }
 

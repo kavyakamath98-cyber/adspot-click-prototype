@@ -1,13 +1,16 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard,
+  Home,
   Images,
   Plus,
   LogOut,
   Megaphone,
   ChevronRight,
-  BarChart3,
   LineChart,
+  LayoutGrid,
+  CreditCard,
+  Wallet,
+  Receipt,
 } from "lucide-react";
 import {
   Sidebar,
@@ -33,12 +36,14 @@ import { useApp } from "@/lib/app-context";
 import { toast } from "sonner";
 
 const CAMPAIGN_ITEMS = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/campaigns/new", label: "Create Campaign", icon: Plus, exact: false },
+  { to: "/reports/performance", label: "Campaign Performance", icon: LineChart, exact: false },
+  { to: "/campaigns", label: "View Campaigns", icon: LayoutGrid, exact: true },
 ];
 
-const REPORT_ITEMS = [
-  { to: "/reports/performance", label: "Campaign Performance", icon: LineChart, exact: false },
+const PAYMENT_ITEMS = [
+  { to: "/payments/methods", label: "Payment Methods", icon: Wallet, exact: false },
+  { to: "/payments/transactions", label: "Transaction History", icon: Receipt, exact: false },
 ];
 
 export function AppSidebar() {
@@ -51,13 +56,14 @@ export function AppSidebar() {
     exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
 
   const campaignsOpen = CAMPAIGN_ITEMS.some((i) => isActive(i.to, i.exact));
-  const reportsOpen = REPORT_ITEMS.some((i) => isActive(i.to, i.exact));
+  const paymentsOpen = PAYMENT_ITEMS.some((i) => isActive(i.to, i.exact));
 
   if (collapsed) {
     const flat = [
+      { to: "/", label: "Home", icon: Home, exact: true },
       ...CAMPAIGN_ITEMS,
-      ...REPORT_ITEMS,
       { to: "/library", label: "Content Library", icon: Images, exact: false },
+      ...PAYMENT_ITEMS,
     ];
     return (
       <Sidebar collapsible="icon">
@@ -103,6 +109,16 @@ export function AppSidebar() {
         <SidebarGroup className="py-1">
           <SidebarGroupContent>
             <SidebarMenu>
+              {/* Home */}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive("/", true)}>
+                  <Link to="/" className="flex items-center gap-2">
+                    <Home className="h-4 w-4" />
+                    <span>Home</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
               {/* Campaigns */}
               <Collapsible defaultOpen={campaignsOpen} className="group/campaigns">
                 <SidebarMenuItem>
@@ -132,21 +148,31 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </Collapsible>
 
-              {/* Reports */}
-              <Collapsible defaultOpen={reportsOpen} className="group/reports">
+              {/* Content Library — flat */}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive("/library")}>
+                  <Link to="/library" className="flex items-center gap-2">
+                    <Images className="h-4 w-4" />
+                    <span>Content Library</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              {/* Payments */}
+              <Collapsible defaultOpen={paymentsOpen} className="group/payments">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton className="justify-between">
                       <span className="flex items-center gap-2">
-                        <BarChart3 className="h-4 w-4" />
-                        Reports
+                        <CreditCard className="h-4 w-4" />
+                        Payments
                       </span>
-                      <ChevronRight className="h-4 w-4 transition-transform group-data-[state=open]/reports:rotate-90" />
+                      <ChevronRight className="h-4 w-4 transition-transform group-data-[state=open]/payments:rotate-90" />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {REPORT_ITEMS.map((n) => (
+                      {PAYMENT_ITEMS.map((n) => (
                         <SidebarMenuSubItem key={n.to}>
                           <SidebarMenuSubButton asChild isActive={isActive(n.to, n.exact)}>
                             <Link to={n.to} className="flex items-center gap-2">
@@ -160,16 +186,6 @@ export function AppSidebar() {
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </Collapsible>
-
-              {/* Content Library — flat */}
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/library")}>
-                  <Link to="/library" className="flex items-center gap-2">
-                    <Images className="h-4 w-4" />
-                    <span>Content Library</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
