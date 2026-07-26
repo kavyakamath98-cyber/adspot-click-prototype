@@ -28,7 +28,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/library")({
   head: () => ({
     meta: [
-      { title: "Content Library · Additiv" },
+      { title: "Content Library · Additv" },
       { name: "description", content: "Reusable creatives for your campaigns." },
     ],
   }),
