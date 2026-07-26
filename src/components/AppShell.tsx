@@ -10,21 +10,38 @@ import { AppSidebar } from "@/components/AppSidebar";
 type BackProp = { to: string; label?: string };
 
 // Module-scope so it persists across route remounts of AppShell.
-// Tracks whether we've already auto-collapsed the sidebar once.
+let sidebarOpenGlobal = true;
 let autoCollapsedOnce = false;
 let userTouchedSidebar = false;
+const listeners = new Set<(v: boolean) => void>();
+function setSidebarOpenGlobal(v: boolean) {
+  sidebarOpenGlobal = v;
+  listeners.forEach((l) => l(v));
+}
+
+function useSidebarOpen() {
+  const [open, setOpen] = useState(sidebarOpenGlobal);
+  useEffect(() => {
+    listeners.add(setOpen);
+    setOpen(sidebarOpenGlobal);
+    return () => {
+      listeners.delete(setOpen);
+    };
+  }, []);
+  return open;
+}
 
 function SidebarAutoCollapse() {
-  const { setOpen, setOpenMobile, isMobile } = useSidebar();
+  const { setOpenMobile, isMobile } = useSidebar();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   useEffect(() => {
     if (autoCollapsedOnce || userTouchedSidebar) return;
-    if (pathname === "/") return; // still on landing page
+    if (pathname === "/") return;
     autoCollapsedOnce = true;
     if (isMobile) setOpenMobile(false);
-    else setOpen(false);
-  }, [pathname, isMobile, setOpen, setOpenMobile]);
+    else setSidebarOpenGlobal(false);
+  }, [pathname, isMobile, setOpenMobile]);
 
   return null;
 }
@@ -42,7 +59,7 @@ export function AppShell({
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const sidebarOpen = useSidebarOpen();
 
   const showBack = pathname !== "/";
   const backLabel = back?.label ?? "Back";
@@ -52,10 +69,11 @@ export function AppShell({
       open={sidebarOpen}
       onOpenChange={(v) => {
         userTouchedSidebar = true;
-        setSidebarOpen(v);
+        setSidebarOpenGlobal(v);
       }}
     >
       <SidebarAutoCollapse />
+
 
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
