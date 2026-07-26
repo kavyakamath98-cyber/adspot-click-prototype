@@ -59,12 +59,14 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useApp } from "@/lib/app-context";
 import {
+  DIMENSION_PRESETS,
   INDUSTRIES,
   LOCATION_SUGGESTIONS,
   LOCATION_TAGS,
   PINCODES,
   SCREENS,
   distanceKm,
+  presetIdFor,
   type Campaign,
   type Creative,
   type Industry,
