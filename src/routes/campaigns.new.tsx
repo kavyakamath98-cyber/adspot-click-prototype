@@ -1533,7 +1533,7 @@ function SummaryCard({
         <Row k="Creative" v={creative?.name ?? "—"} />
         <Row k="Playtime" v={creative ? `${playSec}s/loop` : "—"} />
         <Row k="Selected screens" v={`${selectedScreens}`} />
-        <Row k="Duration" v={`${days} days`} />
+        <Row k="Duration" v={days ? `${days} days` : "—"} />
       </dl>
       <div className="mt-4 border-t pt-3">
         <div className="flex items-baseline justify-between">
