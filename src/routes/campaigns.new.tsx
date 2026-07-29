@@ -1315,11 +1315,11 @@ function Step5({
   setRecurrence,
   isNewCreative,
 }: {
-  startDate: string;
-  setStartDate: (v: string) => void;
-  endDate: string;
-  setEndDate: (v: string) => void;
-  days: number;
+  startDate: string | undefined;
+  setStartDate: (v: string | undefined) => void;
+  endDate: string | undefined;
+  setEndDate: (v: string | undefined) => void;
+  days: number | undefined;
   totalCost: number;
   minStart: string;
   scheduleValid: boolean;
