@@ -116,6 +116,7 @@ export interface Campaign {
   recurrenceDays?: number[]; // 0-6 (Sun-Sat) for weekly
   pausedAt?: string;
   totalPausedDays?: number;
+  lastStep?: number;
 }
 
 export const REJECTION_REASONS = [
