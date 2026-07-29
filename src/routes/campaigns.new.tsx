@@ -1374,8 +1374,8 @@ function Step5({
           <Label>End date</Label>
           <Input
             type="date"
-            value={endDate}
-            min={startDate}
+            value={endDate ?? ""}
+            min={startDate ?? minStart}
             onChange={(e) => setEndDate(e.target.value)}
             className="mt-1.5"
           />
