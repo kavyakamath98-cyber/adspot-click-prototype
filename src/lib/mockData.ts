@@ -31,6 +31,29 @@ export const INDUSTRIES = [
 ] as const;
 export type Industry = (typeof INDUSTRIES)[number];
 
+/** Fixed standard DOOH day-part slots. */
+export interface Daypart {
+  id: string;
+  label: string;
+}
+export const DAYPARTS: Daypart[] = [
+  { id: "dp1", label: "6:00–9:00 AM" },
+  { id: "dp2", label: "9:00 AM–12:00 PM" },
+  { id: "dp3", label: "12:00–4:00 PM" },
+  { id: "dp4", label: "4:00–8:00 PM" },
+  { id: "dp5", label: "8:00–11:00 PM" },
+];
+export const ALL_DAYPART_IDS = DAYPARTS.map((d) => d.id);
+
+export interface ScreenBooking {
+  start: string; // YYYY-MM-DD
+  end: string; // YYYY-MM-DD inclusive
+  slots: string[]; // booked daypart ids
+}
+
+export const CONTENT_TAGS = ["General/Info", "Alcohol", "Sensitive", "Adult"] as const;
+export type ContentTag = (typeof CONTENT_TAGS)[number];
+
 export interface Screen {
   id: string;
   venue: string;
@@ -50,7 +73,7 @@ export interface Screen {
   width: number;
   height: number;
   pricePerDay: number;
-  availability: ScreenAvailability;
+  bookings: ScreenBooking[];
 }
 
 export interface Creative {
@@ -66,12 +89,14 @@ export interface Creative {
   uploadedAt: string;
   tags: string[];
   industry?: Industry;
+  contentTag?: ContentTag;
   status: "approved" | "rejected" | "pending";
   rejectionReason?: string;
   // true if this creative has ever cleared review — enables it to reuse without
   // the 48-hour review buffer on start date.
   previouslyApproved?: boolean;
 }
+
 
 export type CampaignStatus =
   | "draft"
@@ -114,6 +139,9 @@ export interface Campaign {
   playSec?: number;
   recurrence?: Recurrence;
   recurrenceDays?: number[]; // 0-6 (Sun-Sat) for weekly
+  daysOfWeek?: number[]; // 0-6 (Sun-Sat) — days the ad runs
+  dayparts?: string[]; // daypart ids the ad runs in
+
   pausedAt?: string;
   totalPausedDays?: number;
   lastStep?: number;
@@ -185,6 +213,108 @@ const venueTypes: Screen["venueType"][] = [
   "Mall",
 ];
 
+/* ---------- Date + availability helpers ---------- */
+
+export function toISO(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+export function addDaysISO(iso: string, n: number) {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + n);
+  return toISO(d);
+}
+/** Inclusive list of YYYY-MM-DD days between start and end. */
+export function daysBetween(start: string, end: string): string[] {
+  const out: string[] = [];
+  if (!start || !end || end < start) return out;
+  let cur = start;
+  let guard = 0;
+  while (cur <= end && guard < 400) {
+    out.push(cur);
+    cur = addDaysISO(cur, 1);
+    guard++;
+  }
+  return out;
+}
+export function fmtShort(iso: string) {
+  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
+
+/** Deterministic mock bookings (0–3) per screen, seeded by index. */
+function mkBookings(i: number): ScreenBooking[] {
+  const today = toISO(new Date());
+  const count = i % 4; // 0..3
+  const out: ScreenBooking[] = [];
+  for (let b = 0; b < count; b++) {
+    const offset = (i * 7 + b * 13) % 26;
+    const len = 2 + ((i + b * 3) % 6);
+    const start = addDaysISO(today, offset);
+    const end = addDaysISO(start, len - 1);
+    const fullDay = (i + b) % 3 === 0;
+    const slots = fullDay
+      ? [...ALL_DAYPART_IDS]
+      : ALL_DAYPART_IDS.filter((_, si) => (si + i + b) % 2 === 0);
+    out.push({ start, end, slots: slots.length ? slots : [ALL_DAYPART_IDS[0]] });
+  }
+  return out;
+}
+
+/** Booked daypart ids on a given day for a screen. */
+export function bookedSlotsOn(screen: Screen, day: string): Set<string> {
+  const set = new Set<string>();
+  for (const b of screen.bookings) {
+    if (day >= b.start && day <= b.end) b.slots.forEach((s) => set.add(s));
+  }
+  return set;
+}
+
+/** A day counts as blocked when every requested daypart is already booked. */
+function dayBlocked(screen: Screen, day: string, slots: string[]) {
+  const booked = bookedSlotsOn(screen, day);
+  const wanted = slots.length ? slots : ALL_DAYPART_IDS;
+  return wanted.every((s) => booked.has(s));
+}
+
+export type ScreenStatus = "available" | "partial" | "booked";
+
+/** Screen availability for a date range (optionally limited to weekdays + dayparts). */
+export function screenAvailability(
+  screen: Screen,
+  start?: string,
+  end?: string,
+  daysOfWeek: number[] = [0, 1, 2, 3, 4, 5, 6],
+  slots: string[] = ALL_DAYPART_IDS,
+): ScreenStatus {
+  if (!start || !end) return "available";
+  const all = daysBetween(start, end).filter((d) => daysOfWeek.includes(new Date(d).getDay()));
+  if (all.length === 0) return "available";
+  const blocked = all.filter((d) => dayBlocked(screen, d, slots));
+  if (blocked.length === 0) return "available";
+  if (blocked.length === all.length) return "booked";
+  return "partial";
+}
+
+/** Bookings that overlap the given range, for the info popover. */
+export function conflictingBookings(screen: Screen, start?: string, end?: string) {
+  if (!start || !end) return [];
+  return screen.bookings.filter((b) => b.start <= end && b.end >= start);
+}
+
+/** Does this screen have the given daypart free on at least one day in range? */
+export function slotFreeSomewhere(
+  screen: Screen,
+  slot: string,
+  start?: string,
+  end?: string,
+  daysOfWeek: number[] = [0, 1, 2, 3, 4, 5, 6],
+) {
+  if (!start || !end) return true;
+  const all = daysBetween(start, end).filter((d) => daysOfWeek.includes(new Date(d).getDay()));
+  if (all.length === 0) return true;
+  return all.some((d) => !bookedSlotsOn(screen, d).has(slot));
+}
+
+
 function mkScreens(): Screen[] {
   const base: Omit<Screen, "id" | "locationTag">[] = [];
   const seeds: [string, string, number, number, ScreenAvailability][] = [
@@ -249,7 +379,7 @@ function mkScreens(): Screen[] {
     ["Versova Township", "400053", 0.016, 0.007, "available"],
   ];
   seeds.forEach((s, i) => {
-    const [venue, pin, dLat, dLng, avail] = s;
+    const [venue, pin, dLat, dLng] = s;
     const p = PINCODES[pin];
     const preset = DIMENSION_PRESETS[i % DIMENSION_PRESETS.length];
     const price = 150 + ((i * 37) % 451);
@@ -273,9 +403,10 @@ function mkScreens(): Screen[] {
       width: preset.width,
       height: preset.height,
       pricePerDay: Math.round(price / 10) * 10,
-      availability: avail,
+      bookings: mkBookings(i),
     });
   });
+
   return base.map((s, i) => ({
     ...s,
     id: `scr_${i + 1}`,
@@ -319,6 +450,7 @@ export const INITIAL_CREATIVES: Creative[] = [
     uploadedAt: "2026-06-10",
     tags: ["festival", "food"],
     industry: "Restaurant",
+    contentTag: "General/Info",
     status: "approved",
     previouslyApproved: true,
   },
@@ -333,6 +465,7 @@ export const INITIAL_CREATIVES: Creative[] = [
     uploadedAt: "2026-06-18",
     tags: ["weekend", "food"],
     industry: "Restaurant",
+    contentTag: "General/Info",
     status: "approved",
     previouslyApproved: true,
   },
@@ -349,6 +482,7 @@ export const INITIAL_CREATIVES: Creative[] = [
     uploadedAt: "2026-07-01",
     tags: ["video", "menu"],
     industry: "Restaurant",
+    contentTag: "General/Info",
     status: "approved",
     previouslyApproved: true,
   },
@@ -363,6 +497,7 @@ export const INITIAL_CREATIVES: Creative[] = [
     uploadedAt: "2026-05-20",
     tags: ["drinks", "night"],
     industry: "Restaurant",
+    contentTag: "Alcohol",
     status: "rejected",
     rejectionReason: "Alcohol or tobacco promotion",
   },
@@ -379,6 +514,7 @@ export const INITIAL_CREATIVES: Creative[] = [
     uploadedAt: "2026-07-05",
     tags: ["video", "grand-opening"],
     industry: "Restaurant",
+    contentTag: "General/Info",
     status: "approved",
     previouslyApproved: true,
   },
