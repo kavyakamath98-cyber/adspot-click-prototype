@@ -134,13 +134,49 @@ export function AppShell({
                   <span className="font-medium">₹{wallet.toLocaleString("en-IN")}</span>
                   <span className="hidden text-xs text-muted-foreground sm:inline">wallet</span>
                 </div>
-                <div
-                  className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-xs font-semibold"
-                  title={`${advertiser.name} · ${advertiser.email}`}
-                  aria-label={advertiser.name}
-                >
-                  RK
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-xs font-semibold outline-none ring-offset-background transition hover:bg-secondary/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      title={`${advertiser.name} · ${advertiser.email}`}
+                      aria-label={advertiser.name}
+                    >
+                      {initials}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuLabel>
+                      <div className="text-sm font-medium">{advertiser.name}</div>
+                      <div className="text-xs font-normal text-muted-foreground">
+                        {advertiser.email}
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-[11px] font-normal uppercase tracking-wide text-muted-foreground">
+                      Demo mode
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem onSelect={() => setDemoMode("returning")}>
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          demoMode === "returning" ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      Ramesh's Kitchen (returning)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setDemoMode("new")}>
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          demoMode === "new" ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      New advertiser (empty account)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
               </div>
             </div>
           </header>
