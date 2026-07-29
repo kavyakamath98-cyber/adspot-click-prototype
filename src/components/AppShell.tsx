@@ -1,4 +1,4 @@
-import { Wallet, PlayCircle, ArrowLeft } from "lucide-react";
+import { Wallet, PlayCircle, ArrowLeft, Check } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { useApp } from "@/lib/app-context";
@@ -6,6 +6,15 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 type BackProp = { to: string; label?: string };
 
@@ -55,7 +64,7 @@ export function AppShell({
   title?: string;
   back?: BackProp;
 }) {
-  const { wallet, advertiser } = useApp();
+  const { wallet, advertiser, demoMode, setDemoMode } = useApp();
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -63,6 +72,13 @@ export function AppShell({
 
   const showBack = pathname !== "/";
   const backLabel = back?.label ?? "Back";
+  const initials = advertiser.name
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
 
   return (
     <SidebarProvider
@@ -118,13 +134,49 @@ export function AppShell({
                   <span className="font-medium">₹{wallet.toLocaleString("en-IN")}</span>
                   <span className="hidden text-xs text-muted-foreground sm:inline">wallet</span>
                 </div>
-                <div
-                  className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-xs font-semibold"
-                  title={`${advertiser.name} · ${advertiser.email}`}
-                  aria-label={advertiser.name}
-                >
-                  RK
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-xs font-semibold outline-none ring-offset-background transition hover:bg-secondary/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      title={`${advertiser.name} · ${advertiser.email}`}
+                      aria-label={advertiser.name}
+                    >
+                      {initials}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuLabel>
+                      <div className="text-sm font-medium">{advertiser.name}</div>
+                      <div className="text-xs font-normal text-muted-foreground">
+                        {advertiser.email}
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-[11px] font-normal uppercase tracking-wide text-muted-foreground">
+                      Demo mode
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem onSelect={() => setDemoMode("returning")}>
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          demoMode === "returning" ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      Ramesh's Kitchen (returning)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setDemoMode("new")}>
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          demoMode === "new" ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      New advertiser (empty account)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
               </div>
             </div>
           </header>

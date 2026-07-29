@@ -113,8 +113,16 @@ function NewCampaign() {
   const draft = draftId ? campaigns.find((c) => c.id === draftId) : undefined;
   const source = resubmit ?? draft;
 
-  const [step, setStep] = useState<Step>(1);
-  const [visited, setVisited] = useState<Set<Step>>(new Set([1]));
+  const [step, setStep] = useState<Step>(() => {
+    const s = (source?.lastStep ?? 1) as number;
+    return (Math.min(6, Math.max(1, s)) as Step);
+  });
+  const [visited, setVisited] = useState<Set<Step>>(() => {
+    const initial = (source?.lastStep ?? 1) as number;
+    const set = new Set<Step>();
+    for (let i = 1; i <= Math.min(6, Math.max(1, initial)); i++) set.add(i as Step);
+    return set;
+  });
 
   const [name, setName] = useState(source?.name ?? "New Campaign");
 
@@ -159,38 +167,33 @@ function NewCampaign() {
   // Step 4 — preview
   const [fitMode, setFitMode] = useState<FitMode>(source?.fitMode ?? "contain");
 
-  // Step 5 — schedule
-  const today = new Date().toISOString().split("T")[0];
+  // Step 5 — schedule (undefined until user picks real dates)
   const isNewCreative = !!selectedCreative && !selectedCreative.previouslyApproved;
   const minStartDate = useMemo(() => {
-    if (isNewCreative) {
-      const d = new Date();
-      d.setDate(d.getDate() + 2);
-      return d.toISOString().slice(0, 10);
-    }
     const d = new Date();
-    d.setDate(d.getDate() + 1);
+    d.setDate(d.getDate() + (isNewCreative ? 2 : 1));
     return d.toISOString().slice(0, 10);
   }, [isNewCreative]);
 
-  const [startDate, setStartDate] = useState<string>(source?.startDate ?? minStartDate);
-  const [endDate, setEndDate] = useState<string>(
-    source?.endDate ?? new Date(Date.now() + 8 * 86400000).toISOString().split("T")[0],
-  );
+  const [startDate, setStartDate] = useState<string | undefined>(source?.startDate);
+  const [endDate, setEndDate] = useState<string | undefined>(source?.endDate);
   useEffect(() => {
-    if (new Date(startDate) < new Date(minStartDate)) setStartDate(minStartDate);
+    if (startDate && new Date(startDate) < new Date(minStartDate)) setStartDate(minStartDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minStartDate]);
 
   const [recurrence, setRecurrence] = useState<Recurrence>(source?.recurrence ?? "none");
 
-  const days = useMemo(() => {
+  const days = useMemo<number | undefined>(() => {
+    if (!startDate || !endDate) return undefined;
     const d1 = new Date(startDate);
     const d2 = new Date(endDate);
-    return Math.max(0, Math.round((d2.getTime() - d1.getTime()) / 86400000) + 1);
+    const n = Math.round((d2.getTime() - d1.getTime()) / 86400000) + 1;
+    return n > 0 ? n : undefined;
   }, [startDate, endDate]);
 
   const totalCost = useMemo(() => {
+    if (!days) return 0;
     const priced = selectedScreens.reduce((sum, id) => {
       const s = SCREENS.find((x) => x.id === id);
       return sum + (s?.pricePerDay ?? 0);
@@ -199,8 +202,12 @@ function NewCampaign() {
   }, [selectedScreens, days]);
 
   const scheduleValid =
-    new Date(startDate) >= new Date(minStartDate) && new Date(endDate) > new Date(startDate);
-  const meetsMinimums = days >= 3 && totalCost >= 999;
+    !!startDate &&
+    !!endDate &&
+    new Date(startDate) >= new Date(minStartDate) &&
+    new Date(endDate) > new Date(startDate);
+  const meetsMinimums = !!days && days >= 3 && totalCost >= 999;
+
 
   const [payOpen, setPayOpen] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
@@ -255,8 +262,8 @@ function NewCampaign() {
     locationLabel,
     screenIds: selectedScreens,
     creativeId: selectedCreative?.id ?? source?.creativeId ?? "",
-    startDate,
-    endDate,
+    startDate: startDate ?? "",
+    endDate: endDate ?? "",
     totalBudget: totalCost,
     spendToDate: 0,
     estimatedImpressions: 0,
@@ -264,6 +271,7 @@ function NewCampaign() {
     fitMode,
     playSec,
     recurrence,
+    lastStep: step,
   });
 
   const handleSaveDraft = () => {
@@ -750,6 +758,41 @@ function Step2({
         Choose from your library, or add a new one — it syncs automatically.
       </p>
 
+      {creatives.length === 0 && (
+        <div className="mt-6 rounded-xl border-2 border-dashed border-border/70 bg-muted/20 p-8 text-center">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
+            <Plus className="h-6 w-6" />
+          </div>
+          <h3 className="mt-3 text-base font-semibold">Your library is empty</h3>
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+            Upload your first creative to get started. New creatives take 24–48 hours to clear brand-safety
+            review before they can go live.
+          </p>
+          <Button onClick={() => setAddOpen(true)} className="mt-4 gap-1.5">
+            <Plus className="h-4 w-4" /> Upload creative
+          </Button>
+          <AddCreativeDialog
+            open={addOpen}
+            onOpenChange={setAddOpen}
+            onCreated={(c) => setSelectedId(c.id)}
+          />
+        </div>
+      )}
+
+      {creatives.length > 0 && selected && !selected.previouslyApproved && (
+        <Alert className="mt-4 border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <Clock className="h-4 w-4" />
+          <AlertTitle>New creative — 24-48 hour review</AlertTitle>
+          <AlertDescription>
+            This creative hasn't cleared brand-safety review before. Your campaign can be scheduled, but
+            can't go live until review completes.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {creatives.length > 0 && (<>
+
+
       <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,16rem)_1fr]">
         <div>
           <Label className="mb-1.5 block text-xs text-muted-foreground">Search</Label>
@@ -918,6 +961,7 @@ function Step2({
         onOpenChange={setAddOpen}
         onCreated={(cr) => setSelectedId(cr.id)}
       />
+      </>)}
     </Card>
   );
 }
@@ -1307,11 +1351,11 @@ function Step5({
   setRecurrence,
   isNewCreative,
 }: {
-  startDate: string;
-  setStartDate: (v: string) => void;
-  endDate: string;
-  setEndDate: (v: string) => void;
-  days: number;
+  startDate: string | undefined;
+  setStartDate: (v: string | undefined) => void;
+  endDate: string | undefined;
+  setEndDate: (v: string | undefined) => void;
+  days: number | undefined;
   totalCost: number;
   minStart: string;
   scheduleValid: boolean;
@@ -1321,6 +1365,7 @@ function Step5({
   isNewCreative: boolean;
 }) {
   const dateRangeText = useMemo(() => {
+    if (!startDate || !endDate || !days) return "—";
     const fmt = (d: string) =>
       new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
     return `${days} day${days === 1 ? "" : "s"} · ${fmt(startDate)} – ${fmt(endDate)}`;
@@ -1355,7 +1400,7 @@ function Step5({
           <Label>Start date</Label>
           <Input
             type="date"
-            value={startDate}
+            value={startDate ?? ""}
             min={minStart}
             onChange={(e) => setStartDate(e.target.value)}
             className="mt-1.5"
@@ -1365,8 +1410,8 @@ function Step5({
           <Label>End date</Label>
           <Input
             type="date"
-            value={endDate}
-            min={startDate}
+            value={endDate ?? ""}
+            min={startDate ?? minStart}
             onChange={(e) => setEndDate(e.target.value)}
             className="mt-1.5"
           />
@@ -1442,7 +1487,7 @@ function Step6({
   locationLabel: string;
   radius: number;
   screens: number;
-  days: number;
+  days: number | undefined;
   totalCost: number;
   creative: Creative;
   onPay: () => void;
@@ -1470,7 +1515,7 @@ function Step6({
           <SummaryRow label="Creative" value={creative.name} />
           <SummaryRow label="Location" value={`${locationLabel} · ${radius} km`} />
           <SummaryRow label="Screens" value={`${screens}`} />
-          <SummaryRow label="Duration" value={`${days} days`} />
+          <SummaryRow label="Duration" value={days ? `${days} days` : "—"} />
           <SummaryRow label="Total" value={`₹${totalCost.toLocaleString("en-IN")}`} highlight />
         </dl>
       </div>
@@ -1510,7 +1555,7 @@ function SummaryCard({
   inRange: number;
   creative?: Creative;
   selectedScreens: number;
-  days: number;
+  days: number | undefined;
   totalCost: number;
   playSec: number;
 }) {
@@ -1524,7 +1569,7 @@ function SummaryCard({
         <Row k="Creative" v={creative?.name ?? "—"} />
         <Row k="Playtime" v={creative ? `${playSec}s/loop` : "—"} />
         <Row k="Selected screens" v={`${selectedScreens}`} />
-        <Row k="Duration" v={`${days} days`} />
+        <Row k="Duration" v={days ? `${days} days` : "—"} />
       </dl>
       <div className="mt-4 border-t pt-3">
         <div className="flex items-baseline justify-between">
