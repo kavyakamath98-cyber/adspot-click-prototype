@@ -262,8 +262,8 @@ function NewCampaign() {
     locationLabel,
     screenIds: selectedScreens,
     creativeId: selectedCreative?.id ?? source?.creativeId ?? "",
-    startDate,
-    endDate,
+    startDate: startDate ?? "",
+    endDate: endDate ?? "",
     totalBudget: totalCost,
     spendToDate: 0,
     estimatedImpressions: 0,
@@ -271,6 +271,7 @@ function NewCampaign() {
     fitMode,
     playSec,
     recurrence,
+    lastStep: step,
   });
 
   const handleSaveDraft = () => {
