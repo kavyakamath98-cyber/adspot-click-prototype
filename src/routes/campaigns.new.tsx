@@ -1771,6 +1771,7 @@ function SummaryCard({
   selectedScreens,
   days,
   totalCost,
+  costPending,
   playSec,
 }: {
   name: string;
@@ -1781,6 +1782,7 @@ function SummaryCard({
   selectedScreens: number;
   days: number | undefined;
   totalCost: number;
+  costPending?: boolean;
   playSec: number;
 }) {
   return (
@@ -1798,7 +1800,9 @@ function SummaryCard({
       <div className="mt-4 border-t pt-3">
         <div className="flex items-baseline justify-between">
           <span className="text-sm text-muted-foreground">Total</span>
-          <span className="text-xl font-semibold">₹{totalCost.toLocaleString("en-IN")}</span>
+          <span className="text-xl font-semibold">
+            {costPending && totalCost === 0 ? "—" : `₹${totalCost.toLocaleString("en-IN")}`}
+          </span>
         </div>
       </div>
     </Card>
