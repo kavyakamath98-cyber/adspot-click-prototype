@@ -64,7 +64,7 @@ export function AppShell({
   title?: string;
   back?: BackProp;
 }) {
-  const { wallet, advertiser } = useApp();
+  const { wallet, advertiser, demoMode, setDemoMode } = useApp();
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -72,6 +72,13 @@ export function AppShell({
 
   const showBack = pathname !== "/";
   const backLabel = back?.label ?? "Back";
+  const initials = advertiser.name
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
 
   return (
     <SidebarProvider
