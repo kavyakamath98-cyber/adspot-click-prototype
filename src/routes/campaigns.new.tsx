@@ -961,6 +961,7 @@ function Step2({
         onOpenChange={setAddOpen}
         onCreated={(cr) => setSelectedId(cr.id)}
       />
+      </>)}
     </Card>
   );
 }
