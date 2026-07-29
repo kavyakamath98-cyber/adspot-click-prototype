@@ -758,6 +758,41 @@ function Step2({
         Choose from your library, or add a new one — it syncs automatically.
       </p>
 
+      {creatives.length === 0 && (
+        <div className="mt-6 rounded-xl border-2 border-dashed border-border/70 bg-muted/20 p-8 text-center">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
+            <Plus className="h-6 w-6" />
+          </div>
+          <h3 className="mt-3 text-base font-semibold">Your library is empty</h3>
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+            Upload your first creative to get started. New creatives take 24–48 hours to clear brand-safety
+            review before they can go live.
+          </p>
+          <Button onClick={() => setAddOpen(true)} className="mt-4 gap-1.5">
+            <Plus className="h-4 w-4" /> Upload creative
+          </Button>
+          <AddCreativeDialog
+            open={addOpen}
+            onOpenChange={setAddOpen}
+            onCreated={(c) => setSelectedId(c.id)}
+          />
+        </div>
+      )}
+
+      {creatives.length > 0 && selected && !selected.previouslyApproved && (
+        <Alert className="mt-4 border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <Clock className="h-4 w-4" />
+          <AlertTitle>New creative — 24-48 hour review</AlertTitle>
+          <AlertDescription>
+            This creative hasn't cleared brand-safety review before. Your campaign can be scheduled, but
+            can't go live until review completes.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {creatives.length > 0 && (<>
+
+
       <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,16rem)_1fr]">
         <div>
           <Label className="mb-1.5 block text-xs text-muted-foreground">Search</Label>
