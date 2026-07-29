@@ -1519,7 +1519,7 @@ function SummaryCard({
   inRange: number;
   creative?: Creative;
   selectedScreens: number;
-  days: number;
+  days: number | undefined;
   totalCost: number;
   playSec: number;
 }) {
