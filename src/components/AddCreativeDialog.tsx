@@ -20,7 +20,13 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useApp } from "@/lib/app-context";
-import { INDUSTRIES, type Creative, type Industry } from "@/lib/mockData";
+import {
+  CONTENT_TAGS,
+  INDUSTRIES,
+  type ContentTag,
+  type Creative,
+  type Industry,
+} from "@/lib/mockData";
 
 export function AddCreativeDialog({
   open,
@@ -32,8 +38,9 @@ export function AddCreativeDialog({
   /** Called with the newly-created creative (status: "pending"). */
   onCreated?: (created: Creative) => void;
 }) {
-  const { addCreative, markCreativeApproved } = useApp();
+  const { addCreative } = useApp();
   const [industry, setIndustry] = useState<Industry>("Restaurant");
+  const [contentTag, setContentTag] = useState<ContentTag>("General/Info");
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -45,6 +52,7 @@ export function AddCreativeDialog({
     setPreviewUrl(null);
     setName("");
     setIndustry("Restaurant");
+    setContentTag("General/Info");
     setChecking(false);
   };
 
@@ -88,16 +96,15 @@ export function AddCreativeDialog({
         uploadedAt: new Date().toISOString().slice(0, 10),
         tags: [industry.toLowerCase().split("/")[0]],
         industry,
+        contentTag,
         status: "pending",
         previouslyApproved: false,
       };
       addCreative(created);
       onCreated?.(created);
-      setTimeout(() => {
-        markCreativeApproved(created.id);
-        toast.success("Content passed brand-safety check");
-      }, 1600);
-      toast.info("Creative uploaded — running brand-safety check…");
+      toast.info(
+        "Creative uploaded — it stays in review until a campaign using it is submitted and reviewed.",
+      );
       onOpenChange(false);
       reset();
     });
@@ -134,6 +141,25 @@ export function AddCreativeDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <Label>Content tag</Label>
+            <Select value={contentTag} onValueChange={(v) => setContentTag(v as ContentTag)}>
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="Select content type" />
+              </SelectTrigger>
+              <SelectContent>
+                {CONTENT_TAGS.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Classifies the content itself. Alcohol and Adult content is rejected at review.
+            </p>
           </div>
 
           <div>

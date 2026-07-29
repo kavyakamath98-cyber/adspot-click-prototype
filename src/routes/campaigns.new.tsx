@@ -67,11 +67,19 @@ import {
   SCREENS,
   distanceKm,
   presetIdFor,
+  ALL_DAYPART_IDS,
+  DAYPARTS,
+  addDaysISO,
+  bookedSlotsOn,
+  daysBetween,
+  fmtShort,
+  screenAvailability,
+  slotFreeSomewhere,
+  toISO,
   type Campaign,
   type Creative,
   type Industry,
   type LocationTag,
-  type Recurrence,
 } from "@/lib/mockData";
 
 
@@ -95,7 +103,19 @@ export const Route = createFileRoute("/campaigns/new")({
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 type FitMode = "contain" | "cover" | "fill";
 
-const STEP_LABELS = ["Details & Targeting", "Creative", "Screens", "Preview", "Schedule", "Payment"];
+const STEP_LABELS = ["Details & Targeting", "Creative", "Schedule", "Screens", "Preview", "Payment"];
+
+const ALL_DOW = [0, 1, 2, 3, 4, 5, 6];
+const DOW_ORDER = [1, 2, 3, 4, 5, 6, 0];
+const DOW_LABEL: Record<number, string> = {
+  0: "Sun",
+  1: "Mon",
+  2: "Tue",
+  3: "Wed",
+  4: "Thu",
+  5: "Fri",
+  6: "Sat",
+};
 
 function NewCampaign() {
   const { creativeId, resubmitId, draftId } = Route.useSearch();
@@ -161,13 +181,7 @@ function NewCampaign() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCreativeId]);
 
-  // Step 3 — screens
-  const [selectedScreens, setSelectedScreens] = useState<string[]>(source?.screenIds ?? []);
-
-  // Step 4 — preview
-  const [fitMode, setFitMode] = useState<FitMode>(source?.fitMode ?? "contain");
-
-  // Step 5 — schedule (undefined until user picks real dates)
+  // Step 3 — schedule (undefined until user picks real dates)
   const isNewCreative = !!selectedCreative && !selectedCreative.previouslyApproved;
   const minStartDate = useMemo(() => {
     const d = new Date();
@@ -175,14 +189,42 @@ function NewCampaign() {
     return d.toISOString().slice(0, 10);
   }, [isNewCreative]);
 
-  const [startDate, setStartDate] = useState<string | undefined>(source?.startDate);
-  const [endDate, setEndDate] = useState<string | undefined>(source?.endDate);
+  const [startDate, setStartDate] = useState<string | undefined>(source?.startDate || undefined);
+  const [endDate, setEndDate] = useState<string | undefined>(source?.endDate || undefined);
   useEffect(() => {
     if (startDate && new Date(startDate) < new Date(minStartDate)) setStartDate(minStartDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minStartDate]);
 
-  const [recurrence, setRecurrence] = useState<Recurrence>(source?.recurrence ?? "none");
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>(source?.daysOfWeek ?? ALL_DOW);
+  const [dayparts, setDayparts] = useState<string[]>(source?.dayparts ?? ALL_DAYPART_IDS);
+  const [tagFilter, setTagFilter] = useState<Set<LocationTag>>(new Set());
+  const [dimFilter, setDimFilter] = useState<Set<string>>(new Set());
+
+  // Candidate screens = in radius + schedule-step filters
+  const candidateScreens = useMemo(
+    () =>
+      inRangeScreens.filter((s) => {
+        if (tagFilter.size > 0 && !tagFilter.has(s.locationTag)) return false;
+        if (dimFilter.size > 0 && !dimFilter.has(presetIdFor(s.width, s.height))) return false;
+        return true;
+      }),
+    [inRangeScreens, tagFilter, dimFilter],
+  );
+
+  const availableCount = useMemo(
+    () =>
+      candidateScreens.filter(
+        (s) => screenAvailability(s, startDate, endDate, daysOfWeek, dayparts) !== "booked",
+      ).length,
+    [candidateScreens, startDate, endDate, daysOfWeek, dayparts],
+  );
+
+  // Step 4 — screens
+  const [selectedScreens, setSelectedScreens] = useState<string[]>(source?.screenIds ?? []);
+
+  // Step 5 — preview
+  const [fitMode, setFitMode] = useState<FitMode>(source?.fitMode ?? "contain");
 
   const days = useMemo<number | undefined>(() => {
     if (!startDate || !endDate) return undefined;
@@ -206,8 +248,8 @@ function NewCampaign() {
     !!endDate &&
     new Date(startDate) >= new Date(minStartDate) &&
     new Date(endDate) > new Date(startDate);
-  const meetsMinimums = !!days && days >= 3 && totalCost >= 999;
-
+  const meetsMinDuration = !!days && days >= 3;
+  const meetsMinSpend = totalCost >= 999;
 
   const [payOpen, setPayOpen] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
@@ -228,11 +270,11 @@ function NewCampaign() {
       case 2:
         return !!selectedCreative && selectedCreative.status !== "rejected";
       case 3:
-        return selectedScreens.length > 0;
+        return scheduleValid && meetsMinDuration && daysOfWeek.length > 0 && dayparts.length > 0;
       case 4:
-        return true;
+        return selectedScreens.length > 0 && meetsMinSpend;
       case 5:
-        return scheduleValid && meetsMinimums;
+        return true;
       default:
         return true;
     }
@@ -270,7 +312,8 @@ function NewCampaign() {
     createdAt: source?.createdAt ?? new Date().toISOString(),
     fitMode,
     playSec,
-    recurrence,
+    daysOfWeek,
+    dayparts,
     lastStep: step,
   });
 
@@ -292,22 +335,15 @@ function NewCampaign() {
       setPayError("Insufficient wallet balance. Please top up and try again.");
       return;
     }
-    const creativePending = selectedCreative.status === "pending";
-    const initialStatus: Campaign["status"] = creativePending ? "draft" : "pending_approval";
-    const newCampaign = buildCampaign(initialStatus);
+    const newCampaign = buildCampaign("pending_approval");
     addCampaign(newCampaign);
-    if (!creativePending) simulateApproval(newCampaign.id);
+    simulateApproval(newCampaign.id, selectedCreative.id);
     if (resubmit) updateCampaign(resubmit.id, { status: "completed" });
     if (draft) updateCampaign(draft.id, { status: "completed" });
     setPayOpen(false);
-    if (creativePending) {
-      toast.success("Saved as draft — we'll submit for review once your new creative clears brand-safety.");
-    } else {
-      toast.success("Payment successful — campaign submitted for review");
-    }
+    toast.success("Payment successful — campaign submitted for review");
     navigate({ to: "/campaigns/$id", params: { id: newCampaign.id } });
   };
-
 
   return (
     <AppShell
@@ -356,35 +392,50 @@ function NewCampaign() {
             />
           )}
           {step === 3 && (
-            <Step3
-              screens={inRangeScreens}
-              creative={selectedCreative}
-              selected={selectedScreens}
-              setSelected={setSelectedScreens}
-            />
-          )}
-          {step === 4 && selectedCreative && (
-            <Step4
-              creative={selectedCreative}
-              screens={inRangeScreens.filter((s) => selectedScreens.includes(s.id))}
-              fitMode={fitMode}
-              setFitMode={setFitMode}
-            />
-          )}
-          {step === 5 && (
-            <Step5
+            <StepSchedule
               startDate={startDate}
               setStartDate={setStartDate}
               endDate={endDate}
               setEndDate={setEndDate}
               days={days}
-              totalCost={totalCost}
               minStart={minStartDate}
               scheduleValid={scheduleValid}
-              meetsMinimums={meetsMinimums}
-              recurrence={recurrence}
-              setRecurrence={setRecurrence}
+              meetsMinDuration={meetsMinDuration}
               isNewCreative={isNewCreative}
+              daysOfWeek={daysOfWeek}
+              setDaysOfWeek={setDaysOfWeek}
+              dayparts={dayparts}
+              setDayparts={setDayparts}
+              tagFilter={tagFilter}
+              setTagFilter={setTagFilter}
+              dimFilter={dimFilter}
+              setDimFilter={setDimFilter}
+              candidateScreens={candidateScreens}
+              inRangeCount={inRangeScreens.length}
+              availableCount={availableCount}
+            />
+          )}
+          {step === 4 && (
+            <StepScreens
+              screens={candidateScreens}
+              creative={selectedCreative}
+              selected={selectedScreens}
+              setSelected={setSelectedScreens}
+              startDate={startDate}
+              endDate={endDate}
+              daysOfWeek={daysOfWeek}
+              dayparts={dayparts}
+              days={days}
+              totalCost={totalCost}
+              meetsMinSpend={meetsMinSpend}
+            />
+          )}
+          {step === 5 && selectedCreative && (
+            <StepPreview
+              creative={selectedCreative}
+              screens={candidateScreens.filter((s) => selectedScreens.includes(s.id))}
+              fitMode={fitMode}
+              setFitMode={setFitMode}
             />
           )}
           {step === 6 && selectedCreative && (
@@ -429,9 +480,11 @@ function NewCampaign() {
           selectedScreens={selectedScreens.length}
           days={days}
           totalCost={totalCost}
+          costPending={step <= 3}
           playSec={playSec}
         />
       </div>
+
 
       <Dialog open={payOpen} onOpenChange={setPayOpen}>
         <DialogContent>
@@ -1040,52 +1093,62 @@ function MultiSelectPopover({
 
 const SCREEN_PAGE = 8;
 
-function Step3({
+function StepScreens({
   screens,
   creative,
   selected,
   setSelected,
+  startDate,
+  endDate,
+  daysOfWeek,
+  dayparts,
+  days,
+  totalCost,
+  meetsMinSpend,
 }: {
   screens: typeof SCREENS;
   creative?: Creative;
   selected: string[];
   setSelected: (v: string[]) => void;
+  startDate?: string;
+  endDate?: string;
+  daysOfWeek: number[];
+  dayparts: string[];
+  days?: number;
+  totalCost: number;
+  meetsMinSpend: boolean;
 }) {
-  const [tagFilter, setTagFilter] = useState<Set<LocationTag>>(new Set());
-  const [dimFilter, setDimFilter] = useState<Set<string>>(new Set());
   const [visible, setVisible] = useState(SCREEN_PAGE);
   const sentinel = useRef<HTMLDivElement | null>(null);
 
-  const filtered = useMemo(
+  const withStatus = useMemo(
     () =>
-      screens.filter((s) => {
-        if (tagFilter.size > 0 && !tagFilter.has(s.locationTag)) return false;
-        if (dimFilter.size > 0 && !dimFilter.has(presetIdFor(s.width, s.height))) return false;
-        return true;
-      }),
-    [screens, tagFilter, dimFilter],
+      screens.map((s) => ({
+        screen: s,
+        status: screenAvailability(s, startDate, endDate, daysOfWeek, dayparts),
+      })),
+    [screens, startDate, endDate, daysOfWeek, dayparts],
   );
 
+  const freeCount = withStatus.filter((r) => r.status !== "booked").length;
 
-  useEffect(() => setVisible(SCREEN_PAGE), [tagFilter, dimFilter, screens.length]);
+  useEffect(() => setVisible(SCREEN_PAGE), [screens.length, startDate, endDate]);
 
   useEffect(() => {
-    if (visible >= filtered.length) return;
+    if (visible >= withStatus.length) return;
     const el = sentinel.current;
     if (!el) return;
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setVisible((v) => v + SCREEN_PAGE);
-        }
+        if (entries.some((e) => e.isIntersecting)) setVisible((v) => v + SCREEN_PAGE);
       },
       { rootMargin: "200px" },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [visible, filtered.length]);
+  }, [visible, withStatus.length]);
 
-  const shown = filtered.slice(0, visible);
+  const shown = withStatus.slice(0, visible);
 
   const creativeLandscape = creative ? creative.width > creative.height : true;
   const isMatched = (s: (typeof SCREENS)[number]) => (s.width > s.height) === creativeLandscape;
@@ -1094,12 +1157,29 @@ function Step3({
     setSelected(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
   };
 
+  // Drop any selected screen that the current dates have made fully booked.
+  useEffect(() => {
+    const bookedIds = new Set(
+      withStatus.filter((r) => r.status === "booked").map((r) => r.screen.id),
+    );
+    const dropped = selected.filter((id) => bookedIds.has(id));
+    if (dropped.length > 0) {
+      setSelected(selected.filter((id) => !bookedIds.has(id)));
+      toast.info(
+        `${dropped.length} screen${dropped.length > 1 ? "s are" : " is"} fully booked for these dates and ${dropped.length > 1 ? "were" : "was"} removed.`,
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [withStatus]);
+
   const selectAllAvailable = () => {
-    const ids = filtered.filter((s) => s.availability !== "booked" && isMatched(s)).map((s) => s.id);
+    const ids = withStatus
+      .filter((r) => r.status !== "booked" && isMatched(r.screen))
+      .map((r) => r.screen.id);
     setSelected(Array.from(new Set([...selected, ...ids])));
   };
 
-  const total = selected.reduce((sum, id) => {
+  const perDay = selected.reduce((sum, id) => {
     const s = SCREENS.find((x) => x.id === id);
     return sum + (s?.pricePerDay ?? 0);
   }, 0);
@@ -1108,9 +1188,19 @@ function Step3({
     <Card className="p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Select screens</h2>
+          <h2 className="text-lg font-semibold">Pick your screens</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {screens.length} screens in your radius. Prices are per day, per screen.
+            {startDate && endDate ? (
+              <>
+                <span className="font-medium text-foreground">
+                  {freeCount} of {screens.length}
+                </span>{" "}
+                screens are free for {fmtShort(startDate)}–{fmtShort(endDate)}.
+              </>
+            ) : (
+              <>{screens.length} screens match your filters.</>
+            )}{" "}
+            Prices are per day, per screen.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -1119,57 +1209,15 @@ function Step3({
           </Button>
           <div className="text-sm">
             <span className="text-muted-foreground">Per day:</span>{" "}
-            <span className="font-semibold">₹{total.toLocaleString("en-IN")}</span>
+            <span className="font-semibold">₹{perDay.toLocaleString("en-IN")}</span>
           </div>
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <MultiSelectPopover
-          label="Location type"
-          options={LOCATION_TAGS as readonly string[]}
-          selected={tagFilter as Set<string>}
-          onToggle={(v) =>
-            setTagFilter((prev) => {
-              const next = new Set(prev);
-              const t = v as LocationTag;
-              if (next.has(t)) next.delete(t);
-              else next.add(t);
-              return next;
-            })
-          }
-          onClear={() => setTagFilter(new Set())}
-        />
-        <MultiSelectPopover
-          label="Dimensions"
-          options={DIMENSION_PRESETS.map((p) => p.label)}
-          selected={
-            new Set(
-              DIMENSION_PRESETS.filter((p) => dimFilter.has(p.id)).map((p) => p.label),
-            )
-          }
-          onToggle={(labelValue) => {
-            const preset = DIMENSION_PRESETS.find((p) => p.label === labelValue);
-            if (!preset) return;
-            setDimFilter((prev) => {
-              const next = new Set(prev);
-              if (next.has(preset.id)) next.delete(preset.id);
-              else next.add(preset.id);
-              return next;
-            });
-          }}
-          onClear={() => setDimFilter(new Set())}
-        />
-        <span className="text-xs text-muted-foreground">
-          {filtered.length} of {screens.length} screens
-        </span>
-      </div>
-
-
       <div className="mt-5 divide-y divide-border rounded-lg border">
-        {shown.map((s) => {
+        {shown.map(({ screen: s, status }) => {
           const matched = isMatched(s);
-          const booked = s.availability === "booked";
+          const booked = status === "booked";
           const disabled = booked || !matched;
           const checked = selected.includes(s.id);
           return (
@@ -1186,7 +1234,10 @@ function Step3({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{s.venue}</span>
                   <LocationTagPill tag={s.locationTag} />
-                  <AvailabilityBadge a={s.availability} />
+                  <AvailabilityBadge a={status} />
+                  {status !== "available" && (
+                    <SlotInfoPopover screen={s} startDate={startDate} endDate={endDate} />
+                  )}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   {s.venueType} · {s.city} · {s.pincode} · {s.width}×{s.height}
@@ -1199,23 +1250,95 @@ function Step3({
             </div>
           );
         })}
-        {filtered.length === 0 && (
+        {withStatus.length === 0 && (
           <div className="p-6 text-center text-sm text-muted-foreground">
-            No screens match this filter.
+            No screens match the filters you set on the schedule step.
           </div>
         )}
       </div>
       <div ref={sentinel} className="h-6" />
-      {visible < filtered.length && (
+      {visible < withStatus.length && (
         <p className="mt-3 text-center text-xs text-muted-foreground">Loading more screens…</p>
       )}
 
-      {selected.length === 0 && (
+      {selected.length === 0 ? (
         <p className="mt-3 text-xs text-muted-foreground">Select at least one screen to continue.</p>
+      ) : (
+        <div className="mt-4 rounded-lg border bg-muted/30 p-3 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">
+              {selected.length} screen{selected.length > 1 ? "s" : ""}
+              {days ? ` × ${days} day${days > 1 ? "s" : ""}` : ""}
+            </span>
+            <span className="font-semibold">₹{totalCost.toLocaleString("en-IN")}</span>
+          </div>
+          {!meetsMinSpend && (
+            <p className="mt-1.5 text-xs text-destructive">
+              Minimum campaign spend is ₹999. Add more screens or extend your dates.
+            </p>
+          )}
+        </div>
       )}
     </Card>
   );
 }
+
+function SlotInfoPopover({
+  screen,
+  startDate,
+  endDate,
+}: {
+  screen: (typeof SCREENS)[number];
+  startDate?: string;
+  endDate?: string;
+}) {
+  const from = startDate ?? toISO(new Date());
+  const to = endDate ? addDaysISO(endDate, 21) : addDaysISO(from, 28);
+  const rows = useMemo(() => {
+    const out: { day: string; booked: string[] }[] = [];
+    for (const day of daysBetween(from, to)) {
+      const booked = Array.from(bookedSlotsOn(screen, day));
+      if (booked.length > 0) out.push({ day, booked });
+    }
+    return out.slice(0, 14);
+  }, [screen, from, to]);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Availability details for ${screen.venue}`}
+          className="text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <InfoIcon className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72" align="start">
+        <p className="text-sm font-medium">{screen.venue}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Existing bookings between {fmtShort(from)} and {fmtShort(to)}. Anything not listed is free.
+        </p>
+        <div className="mt-3 max-h-56 space-y-1.5 overflow-y-auto">
+          {rows.length === 0 && (
+            <p className="text-xs text-muted-foreground">No bookings in this window.</p>
+          )}
+          {rows.map((r) => (
+            <div key={r.day} className="flex items-start justify-between gap-3 text-xs">
+              <span className="font-medium">{fmtShort(r.day)}</span>
+              <span className="text-right text-muted-foreground">
+                {r.booked
+                  .map((id) => DAYPARTS.find((d) => d.id === id)?.label ?? id)
+                  .join(", ")}
+              </span>
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 
 function TagChip({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
   return (
@@ -1243,9 +1366,9 @@ function AvailabilityBadge({ a }: { a: string }) {
   return <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", map[a])}>{label}</span>;
 }
 
-/* ---------- Step 4 (Preview) ---------- */
+/* ---------- Preview step ---------- */
 
-function Step4({
+function StepPreview({
   creative,
   screens,
   fitMode,
@@ -1335,62 +1458,80 @@ function Step4({
   );
 }
 
-/* ---------- Step 5 (Schedule) ---------- */
+/* ---------- Schedule step ---------- */
 
-function Step5({
+function StepSchedule({
   startDate,
   setStartDate,
   endDate,
   setEndDate,
   days,
-  totalCost,
   minStart,
   scheduleValid,
-  meetsMinimums,
-  recurrence,
-  setRecurrence,
+  meetsMinDuration,
   isNewCreative,
+  daysOfWeek,
+  setDaysOfWeek,
+  dayparts,
+  setDayparts,
+  tagFilter,
+  setTagFilter,
+  dimFilter,
+  setDimFilter,
+  candidateScreens,
+  inRangeCount,
+  availableCount,
 }: {
-  startDate: string | undefined;
+  startDate?: string;
   setStartDate: (v: string | undefined) => void;
-  endDate: string | undefined;
+  endDate?: string;
   setEndDate: (v: string | undefined) => void;
-  days: number | undefined;
-  totalCost: number;
+  days?: number;
   minStart: string;
   scheduleValid: boolean;
-  meetsMinimums: boolean;
-  recurrence: Recurrence;
-  setRecurrence: (v: Recurrence) => void;
+  meetsMinDuration: boolean;
   isNewCreative: boolean;
+  daysOfWeek: number[];
+  setDaysOfWeek: (v: number[]) => void;
+  dayparts: string[];
+  setDayparts: (v: string[]) => void;
+  tagFilter: Set<LocationTag>;
+  setTagFilter: (fn: (prev: Set<LocationTag>) => Set<LocationTag>) => void;
+  dimFilter: Set<string>;
+  setDimFilter: (fn: (prev: Set<string>) => Set<string>) => void;
+  candidateScreens: typeof SCREENS;
+  inRangeCount: number;
+  availableCount: number;
 }) {
   const dateRangeText = useMemo(() => {
-    if (!startDate || !endDate || !days) return "—";
+    if (!startDate || !endDate || !days) return "Pick dates to see availability";
     const fmt = (d: string) =>
       new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
     return `${days} day${days === 1 ? "" : "s"} · ${fmt(startDate)} – ${fmt(endDate)}`;
   }, [startDate, endDate, days]);
 
-  const recurrenceLabel: Record<Recurrence, string> = {
-    none: "Does not repeat",
-    weekdays: "Every weekday",
-    weekends: "Every weekend",
-    weekly: "Weekly",
-    monthly: "Monthly",
-  };
+  const toggleDay = (d: number) =>
+    setDaysOfWeek(daysOfWeek.includes(d) ? daysOfWeek.filter((x) => x !== d) : [...daysOfWeek, d]);
+  const toggleSlot = (id: string) =>
+    setDayparts(dayparts.includes(id) ? dayparts.filter((x) => x !== id) : [...dayparts, id]);
+
+  const slotAvailable = (id: string) =>
+    candidateScreens.some((s) => slotFreeSomewhere(s, id, startDate, endDate, daysOfWeek));
 
   return (
     <Card className="p-6">
-      <h2 className="text-lg font-semibold">Schedule & budget</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Minimum 3 days and ₹999 total.</p>
+      <h2 className="text-lg font-semibold">When should your ad run?</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Dates come first — we then show only the screens that are actually free. Minimum 3 days.
+      </p>
 
       {isNewCreative && (
         <Alert className="mt-4 border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
           <Clock className="h-4 w-4" />
           <AlertTitle>New creatives need 48 hours for review</AlertTitle>
           <AlertDescription>
-            Because this creative hasn't cleared review before, the earliest start date is 2 days from today.
-            Reusing a previously-approved creative removes this wait.
+            Because this creative hasn't cleared review before, the earliest start date is 2 days
+            from today. Reusing a previously-approved creative removes this wait.
           </AlertDescription>
         </Alert>
       )}
@@ -1402,7 +1543,7 @@ function Step5({
             type="date"
             value={startDate ?? ""}
             min={minStart}
-            onChange={(e) => setStartDate(e.target.value)}
+            onChange={(e) => setStartDate(e.target.value || undefined)}
             className="mt-1.5"
           />
         </div>
@@ -1412,44 +1553,120 @@ function Step5({
             type="date"
             value={endDate ?? ""}
             min={startDate ?? minStart}
-            onChange={(e) => setEndDate(e.target.value)}
+            onChange={(e) => setEndDate(e.target.value || undefined)}
             className="mt-1.5"
           />
         </div>
       </div>
 
-      <div className="mt-4">
-        <Label>Repeat</Label>
-        <Select value={recurrence} onValueChange={(v) => setRecurrence(v as Recurrence)}>
-          <SelectTrigger className="mt-1.5">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Does not repeat</SelectItem>
-            <SelectItem value="weekdays">Every weekday (Mon–Fri)</SelectItem>
-            <SelectItem value="weekends">Every weekend (Sat–Sun)</SelectItem>
-            <SelectItem value="weekly">Weekly on selected day(s)</SelectItem>
-            <SelectItem value="monthly">Monthly</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Runs {recurrenceLabel[recurrence].toLowerCase()} between the start and end dates above.
+      <div className="mt-5">
+        <Label>Days of the week</Label>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {DOW_ORDER.map((d) => (
+            <TagChip
+              key={d}
+              active={daysOfWeek.includes(d)}
+              label={DOW_LABEL[d]}
+              onClick={() => toggleDay(d)}
+            />
+          ))}
+        </div>
+        {daysOfWeek.length === 0 && (
+          <p className="mt-1.5 text-xs text-destructive">Pick at least one day.</p>
+        )}
+      </div>
+
+      <div className="mt-5">
+        <Label>Time slots</Label>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Your ad plays in the slots you pick. Greyed-out slots are taken on every screen nearby.
         </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {DAYPARTS.map((dp) => {
+            const free = slotAvailable(dp.id);
+            return (
+              <button
+                key={dp.id}
+                type="button"
+                disabled={!free}
+                onClick={() => toggleSlot(dp.id)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  dayparts.includes(dp.id)
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background text-muted-foreground hover:bg-secondary",
+                  !free && "cursor-not-allowed opacity-40 hover:bg-background",
+                )}
+              >
+                {dp.label}
+              </button>
+            );
+          })}
+        </div>
+        {dayparts.length === 0 && (
+          <p className="mt-1.5 text-xs text-destructive">Pick at least one time slot.</p>
+        )}
+      </div>
+
+      <div className="mt-6 border-t pt-5">
+        <Label>Narrow down the screens</Label>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Optional. Filter by venue type and screen size before you pick screens.
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <MultiSelectPopover
+            label="Location type"
+            options={LOCATION_TAGS as readonly string[]}
+            selected={tagFilter as Set<string>}
+            onToggle={(v) =>
+              setTagFilter((prev) => {
+                const next = new Set(prev);
+                const t = v as LocationTag;
+                if (next.has(t)) next.delete(t);
+                else next.add(t);
+                return next;
+              })
+            }
+            onClear={() => setTagFilter(() => new Set())}
+          />
+          <MultiSelectPopover
+            label="Dimensions"
+            options={DIMENSION_PRESETS.map((p) => p.label)}
+            selected={
+              new Set(DIMENSION_PRESETS.filter((p) => dimFilter.has(p.id)).map((p) => p.label))
+            }
+            onToggle={(labelValue) => {
+              const preset = DIMENSION_PRESETS.find((p) => p.label === labelValue);
+              if (!preset) return;
+              setDimFilter((prev) => {
+                const next = new Set(prev);
+                if (next.has(preset.id)) next.delete(preset.id);
+                else next.add(preset.id);
+                return next;
+              });
+            }}
+            onClear={() => setDimFilter(() => new Set())}
+          />
+          <span className="text-xs text-muted-foreground">
+            {candidateScreens.length} of {inRangeCount} screens in range
+          </span>
+        </div>
       </div>
 
       {!scheduleValid && (
         <Alert variant="destructive" className="mt-4">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            End date must be after start date, and start date must be on or after {new Date(minStart).toLocaleDateString("en-IN")}.
+            End date must be after start date, and start date must be on or after{" "}
+            {new Date(minStart).toLocaleDateString("en-IN")}.
           </AlertDescription>
         </Alert>
       )}
-      {scheduleValid && !meetsMinimums && (
+      {scheduleValid && !meetsMinDuration && (
         <Alert variant="destructive" className="mt-4">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            Minimum duration is 3 days and minimum spend is ₹999. Current: {days} days · ₹{totalCost.toLocaleString("en-IN")}.
+            Minimum duration is 3 days. Current: {days} day{days === 1 ? "" : "s"}.
           </AlertDescription>
         </Alert>
       )}
@@ -1459,12 +1676,19 @@ function Step5({
           <InfoIcon className="h-4 w-4 text-primary" />
           {dateRangeText}
         </div>
-        <div className="mt-2 text-xs text-muted-foreground">
-          Repeats: {recurrenceLabel[recurrence]}
-        </div>
-        <div className="mt-3 flex justify-between text-sm">
-          <span className="text-muted-foreground">Total budget</span>
-          <span className="text-lg font-semibold">₹{totalCost.toLocaleString("en-IN")}</span>
+        <div className="mt-2 text-sm">
+          {startDate && endDate ? (
+            <>
+              <span className="font-semibold text-foreground">{availableCount}</span>{" "}
+              <span className="text-muted-foreground">
+                of {candidateScreens.length} screens have space in this window.
+              </span>
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              {candidateScreens.length} screens match your filters.
+            </span>
+          )}
         </div>
       </div>
     </Card>
@@ -1547,6 +1771,7 @@ function SummaryCard({
   selectedScreens,
   days,
   totalCost,
+  costPending,
   playSec,
 }: {
   name: string;
@@ -1557,6 +1782,7 @@ function SummaryCard({
   selectedScreens: number;
   days: number | undefined;
   totalCost: number;
+  costPending?: boolean;
   playSec: number;
 }) {
   return (
@@ -1574,7 +1800,9 @@ function SummaryCard({
       <div className="mt-4 border-t pt-3">
         <div className="flex items-baseline justify-between">
           <span className="text-sm text-muted-foreground">Total</span>
-          <span className="text-xl font-semibold">₹{totalCost.toLocaleString("en-IN")}</span>
+          <span className="text-xl font-semibold">
+            {costPending && totalCost === 0 ? "—" : `₹${totalCost.toLocaleString("en-IN")}`}
+          </span>
         </div>
       </div>
     </Card>

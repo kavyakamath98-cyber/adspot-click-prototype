@@ -22,7 +22,12 @@ interface AppState {
   addCreative: (c: Creative) => Creative;
   markCreativeApproved: (id: string) => void;
   deleteCreative: (id: string) => void;
-  simulateApproval: (id: string, forceOutcome?: "approve" | "reject") => void;
+  simulateApproval: (
+    id: string,
+    creativeId?: string,
+    forceOutcome?: "approve" | "reject",
+  ) => void;
+  cancelPendingCampaign: (id: string) => number; // full refund, no fee
   simulateReplaceCreativeReview: (
     campaignId: string,
     newCreativeId: string,
@@ -96,15 +101,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const simulateApproval = useCallback(
-    (id: string, forceOutcome?: "approve" | "reject") => {
+    (id: string, creativeIdArg?: string, forceOutcome?: "approve" | "reject") => {
+      // Capture the creative now — reading it inside the delayed callback would
+      // see a stale campaign list and silently skip the creative update.
+      const creativeId = creativeIdArg ?? campaigns.find((c) => c.id === id)?.creativeId;
+      const creative = creatives.find((c) => c.id === creativeId);
+      const forcedTag =
+        creative?.contentTag === "Alcohol"
+          ? "Alcohol or tobacco promotion"
+          : creative?.contentTag === "Adult"
+            ? "Explicit or inappropriate content"
+            : undefined;
+      const outcome: "approve" | "reject" = forcedTag
+        ? "reject"
+        : (forceOutcome ?? (Math.random() < 0.8 ? "approve" : "reject"));
+      const reason =
+        forcedTag ??
+        REJECTION_REASONS[Math.floor(Math.random() * (REJECTION_REASONS.length - 1))];
+
       setTimeout(() => {
         setCampaigns((prev) =>
           prev.map((c) => {
             if (c.id !== id) return c;
-            const outcome = forceOutcome ?? (Math.random() < 0.8 ? "approve" : "reject");
             if (outcome === "reject") {
-              const reason =
-                REJECTION_REASONS[Math.floor(Math.random() * (REJECTION_REASONS.length - 1))];
               return { ...c, status: "rejected" as CampaignStatus, rejectionReason: reason };
             }
             const now = new Date();
@@ -113,18 +132,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return { ...c, status, rejectionReason: undefined };
           }),
         );
-        // Mark associated creative as previously-approved too
-        setCreatives((prev) => {
-          const camp = campaigns.find((cx) => cx.id === id);
-          if (!camp) return prev;
-          return prev.map((cr) =>
-            cr.id === camp.creativeId ? { ...cr, previouslyApproved: true } : cr,
+        if (creativeId) {
+          setCreatives((prev) =>
+            prev.map((cr) =>
+              cr.id !== creativeId
+                ? cr
+                : outcome === "approve"
+                  ? {
+                      ...cr,
+                      status: "approved" as const,
+                      rejectionReason: undefined,
+                      previouslyApproved: true,
+                    }
+                  : { ...cr, status: "rejected" as const, rejectionReason: reason },
+            ),
           );
-        });
+        }
       }, 3500);
+    },
+    [campaigns, creatives],
+  );
+
+  const cancelPendingCampaign = useCallback(
+    (id: string) => {
+      const camp = campaigns.find((c) => c.id === id);
+      const refund = camp ? Math.max(0, camp.totalBudget - camp.spendToDate) : 0;
+      setCampaigns((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status: "completed" as CampaignStatus } : c)),
+      );
+      setWallet((w) => w + refund);
+      return refund;
     },
     [campaigns],
   );
+
 
   const simulateReplaceCreativeReview = useCallback(
     (campaignId: string, newCreativeId: string, forceOutcome?: "approve" | "reject") => {
@@ -134,8 +175,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCreatives((prev) =>
         prev.map((cr) => (cr.id === newCreativeId ? { ...cr, status: "pending" } : cr)),
       );
+      const cr = creatives.find((c) => c.id === newCreativeId);
+      const forcedTag =
+        cr?.contentTag === "Alcohol"
+          ? "Alcohol or tobacco promotion"
+          : cr?.contentTag === "Adult"
+            ? "Explicit or inappropriate content"
+            : undefined;
       setTimeout(() => {
-        const outcome = forceOutcome ?? (Math.random() < 0.85 ? "approve" : "reject");
+        const outcome = forcedTag
+          ? "reject"
+          : (forceOutcome ?? (Math.random() < 0.85 ? "approve" : "reject"));
         if (outcome === "approve") {
           setCreatives((prev) =>
             prev.map((cr) =>
@@ -153,6 +203,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           );
         } else {
           const reason =
+            forcedTag ??
             REJECTION_REASONS[Math.floor(Math.random() * (REJECTION_REASONS.length - 1))];
           setCreatives((prev) =>
             prev.map((cr) =>
@@ -167,7 +218,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }, 4000);
     },
-    [],
+    [creatives],
   );
 
   const pauseCampaign = useCallback((id: string) => {
@@ -232,6 +283,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       markCreativeApproved,
       deleteCreative,
       simulateApproval,
+      cancelPendingCampaign,
       simulateReplaceCreativeReview,
       chargeWallet,
       pauseCampaign,
@@ -250,6 +302,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       markCreativeApproved,
       deleteCreative,
       simulateApproval,
+      cancelPendingCampaign,
       simulateReplaceCreativeReview,
       chargeWallet,
       pauseCampaign,
