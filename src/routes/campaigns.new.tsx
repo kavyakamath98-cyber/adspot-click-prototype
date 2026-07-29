@@ -1451,7 +1451,7 @@ function Step6({
   locationLabel: string;
   radius: number;
   screens: number;
-  days: number;
+  days: number | undefined;
   totalCost: number;
   creative: Creative;
   onPay: () => void;
