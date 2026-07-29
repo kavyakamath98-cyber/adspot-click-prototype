@@ -1479,7 +1479,7 @@ function Step6({
           <SummaryRow label="Creative" value={creative.name} />
           <SummaryRow label="Location" value={`${locationLabel} · ${radius} km`} />
           <SummaryRow label="Screens" value={`${screens}`} />
-          <SummaryRow label="Duration" value={`${days} days`} />
+          <SummaryRow label="Duration" value={days ? `${days} days` : "—"} />
           <SummaryRow label="Total" value={`₹${totalCost.toLocaleString("en-IN")}`} highlight />
         </dl>
       </div>
