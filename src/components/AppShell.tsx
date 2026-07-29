@@ -1,4 +1,4 @@
-import { Wallet, PlayCircle, ArrowLeft } from "lucide-react";
+import { Wallet, PlayCircle, ArrowLeft, Check } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { useApp } from "@/lib/app-context";
@@ -6,6 +6,15 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 type BackProp = { to: string; label?: string };
 
