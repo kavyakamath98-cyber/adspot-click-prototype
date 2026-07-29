@@ -1329,6 +1329,7 @@ function Step5({
   isNewCreative: boolean;
 }) {
   const dateRangeText = useMemo(() => {
+    if (!startDate || !endDate || !days) return "—";
     const fmt = (d: string) =>
       new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
     return `${days} day${days === 1 ? "" : "s"} · ${fmt(startDate)} – ${fmt(endDate)}`;
