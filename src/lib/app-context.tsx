@@ -8,11 +8,15 @@ import {
   type Creative,
 } from "./mockData";
 
+export type DemoMode = "returning" | "new";
+
 interface AppState {
   wallet: number;
   campaigns: Campaign[];
   creatives: Creative[];
   advertiser: { name: string; email: string };
+  demoMode: DemoMode;
+  setDemoMode: (m: DemoMode) => void;
   addCampaign: (c: Campaign) => void;
   updateCampaign: (id: string, patch: Partial<Campaign>) => void;
   addCreative: (c: Creative) => Creative;
@@ -32,10 +36,29 @@ interface AppState {
 
 const AppCtx = createContext<AppState | null>(null);
 
+const NEW_ADVERTISER = { name: "Priya's Boutique", email: "priya@priyasboutique.in" };
+const RETURNING_ADVERTISER = { name: "Ramesh's Kitchen", email: "ramesh@rameshkitchen.in" };
+
 export function AppProvider({ children }: { children: ReactNode }) {
+  const [demoMode, setDemoModeState] = useState<DemoMode>("returning");
   const [wallet, setWallet] = useState(25000);
   const [campaigns, setCampaigns] = useState<Campaign[]>(INITIAL_CAMPAIGNS);
   const [creatives, setCreatives] = useState<Creative[]>(INITIAL_CREATIVES);
+
+  const setDemoMode = useCallback((m: DemoMode) => {
+    setDemoModeState(m);
+    if (m === "new") {
+      setCampaigns([]);
+      setCreatives([]);
+      setWallet(25000);
+    } else {
+      setCampaigns(INITIAL_CAMPAIGNS);
+      setCreatives(INITIAL_CREATIVES);
+      setWallet(25000);
+    }
+  }, []);
+
+
 
   const addCampaign = useCallback((c: Campaign) => {
     setCampaigns((prev) => [c, ...prev]);
