@@ -113,8 +113,16 @@ function NewCampaign() {
   const draft = draftId ? campaigns.find((c) => c.id === draftId) : undefined;
   const source = resubmit ?? draft;
 
-  const [step, setStep] = useState<Step>(1);
-  const [visited, setVisited] = useState<Set<Step>>(new Set([1]));
+  const [step, setStep] = useState<Step>(() => {
+    const s = (source?.lastStep ?? 1) as number;
+    return (Math.min(6, Math.max(1, s)) as Step);
+  });
+  const [visited, setVisited] = useState<Set<Step>>(() => {
+    const initial = (source?.lastStep ?? 1) as number;
+    const set = new Set<Step>();
+    for (let i = 1; i <= Math.min(6, Math.max(1, initial)); i++) set.add(i as Step);
+    return set;
+  });
 
   const [name, setName] = useState(source?.name ?? "New Campaign");
 
@@ -159,38 +167,33 @@ function NewCampaign() {
   // Step 4 — preview
   const [fitMode, setFitMode] = useState<FitMode>(source?.fitMode ?? "contain");
 
-  // Step 5 — schedule
-  const today = new Date().toISOString().split("T")[0];
+  // Step 5 — schedule (undefined until user picks real dates)
   const isNewCreative = !!selectedCreative && !selectedCreative.previouslyApproved;
   const minStartDate = useMemo(() => {
-    if (isNewCreative) {
-      const d = new Date();
-      d.setDate(d.getDate() + 2);
-      return d.toISOString().slice(0, 10);
-    }
     const d = new Date();
-    d.setDate(d.getDate() + 1);
+    d.setDate(d.getDate() + (isNewCreative ? 2 : 1));
     return d.toISOString().slice(0, 10);
   }, [isNewCreative]);
 
-  const [startDate, setStartDate] = useState<string>(source?.startDate ?? minStartDate);
-  const [endDate, setEndDate] = useState<string>(
-    source?.endDate ?? new Date(Date.now() + 8 * 86400000).toISOString().split("T")[0],
-  );
+  const [startDate, setStartDate] = useState<string | undefined>(source?.startDate);
+  const [endDate, setEndDate] = useState<string | undefined>(source?.endDate);
   useEffect(() => {
-    if (new Date(startDate) < new Date(minStartDate)) setStartDate(minStartDate);
+    if (startDate && new Date(startDate) < new Date(minStartDate)) setStartDate(minStartDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minStartDate]);
 
   const [recurrence, setRecurrence] = useState<Recurrence>(source?.recurrence ?? "none");
 
-  const days = useMemo(() => {
+  const days = useMemo<number | undefined>(() => {
+    if (!startDate || !endDate) return undefined;
     const d1 = new Date(startDate);
     const d2 = new Date(endDate);
-    return Math.max(0, Math.round((d2.getTime() - d1.getTime()) / 86400000) + 1);
+    const n = Math.round((d2.getTime() - d1.getTime()) / 86400000) + 1;
+    return n > 0 ? n : undefined;
   }, [startDate, endDate]);
 
   const totalCost = useMemo(() => {
+    if (!days) return 0;
     const priced = selectedScreens.reduce((sum, id) => {
       const s = SCREENS.find((x) => x.id === id);
       return sum + (s?.pricePerDay ?? 0);
@@ -199,8 +202,12 @@ function NewCampaign() {
   }, [selectedScreens, days]);
 
   const scheduleValid =
-    new Date(startDate) >= new Date(minStartDate) && new Date(endDate) > new Date(startDate);
-  const meetsMinimums = days >= 3 && totalCost >= 999;
+    !!startDate &&
+    !!endDate &&
+    new Date(startDate) >= new Date(minStartDate) &&
+    new Date(endDate) > new Date(startDate);
+  const meetsMinimums = !!days && days >= 3 && totalCost >= 999;
+
 
   const [payOpen, setPayOpen] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
