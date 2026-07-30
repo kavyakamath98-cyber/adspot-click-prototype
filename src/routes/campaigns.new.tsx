@@ -73,7 +73,7 @@ import {
   bookedSlotsOn,
   daysBetween,
   fmtShort,
-  freeChosenSlots,
+  slotAvailabilityBreakdown,
 
   screenAvailability,
   slotFreeSomewhere,
@@ -1151,7 +1151,7 @@ function StepScreens({
       screens.map((s) => ({
         screen: s,
         status: screenAvailability(s, startDate, endDate, daysOfWeek, dayparts),
-        freeSlots: freeChosenSlots(s, dayparts, startDate, endDate, daysOfWeek),
+        breakdown: slotAvailabilityBreakdown(s, dayparts, startDate, endDate, daysOfWeek),
       })),
     [screens, startDate, endDate, daysOfWeek, dayparts],
   );
@@ -1287,15 +1287,22 @@ function StepScreens({
       </div>
 
       <div className="mt-5 divide-y divide-border rounded-lg border">
-        {shown.map(({ screen: s, status, freeSlots }) => {
+        {shown.map(({ screen: s, status, breakdown }) => {
           const matched = isMatched(s);
           const booked = status === "booked";
           const disabled = booked || !matched;
           const checked = selected.includes(s.id);
+          const fullyFree = breakdown.slots.filter(
+            (f) => f.bookedDates.length === 0 && f.freeDates.length > 0,
+          );
+          const partlyFree = breakdown.slots.filter(
+            (f) => f.bookedDates.length > 0 && f.freeDates.length > 0,
+          );
+          const totalDays = breakdown.dates.length;
           return (
             <div
               key={s.id}
-              className={cn("flex items-center gap-4 px-4 py-3", disabled && "opacity-60")}
+              className={cn("flex items-center gap-4 px-4 py-3", disabled && "opacity-70")}
               title={!matched ? "This screen's orientation doesn't match your creative." : ""}
             >
               <Checkbox checked={checked} disabled={disabled} onCheckedChange={() => toggle(s.id)} />
@@ -1307,28 +1314,39 @@ function StepScreens({
                   <span className="font-medium">{s.venue}</span>
                   <LocationTagPill tag={s.locationTag} />
                   <AvailabilityBadge a={status} />
-                  {!booked && (
-                    <FreeSlotsPopover screen={s} freeSlots={freeSlots} startDate={startDate} endDate={endDate} />
-                  )}
+                  <SlotAvailabilityPopover
+                    screen={s}
+                    breakdown={breakdown}
+                    status={status}
+                    startDate={startDate}
+                    endDate={endDate}
+                  />
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   {s.venueType} · {s.city} · {s.pincode} · {s.width}×{s.height}
                 </p>
-                <p className="mt-1 text-xs">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {booked ? (
-                    <span className="text-muted-foreground">
-                      Already taken for all your chosen time-slots on these dates.
-                    </span>
+                    <>Someone else has booked all your time-slots here, on every one of your dates.</>
+                  ) : partlyFree.length === 0 ? (
+                    <>
+                      Open for all your time-slots
+                      {totalDays ? `, all ${totalDays} day${totalDays > 1 ? "s" : ""}` : ""}.
+                    </>
                   ) : (
-                    <span className="text-muted-foreground">
-                      Free for your dates:{" "}
+                    <>
+                      You can still book{" "}
                       <span className="font-medium text-foreground">
-                        {freeSlots.map((f) => f.label).join(", ")}
-                      </span>
-                    </span>
+                        {fullyFree.length + partlyFree.length} of {breakdown.slots.length}
+                      </span>{" "}
+                      time-slots here
+                      {totalDays ? ` across your ${totalDays} day${totalDays > 1 ? "s" : ""}` : ""} —
+                      tap the info icon to see exactly when.
+                    </>
                   )}
                 </p>
               </div>
+
               <div className="text-right text-sm">
                 <div className="font-semibold">₹{s.pricePerDay}</div>
                 <div className="text-xs text-muted-foreground">/day</div>
@@ -1369,48 +1387,121 @@ function StepScreens({
   );
 }
 
-function FreeSlotsPopover({
+function SlotAvailabilityPopover({
   screen,
-  freeSlots,
+  breakdown,
+  status,
   startDate,
   endDate,
 }: {
   screen: (typeof SCREENS)[number];
-  freeSlots: { id: string; label: string; allDays: boolean }[];
+  breakdown: ReturnType<typeof slotAvailabilityBreakdown>;
+  status: "available" | "partial" | "booked";
   startDate?: string;
   endDate?: string;
 }) {
+  const { slots, dates } = breakdown;
+  const bookableDays = dates.filter((d) =>
+    slots.some((s) => s.freeDates.includes(d)),
+  ).length;
+
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={`Free time-slots for ${screen.venue}`}
-          className="text-muted-foreground transition-colors hover:text-foreground"
+          aria-label={`Availability details for ${screen.venue}`}
+          className="grid h-5 w-5 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <InfoIcon className="h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-72" align="start">
-        <p className="text-sm font-medium">{screen.venue}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Time-slots this screen can run your ad in
-          {startDate && endDate ? `, ${fmtShort(startDate)}–${fmtShort(endDate)}` : ""}.
-        </p>
-        <div className="mt-3 space-y-1.5">
-          {freeSlots.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              None of your chosen time-slots are free here.
-            </p>
-          )}
-          {freeSlots.map((f) => (
-            <div key={f.id} className="flex items-center justify-between gap-3 text-xs">
-              <span className="font-medium">{f.label}</span>
-              <span className="text-muted-foreground">
-                {f.allDays ? "Free on all your days" : "Free on some days"}
+      <PopoverContent className="w-80 p-0" align="start">
+        <div className="border-b bg-muted/40 px-4 py-3">
+          <p className="text-sm font-semibold">{screen.venue}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {startDate && endDate
+              ? `${fmtShort(startDate)} – ${fmtShort(endDate)} · ${dates.length} ad day${dates.length > 1 ? "s" : ""}`
+              : "Pick your dates to see exact availability."}
+          </p>
+        </div>
+
+        <div className="px-4 py-3">
+          <p className="text-xs font-medium">
+            {status === "booked" ? (
+              <span className="text-destructive">
+                Nothing left to book here for your dates and times.
               </span>
-            </div>
-          ))}
+            ) : status === "partial" ? (
+              <>
+                You can book this screen on{" "}
+                <span className="text-primary">
+                  {bookableDays} of {dates.length} day{dates.length > 1 ? "s" : ""}
+                </span>
+                . Here is what is open:
+              </>
+            ) : (
+              <>Every time-slot you picked is open here. Here is the breakdown:</>
+            )}
+          </p>
+
+          <ul className="mt-3 space-y-2.5">
+            {slots.map((s) => {
+              const free = s.freeDates.length;
+              const total = s.totalDates;
+              const state = free === 0 ? "none" : free === total ? "all" : "some";
+              return (
+                <li key={s.id} className="rounded-md border p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={cn(
+                        "text-xs font-medium",
+                        state === "none" && "text-muted-foreground line-through",
+                      )}
+                    >
+                      {s.label}
+                    </span>
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                        state === "all" && "bg-primary/15 text-primary",
+                        state === "some" && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                        state === "none" && "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {state === "all"
+                        ? total
+                          ? `Open all ${total} days`
+                          : "Open"
+                        : state === "some"
+                          ? `Open ${free} of ${total} days`
+                          : "Taken"}
+                    </span>
+                  </div>
+                  {state === "some" && (
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">
+                      Free on{" "}
+                      <span className="font-medium text-foreground">
+                        {s.freeDates.slice(0, 5).map(fmtShort).join(", ")}
+                        {s.freeDates.length > 5 ? ` +${s.freeDates.length - 5} more` : ""}
+                      </span>
+                    </p>
+                  )}
+                  {state === "none" && total > 0 && (
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">
+                      Booked by another advertiser on all your dates.
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            {status === "booked"
+              ? "Try different dates or time-slots to free this screen up."
+              : "If you select this screen, you are only charged for the slots and days that are open."}
+          </p>
         </div>
       </PopoverContent>
     </Popover>
@@ -1711,25 +1802,25 @@ function CheckChip({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+        "group inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all",
         disabled
-          ? "cursor-not-allowed border-dashed border-border bg-muted/40 text-muted-foreground/60 line-through"
+          ? "cursor-not-allowed border-dashed border-border bg-muted/30 text-muted-foreground/60"
           : checked
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-border bg-background text-foreground hover:bg-accent",
+            ? "border-primary bg-primary/10 text-foreground shadow-[0_0_0_1px_var(--color-primary)]"
+            : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-secondary hover:text-foreground",
       )}
     >
       <span
         className={cn(
-          "grid h-4 w-4 place-items-center rounded-sm border",
+          "grid h-4 w-4 shrink-0 place-items-center rounded border transition-colors",
           disabled
-            ? "border-muted-foreground/40"
+            ? "border-muted-foreground/30 bg-transparent"
             : checked
-              ? "border-primary-foreground bg-primary-foreground/20"
-              : "border-muted-foreground/50",
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-muted-foreground/40 bg-background",
         )}
       >
-        {checked && !disabled && <Check className="h-3 w-3" />}
+        {checked && !disabled && <Check className="h-3 w-3" strokeWidth={3} />}
       </span>
       {label}
     </button>

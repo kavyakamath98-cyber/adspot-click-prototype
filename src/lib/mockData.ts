@@ -243,8 +243,13 @@ export function fmtShort(iso: string) {
 /** Deterministic mock bookings (0–3) per screen, seeded by index. */
 function mkBookings(i: number): ScreenBooking[] {
   const today = toISO(new Date());
-  const count = i % 4; // 0..3
   const out: ScreenBooking[] = [];
+  // Every 9th screen is a long-running full-day takeover -> fully booked example.
+  if (i % 9 === 4) {
+    out.push({ start: today, end: addDaysISO(today, 60), slots: [...ALL_DAYPART_IDS] });
+    return out;
+  }
+  const count = i % 4; // 0..3
   for (let b = 0; b < count; b++) {
     const offset = (i * 7 + b * 13) % 26;
     const len = 2 + ((i + b * 3) % 6);
@@ -336,6 +341,41 @@ export function freeChosenSlots(
     if (freeDays > 0) out.push({ id, label: labelOf(id), allDays: freeDays === all.length });
   }
   return out;
+}
+
+export type SlotAvailability = {
+  id: string;
+  label: string;
+  /** Dates (ISO) in the user's schedule where this slot is free on this screen. */
+  freeDates: string[];
+  /** Dates (ISO) in the user's schedule where this slot is already taken. */
+  bookedDates: string[];
+  totalDates: number;
+};
+
+/**
+ * Per-slot, per-date breakdown of what the user can actually book on a screen,
+ * limited to the slots/days/dates they chose on the Schedule step.
+ */
+export function slotAvailabilityBreakdown(
+  screen: Screen,
+  chosenSlots: string[],
+  start?: string,
+  end?: string,
+  daysOfWeek: number[] = [0, 1, 2, 3, 4, 5, 6],
+): { slots: SlotAvailability[]; dates: string[] } {
+  const wanted = chosenSlots.length ? chosenSlots : ALL_DAYPART_IDS;
+  const labelOf = (id: string) => DAYPARTS.find((d) => d.id === id)?.label ?? id;
+  const dates =
+    start && end
+      ? daysBetween(start, end).filter((d) => daysOfWeek.includes(new Date(d).getDay()))
+      : [];
+  const slots = wanted.map((id) => {
+    const freeDates = dates.filter((d) => !bookedSlotsOn(screen, d).has(id));
+    const bookedDates = dates.filter((d) => bookedSlotsOn(screen, d).has(id));
+    return { id, label: labelOf(id), freeDates, bookedDates, totalDates: dates.length };
+  });
+  return { slots, dates };
 }
 
 
