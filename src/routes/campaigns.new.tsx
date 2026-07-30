@@ -248,8 +248,8 @@ function NewCampaign() {
     !!endDate &&
     new Date(startDate) >= new Date(minStartDate) &&
     new Date(endDate) > new Date(startDate);
-  const meetsMinDuration = !!days && days >= 3;
   const meetsMinSpend = totalCost >= 999;
+
 
   const [payOpen, setPayOpen] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
