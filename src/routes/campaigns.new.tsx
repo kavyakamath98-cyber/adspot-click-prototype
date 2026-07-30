@@ -73,6 +73,8 @@ import {
   bookedSlotsOn,
   daysBetween,
   fmtShort,
+  freeChosenSlots,
+
   screenAvailability,
   slotFreeSomewhere,
   toISO,
@@ -248,8 +250,8 @@ function NewCampaign() {
     !!endDate &&
     new Date(startDate) >= new Date(minStartDate) &&
     new Date(endDate) > new Date(startDate);
-  const meetsMinDuration = !!days && days >= 3;
   const meetsMinSpend = totalCost >= 999;
+
 
   const [payOpen, setPayOpen] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
@@ -270,7 +272,7 @@ function NewCampaign() {
       case 2:
         return !!selectedCreative && selectedCreative.status !== "rejected";
       case 3:
-        return scheduleValid && meetsMinDuration && daysOfWeek.length > 0 && dayparts.length > 0;
+        return scheduleValid && daysOfWeek.length > 0 && dayparts.length > 0;
       case 4:
         return selectedScreens.length > 0 && meetsMinSpend;
       case 5:
@@ -400,19 +402,12 @@ function NewCampaign() {
               days={days}
               minStart={minStartDate}
               scheduleValid={scheduleValid}
-              meetsMinDuration={meetsMinDuration}
               isNewCreative={isNewCreative}
               daysOfWeek={daysOfWeek}
               setDaysOfWeek={setDaysOfWeek}
               dayparts={dayparts}
               setDayparts={setDayparts}
-              tagFilter={tagFilter}
-              setTagFilter={setTagFilter}
-              dimFilter={dimFilter}
-              setDimFilter={setDimFilter}
-              candidateScreens={candidateScreens}
-              inRangeCount={inRangeScreens.length}
-              availableCount={availableCount}
+              candidateScreens={inRangeScreens}
             />
           )}
           {step === 4 && (
@@ -428,8 +423,14 @@ function NewCampaign() {
               days={days}
               totalCost={totalCost}
               meetsMinSpend={meetsMinSpend}
+              tagFilter={tagFilter}
+              setTagFilter={setTagFilter}
+              dimFilter={dimFilter}
+              setDimFilter={setDimFilter}
+              inRangeCount={inRangeScreens.length}
             />
           )}
+
           {step === 5 && selectedCreative && (
             <StepPreview
               creative={selectedCreative}
@@ -1025,12 +1026,14 @@ function MultiSelectPopover({
   selected,
   onToggle,
   onClear,
+  onSelectAll,
 }: {
   label: string;
   options: readonly string[];
   selected: Set<string>;
   onToggle: (v: string) => void;
   onClear: () => void;
+  onSelectAll?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const count = selected.size;
@@ -1071,17 +1074,28 @@ function MultiSelectPopover({
               })}
             </CommandGroup>
           </CommandList>
-          {count > 0 && (
-            <div className="border-t p-2">
+          <div className="flex items-center justify-between border-t p-2">
+            {onSelectAll ? (
               <button
                 type="button"
-                onClick={onClear}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                onClick={onSelectAll}
+                disabled={count === options.length}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
               >
-                <X className="h-3 w-3" /> Clear all
+                <Check className="h-3 w-3" /> Select all
               </button>
-            </div>
-          )}
+            ) : (
+              <span />
+            )}
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={count === 0}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
+            >
+              <X className="h-3 w-3" /> Clear all
+            </button>
+          </div>
         </Command>
       </PopoverContent>
     </Popover>
@@ -1089,7 +1103,8 @@ function MultiSelectPopover({
 }
 
 
-/* ---------- Step 3 (Screens) ---------- */
+
+/* ---------- Step 4 (Screens) ---------- */
 
 const SCREEN_PAGE = 8;
 
@@ -1105,6 +1120,11 @@ function StepScreens({
   days,
   totalCost,
   meetsMinSpend,
+  tagFilter,
+  setTagFilter,
+  dimFilter,
+  setDimFilter,
+  inRangeCount,
 }: {
   screens: typeof SCREENS;
   creative?: Creative;
@@ -1117,6 +1137,11 @@ function StepScreens({
   days?: number;
   totalCost: number;
   meetsMinSpend: boolean;
+  tagFilter: Set<LocationTag>;
+  setTagFilter: (fn: (prev: Set<LocationTag>) => Set<LocationTag>) => void;
+  dimFilter: Set<string>;
+  setDimFilter: (fn: (prev: Set<string>) => Set<string>) => void;
+  inRangeCount: number;
 }) {
   const [visible, setVisible] = useState(SCREEN_PAGE);
   const sentinel = useRef<HTMLDivElement | null>(null);
@@ -1126,6 +1151,7 @@ function StepScreens({
       screens.map((s) => ({
         screen: s,
         status: screenAvailability(s, startDate, endDate, daysOfWeek, dayparts),
+        freeSlots: freeChosenSlots(s, dayparts, startDate, endDate, daysOfWeek),
       })),
     [screens, startDate, endDate, daysOfWeek, dayparts],
   );
@@ -1214,8 +1240,54 @@ function StepScreens({
         </div>
       </div>
 
+      <div className="mt-4 rounded-lg border bg-muted/20 p-3">
+        <p className="text-xs font-medium text-muted-foreground">
+          Narrow down the list (optional)
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <MultiSelectPopover
+            label="Location type"
+            options={LOCATION_TAGS as readonly string[]}
+            selected={tagFilter as Set<string>}
+            onToggle={(v) =>
+              setTagFilter((prev) => {
+                const next = new Set(prev);
+                const t = v as LocationTag;
+                if (next.has(t)) next.delete(t);
+                else next.add(t);
+                return next;
+              })
+            }
+            onSelectAll={() => setTagFilter(() => new Set(LOCATION_TAGS))}
+            onClear={() => setTagFilter(() => new Set())}
+          />
+          <MultiSelectPopover
+            label="Dimensions"
+            options={DIMENSION_PRESETS.map((p) => p.label)}
+            selected={
+              new Set(DIMENSION_PRESETS.filter((p) => dimFilter.has(p.id)).map((p) => p.label))
+            }
+            onToggle={(labelValue) => {
+              const preset = DIMENSION_PRESETS.find((p) => p.label === labelValue);
+              if (!preset) return;
+              setDimFilter((prev) => {
+                const next = new Set(prev);
+                if (next.has(preset.id)) next.delete(preset.id);
+                else next.add(preset.id);
+                return next;
+              });
+            }}
+            onSelectAll={() => setDimFilter(() => new Set(DIMENSION_PRESETS.map((p) => p.id)))}
+            onClear={() => setDimFilter(() => new Set())}
+          />
+          <span className="text-xs text-muted-foreground">
+            Showing {screens.length} of {inRangeCount} screens in your area
+          </span>
+        </div>
+      </div>
+
       <div className="mt-5 divide-y divide-border rounded-lg border">
-        {shown.map(({ screen: s, status }) => {
+        {shown.map(({ screen: s, status, freeSlots }) => {
           const matched = isMatched(s);
           const booked = status === "booked";
           const disabled = booked || !matched;
@@ -1235,12 +1307,26 @@ function StepScreens({
                   <span className="font-medium">{s.venue}</span>
                   <LocationTagPill tag={s.locationTag} />
                   <AvailabilityBadge a={status} />
-                  {status !== "available" && (
-                    <SlotInfoPopover screen={s} startDate={startDate} endDate={endDate} />
+                  {!booked && (
+                    <FreeSlotsPopover screen={s} freeSlots={freeSlots} startDate={startDate} endDate={endDate} />
                   )}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   {s.venueType} · {s.city} · {s.pincode} · {s.width}×{s.height}
+                </p>
+                <p className="mt-1 text-xs">
+                  {booked ? (
+                    <span className="text-muted-foreground">
+                      Already taken for all your chosen time-slots on these dates.
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Free for your dates:{" "}
+                      <span className="font-medium text-foreground">
+                        {freeSlots.map((f) => f.label).join(", ")}
+                      </span>
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="text-right text-sm">
@@ -1252,7 +1338,7 @@ function StepScreens({
         })}
         {withStatus.length === 0 && (
           <div className="p-6 text-center text-sm text-muted-foreground">
-            No screens match the filters you set on the schedule step.
+            No screens match the filters you set above.
           </div>
         )}
       </div>
@@ -1283,32 +1369,23 @@ function StepScreens({
   );
 }
 
-function SlotInfoPopover({
+function FreeSlotsPopover({
   screen,
+  freeSlots,
   startDate,
   endDate,
 }: {
   screen: (typeof SCREENS)[number];
+  freeSlots: { id: string; label: string; allDays: boolean }[];
   startDate?: string;
   endDate?: string;
 }) {
-  const from = startDate ?? toISO(new Date());
-  const to = endDate ? addDaysISO(endDate, 21) : addDaysISO(from, 28);
-  const rows = useMemo(() => {
-    const out: { day: string; booked: string[] }[] = [];
-    for (const day of daysBetween(from, to)) {
-      const booked = Array.from(bookedSlotsOn(screen, day));
-      if (booked.length > 0) out.push({ day, booked });
-    }
-    return out.slice(0, 14);
-  }, [screen, from, to]);
-
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={`Availability details for ${screen.venue}`}
+          aria-label={`Free time-slots for ${screen.venue}`}
           className="text-muted-foreground transition-colors hover:text-foreground"
         >
           <InfoIcon className="h-3.5 w-3.5" />
@@ -1317,19 +1394,20 @@ function SlotInfoPopover({
       <PopoverContent className="w-72" align="start">
         <p className="text-sm font-medium">{screen.venue}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Existing bookings between {fmtShort(from)} and {fmtShort(to)}. Anything not listed is free.
+          Time-slots this screen can run your ad in
+          {startDate && endDate ? `, ${fmtShort(startDate)}–${fmtShort(endDate)}` : ""}.
         </p>
-        <div className="mt-3 max-h-56 space-y-1.5 overflow-y-auto">
-          {rows.length === 0 && (
-            <p className="text-xs text-muted-foreground">No bookings in this window.</p>
+        <div className="mt-3 space-y-1.5">
+          {freeSlots.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              None of your chosen time-slots are free here.
+            </p>
           )}
-          {rows.map((r) => (
-            <div key={r.day} className="flex items-start justify-between gap-3 text-xs">
-              <span className="font-medium">{fmtShort(r.day)}</span>
-              <span className="text-right text-muted-foreground">
-                {r.booked
-                  .map((id) => DAYPARTS.find((d) => d.id === id)?.label ?? id)
-                  .join(", ")}
+          {freeSlots.map((f) => (
+            <div key={f.id} className="flex items-center justify-between gap-3 text-xs">
+              <span className="font-medium">{f.label}</span>
+              <span className="text-muted-foreground">
+                {f.allDays ? "Free on all your days" : "Free on some days"}
               </span>
             </div>
           ))}
@@ -1338,6 +1416,7 @@ function SlotInfoPopover({
     </Popover>
   );
 }
+
 
 
 function TagChip({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
@@ -1468,19 +1547,12 @@ function StepSchedule({
   days,
   minStart,
   scheduleValid,
-  meetsMinDuration,
   isNewCreative,
   daysOfWeek,
   setDaysOfWeek,
   dayparts,
   setDayparts,
-  tagFilter,
-  setTagFilter,
-  dimFilter,
-  setDimFilter,
   candidateScreens,
-  inRangeCount,
-  availableCount,
 }: {
   startDate?: string;
   setStartDate: (v: string | undefined) => void;
@@ -1489,211 +1561,181 @@ function StepSchedule({
   days?: number;
   minStart: string;
   scheduleValid: boolean;
-  meetsMinDuration: boolean;
   isNewCreative: boolean;
   daysOfWeek: number[];
   setDaysOfWeek: (v: number[]) => void;
   dayparts: string[];
   setDayparts: (v: string[]) => void;
-  tagFilter: Set<LocationTag>;
-  setTagFilter: (fn: (prev: Set<LocationTag>) => Set<LocationTag>) => void;
-  dimFilter: Set<string>;
-  setDimFilter: (fn: (prev: Set<string>) => Set<string>) => void;
   candidateScreens: typeof SCREENS;
-  inRangeCount: number;
-  availableCount: number;
 }) {
-  const dateRangeText = useMemo(() => {
-    if (!startDate || !endDate || !days) return "Pick dates to see availability";
-    const fmt = (d: string) =>
-      new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-    return `${days} day${days === 1 ? "" : "s"} · ${fmt(startDate)} – ${fmt(endDate)}`;
-  }, [startDate, endDate, days]);
+  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const showDateError = Boolean(startDate || endDate) && !scheduleValid;
+
+  const slotAvailable = (id: string) =>
+    !startDate ||
+    !endDate ||
+    candidateScreens.some((s) => slotFreeSomewhere(s, id, startDate, endDate, daysOfWeek));
 
   const toggleDay = (d: number) =>
     setDaysOfWeek(daysOfWeek.includes(d) ? daysOfWeek.filter((x) => x !== d) : [...daysOfWeek, d]);
   const toggleSlot = (id: string) =>
     setDayparts(dayparts.includes(id) ? dayparts.filter((x) => x !== id) : [...dayparts, id]);
 
-  const slotAvailable = (id: string) =>
-    candidateScreens.some((s) => slotFreeSomewhere(s, id, startDate, endDate, daysOfWeek));
-
   return (
     <Card className="p-6">
       <h2 className="text-lg font-semibold">When should your ad run?</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Dates come first — we then show only the screens that are actually free. Minimum 3 days.
+        Pick your dates, the days of the week, and the times of day.
       </p>
 
-      {isNewCreative && (
-        <Alert className="mt-4 border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
-          <Clock className="h-4 w-4" />
-          <AlertTitle>New creatives need 48 hours for review</AlertTitle>
-          <AlertDescription>
-            Because this creative hasn't cleared review before, the earliest start date is 2 days
-            from today. Reusing a previously-approved creative removes this wait.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label>Start date</Label>
-          <Input
-            type="date"
-            value={startDate ?? ""}
-            min={minStart}
-            onChange={(e) => setStartDate(e.target.value || undefined)}
-            className="mt-1.5"
-          />
+      {/* Dates */}
+      <div className="mt-6">
+        <Label className="text-sm font-medium">1. Pick your dates</Label>
+        <div className="mt-2 grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="start-date" className="text-xs text-muted-foreground">
+              Start date
+            </Label>
+            <Input
+              id="start-date"
+              type="date"
+              min={minStart}
+              value={startDate ?? ""}
+              onChange={(e) => setStartDate(e.target.value || undefined)}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="end-date" className="text-xs text-muted-foreground">
+              End date
+            </Label>
+            <Input
+              id="end-date"
+              type="date"
+              min={startDate ?? minStart}
+              value={endDate ?? ""}
+              onChange={(e) => setEndDate(e.target.value || undefined)}
+              className="mt-1"
+            />
+          </div>
         </div>
-        <div>
-          <Label>End date</Label>
-          <Input
-            type="date"
-            value={endDate ?? ""}
-            min={startDate ?? minStart}
-            onChange={(e) => setEndDate(e.target.value || undefined)}
-            className="mt-1.5"
-          />
-        </div>
+        {showDateError && (
+          <p className="mt-2 text-xs text-destructive">
+            Please pick an end date after your start date, and start on or after{" "}
+            {fmtShort(minStart)}.
+          </p>
+        )}
+        {scheduleValid && days ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Your ad will run for{" "}
+            <span className="font-medium text-foreground">
+              {days} day{days > 1 ? "s" : ""}
+            </span>
+            .
+          </p>
+        ) : null}
+        {isNewCreative && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            New creatives take 24–48 hours to be reviewed, so the earliest start date is{" "}
+            {fmtShort(minStart)}.
+          </p>
+        )}
       </div>
 
-      <div className="mt-5">
-        <Label>Days of the week</Label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {DOW_ORDER.map((d) => (
-            <TagChip
-              key={d}
-              active={daysOfWeek.includes(d)}
-              label={DOW_LABEL[d]}
-              onClick={() => toggleDay(d)}
+      {/* Days of week */}
+      <div className="mt-8">
+        <Label className="text-sm font-medium">2. Pick the days of the week</Label>
+        <p className="mt-0.5 text-xs text-muted-foreground">Your ad runs on the days you pick.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {dayLabels.map((label, i) => (
+            <CheckChip
+              key={label}
+              label={label}
+              checked={daysOfWeek.includes(i)}
+              onClick={() => toggleDay(i)}
             />
           ))}
         </div>
         {daysOfWeek.length === 0 && (
-          <p className="mt-1.5 text-xs text-destructive">Pick at least one day.</p>
+          <p className="mt-2 text-xs text-destructive">Pick at least one day.</p>
         )}
       </div>
 
-      <div className="mt-5">
-        <Label>Time slots</Label>
+      {/* Time slots */}
+      <div className="mt-8">
+        <Label className="text-sm font-medium">3. Pick the times of day</Label>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Your ad plays in the slots you pick. Greyed-out slots are taken on every screen nearby.
+          Your ad plays during the time-slots you pick.
         </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {DAYPARTS.map((dp) => {
-            const free = slotAvailable(dp.id);
+        <div className="mt-3 flex flex-wrap gap-2">
+          {DAYPARTS.map((d) => {
+            const available = slotAvailable(d.id);
             return (
-              <button
-                key={dp.id}
-                type="button"
-                disabled={!free}
-                onClick={() => toggleSlot(dp.id)}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                  dayparts.includes(dp.id)
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-muted-foreground hover:bg-secondary",
-                  !free && "cursor-not-allowed opacity-40 hover:bg-background",
-                )}
-              >
-                {dp.label}
-              </button>
+              <CheckChip
+                key={d.id}
+                label={d.label}
+                checked={dayparts.includes(d.id) && available}
+                disabled={!available}
+                onClick={() => toggleSlot(d.id)}
+              />
             );
           })}
         </div>
         {dayparts.length === 0 && (
-          <p className="mt-1.5 text-xs text-destructive">Pick at least one time slot.</p>
+          <p className="mt-2 text-xs text-destructive">Pick at least one time-slot.</p>
         )}
-      </div>
-
-      <div className="mt-6 border-t pt-5">
-        <Label>Narrow down the screens</Label>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Optional. Filter by venue type and screen size before you pick screens.
+        <p className="mt-2 text-xs text-muted-foreground">
+          Greyed-out times have no screens free in your area for these dates.
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <MultiSelectPopover
-            label="Location type"
-            options={LOCATION_TAGS as readonly string[]}
-            selected={tagFilter as Set<string>}
-            onToggle={(v) =>
-              setTagFilter((prev) => {
-                const next = new Set(prev);
-                const t = v as LocationTag;
-                if (next.has(t)) next.delete(t);
-                else next.add(t);
-                return next;
-              })
-            }
-            onClear={() => setTagFilter(() => new Set())}
-          />
-          <MultiSelectPopover
-            label="Dimensions"
-            options={DIMENSION_PRESETS.map((p) => p.label)}
-            selected={
-              new Set(DIMENSION_PRESETS.filter((p) => dimFilter.has(p.id)).map((p) => p.label))
-            }
-            onToggle={(labelValue) => {
-              const preset = DIMENSION_PRESETS.find((p) => p.label === labelValue);
-              if (!preset) return;
-              setDimFilter((prev) => {
-                const next = new Set(prev);
-                if (next.has(preset.id)) next.delete(preset.id);
-                else next.add(preset.id);
-                return next;
-              });
-            }}
-            onClear={() => setDimFilter(() => new Set())}
-          />
-          <span className="text-xs text-muted-foreground">
-            {candidateScreens.length} of {inRangeCount} screens in range
-          </span>
-        </div>
-      </div>
-
-      {!scheduleValid && (
-        <Alert variant="destructive" className="mt-4">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            End date must be after start date, and start date must be on or after{" "}
-            {new Date(minStart).toLocaleDateString("en-IN")}.
-          </AlertDescription>
-        </Alert>
-      )}
-      {scheduleValid && !meetsMinDuration && (
-        <Alert variant="destructive" className="mt-4">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            Minimum duration is 3 days. Current: {days} day{days === 1 ? "" : "s"}.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <div className="mt-6 rounded-lg border bg-secondary/40 p-4">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <InfoIcon className="h-4 w-4 text-primary" />
-          {dateRangeText}
-        </div>
-        <div className="mt-2 text-sm">
-          {startDate && endDate ? (
-            <>
-              <span className="font-semibold text-foreground">{availableCount}</span>{" "}
-              <span className="text-muted-foreground">
-                of {candidateScreens.length} screens have space in this window.
-              </span>
-            </>
-          ) : (
-            <span className="text-muted-foreground">
-              {candidateScreens.length} screens match your filters.
-            </span>
-          )}
-        </div>
       </div>
     </Card>
   );
 }
+
+function CheckChip({
+  label,
+  checked,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+        disabled
+          ? "cursor-not-allowed border-dashed border-border bg-muted/40 text-muted-foreground/60 line-through"
+          : checked
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-border bg-background text-foreground hover:bg-accent",
+      )}
+    >
+      <span
+        className={cn(
+          "grid h-4 w-4 place-items-center rounded-sm border",
+          disabled
+            ? "border-muted-foreground/40"
+            : checked
+              ? "border-primary-foreground bg-primary-foreground/20"
+              : "border-muted-foreground/50",
+        )}
+      >
+        {checked && !disabled && <Check className="h-3 w-3" />}
+      </span>
+      {label}
+    </button>
+  );
+}
+
 
 /* ---------- Step 6 (Payment) ---------- */
 
