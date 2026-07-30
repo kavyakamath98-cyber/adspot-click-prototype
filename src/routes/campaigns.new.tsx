@@ -73,7 +73,7 @@ import {
   bookedSlotsOn,
   daysBetween,
   fmtShort,
-  freeChosenSlots,
+  slotAvailabilityBreakdown,
 
   screenAvailability,
   slotFreeSomewhere,
