@@ -439,12 +439,38 @@ function CampaignDetail() {
           {/* Creative preview */}
           <Card className="p-5">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold">Current creative</h2>
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Currently Live
-              </span>
+              <h2 className="font-semibold">
+                {currentCreative ? "Current creative" : "Creative"}
+              </h2>
+              {campaign.status === "live" && currentCreative && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Currently Live
+                </span>
+              )}
+              {currentCreative && campaign.status !== "live" && (
+                <StatusBadge status={currentCreative.status} />
+              )}
             </div>
+            {!currentCreative && (
+              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                No creative chosen yet.
+                {campaign.status === "draft" && (
+                  <>
+                    {" "}
+                    <Link
+                      to="/campaigns/new"
+                      search={{ draftId: campaign.id }}
+                      className="text-primary underline"
+                    >
+                      Continue your draft
+                    </Link>{" "}
+                    to pick one.
+                  </>
+                )}
+              </div>
+            )}
             {currentCreative && (
+
               <div className="grid gap-4 sm:grid-cols-[240px_1fr]">
                 <div className="relative aspect-video overflow-hidden rounded border-4 border-neutral-800 bg-black">
                   {currentCreative.type === "image" ? (
