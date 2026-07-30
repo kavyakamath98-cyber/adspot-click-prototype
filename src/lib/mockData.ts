@@ -314,6 +314,31 @@ export function slotFreeSomewhere(
   return all.some((d) => !bookedSlotsOn(screen, d).has(slot));
 }
 
+/**
+ * Of the campaign-wide chosen slots, which ones this screen can actually honor
+ * in the selected date range. `allDays` = free on every applicable day.
+ */
+export function freeChosenSlots(
+  screen: Screen,
+  chosenSlots: string[],
+  start?: string,
+  end?: string,
+  daysOfWeek: number[] = [0, 1, 2, 3, 4, 5, 6],
+): { id: string; label: string; allDays: boolean }[] {
+  const wanted = chosenSlots.length ? chosenSlots : ALL_DAYPART_IDS;
+  const labelOf = (id: string) => DAYPARTS.find((d) => d.id === id)?.label ?? id;
+  if (!start || !end) return wanted.map((id) => ({ id, label: labelOf(id), allDays: true }));
+  const all = daysBetween(start, end).filter((d) => daysOfWeek.includes(new Date(d).getDay()));
+  if (all.length === 0) return wanted.map((id) => ({ id, label: labelOf(id), allDays: true }));
+  const out: { id: string; label: string; allDays: boolean }[] = [];
+  for (const id of wanted) {
+    const freeDays = all.filter((d) => !bookedSlotsOn(screen, d).has(id)).length;
+    if (freeDays > 0) out.push({ id, label: labelOf(id), allDays: freeDays === all.length });
+  }
+  return out;
+}
+
+
 
 function mkScreens(): Screen[] {
   const base: Omit<Screen, "id" | "locationTag">[] = [];
