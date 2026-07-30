@@ -270,7 +270,7 @@ function NewCampaign() {
       case 2:
         return !!selectedCreative && selectedCreative.status !== "rejected";
       case 3:
-        return scheduleValid && meetsMinDuration && daysOfWeek.length > 0 && dayparts.length > 0;
+        return scheduleValid && daysOfWeek.length > 0 && dayparts.length > 0;
       case 4:
         return selectedScreens.length > 0 && meetsMinSpend;
       case 5:
@@ -400,19 +400,12 @@ function NewCampaign() {
               days={days}
               minStart={minStartDate}
               scheduleValid={scheduleValid}
-              meetsMinDuration={meetsMinDuration}
               isNewCreative={isNewCreative}
               daysOfWeek={daysOfWeek}
               setDaysOfWeek={setDaysOfWeek}
               dayparts={dayparts}
               setDayparts={setDayparts}
-              tagFilter={tagFilter}
-              setTagFilter={setTagFilter}
-              dimFilter={dimFilter}
-              setDimFilter={setDimFilter}
-              candidateScreens={candidateScreens}
-              inRangeCount={inRangeScreens.length}
-              availableCount={availableCount}
+              candidateScreens={inRangeScreens}
             />
           )}
           {step === 4 && (
@@ -428,8 +421,14 @@ function NewCampaign() {
               days={days}
               totalCost={totalCost}
               meetsMinSpend={meetsMinSpend}
+              tagFilter={tagFilter}
+              setTagFilter={setTagFilter}
+              dimFilter={dimFilter}
+              setDimFilter={setDimFilter}
+              inRangeCount={inRangeScreens.length}
             />
           )}
+
           {step === 5 && selectedCreative && (
             <StepPreview
               creative={selectedCreative}
