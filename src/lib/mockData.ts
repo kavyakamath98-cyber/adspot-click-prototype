@@ -243,8 +243,13 @@ export function fmtShort(iso: string) {
 /** Deterministic mock bookings (0–3) per screen, seeded by index. */
 function mkBookings(i: number): ScreenBooking[] {
   const today = toISO(new Date());
-  const count = i % 4; // 0..3
   const out: ScreenBooking[] = [];
+  // Every 9th screen is a long-running full-day takeover -> fully booked example.
+  if (i % 9 === 4) {
+    out.push({ start: today, end: addDaysISO(today, 60), slots: [...ALL_DAYPART_IDS] });
+    return out;
+  }
+  const count = i % 4; // 0..3
   for (let b = 0; b < count; b++) {
     const offset = (i * 7 + b * 13) % 26;
     const len = 2 + ((i + b * 3) % 6);
