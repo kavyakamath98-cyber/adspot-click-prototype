@@ -73,6 +73,8 @@ import {
   bookedSlotsOn,
   daysBetween,
   fmtShort,
+  freeChosenSlots,
+
   screenAvailability,
   slotFreeSomewhere,
   toISO,
