@@ -28,6 +28,12 @@ interface AppState {
     forceOutcome?: "approve" | "reject",
   ) => void;
   cancelPendingCampaign: (id: string) => number; // full refund, no fee
+  simulateCreativeReviewForCampaign: (
+    campaignId: string,
+    creativeId: string,
+    forceOutcome?: "approve" | "reject",
+  ) => void;
+
   simulateReplaceCreativeReview: (
     campaignId: string,
     newCreativeId: string,
