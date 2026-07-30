@@ -391,6 +391,35 @@ function CampaignDetail() {
         </Alert>
       )}
 
+      {campaign.awaitingPayment && !campaign.paymentUnlocked && campaign.status === "pending_approval" && (
+        <Alert className="mb-6 border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <Clock className="h-4 w-4" />
+          <AlertTitle>Creative under review — payment on hold</AlertTitle>
+          <AlertDescription>
+            Your payment details will be available once the creative is approved. New creatives
+            usually take 24–48 hours. Nothing has been charged.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {campaign.awaitingPayment && campaign.paymentUnlocked && campaign.status === "pending_approval" && (
+        <Card className="mb-6 border-primary/40 bg-primary/5 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="font-semibold">Creative approved — complete your payment</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Pay ₹{campaign.totalBudget.toLocaleString("en-IN")} to put this campaign live on your{" "}
+                {campaign.screenIds.length} selected screens.
+              </p>
+            </div>
+            <Button size="lg" onClick={doPayNow}>
+              Pay ₹{campaign.totalBudget.toLocaleString("en-IN")}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
           {/* Creative preview */}
