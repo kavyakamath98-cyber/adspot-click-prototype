@@ -67,7 +67,6 @@ import {
   SCREENS,
   distanceKm,
   presetIdFor,
-  ALL_DAYPART_IDS,
   DAYPARTS,
   addDaysISO,
   bookedSlotsOn,
@@ -107,7 +106,6 @@ type FitMode = "contain" | "cover" | "fill";
 
 const STEP_LABELS = ["Details & Targeting", "Creative", "Schedule", "Screens", "Preview", "Payment"];
 
-const ALL_DOW = [0, 1, 2, 3, 4, 5, 6];
 const DOW_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const DOW_LABEL: Record<number, string> = {
   0: "Sun",
