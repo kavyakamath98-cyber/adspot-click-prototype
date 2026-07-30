@@ -338,6 +338,41 @@ export function freeChosenSlots(
   return out;
 }
 
+export type SlotAvailability = {
+  id: string;
+  label: string;
+  /** Dates (ISO) in the user's schedule where this slot is free on this screen. */
+  freeDates: string[];
+  /** Dates (ISO) in the user's schedule where this slot is already taken. */
+  bookedDates: string[];
+  totalDates: number;
+};
+
+/**
+ * Per-slot, per-date breakdown of what the user can actually book on a screen,
+ * limited to the slots/days/dates they chose on the Schedule step.
+ */
+export function slotAvailabilityBreakdown(
+  screen: Screen,
+  chosenSlots: string[],
+  start?: string,
+  end?: string,
+  daysOfWeek: number[] = [0, 1, 2, 3, 4, 5, 6],
+): { slots: SlotAvailability[]; dates: string[] } {
+  const wanted = chosenSlots.length ? chosenSlots : ALL_DAYPART_IDS;
+  const labelOf = (id: string) => DAYPARTS.find((d) => d.id === id)?.label ?? id;
+  const dates =
+    start && end
+      ? daysBetween(start, end).filter((d) => daysOfWeek.includes(new Date(d).getDay()))
+      : [];
+  const slots = wanted.map((id) => {
+    const freeDates = dates.filter((d) => !bookedSlotsOn(screen, d).has(id));
+    const bookedDates = dates.filter((d) => bookedSlotsOn(screen, d).has(id));
+    return { id, label: labelOf(id), freeDates, bookedDates, totalDates: dates.length };
+  });
+  return { slots, dates };
+}
+
 
 
 function mkScreens(): Screen[] {
