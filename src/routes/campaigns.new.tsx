@@ -1102,7 +1102,7 @@ function MultiSelectPopover({
 
 
 
-/* ---------- Step 3 (Screens) ---------- */
+/* ---------- Step 4 (Screens) ---------- */
 
 const SCREEN_PAGE = 8;
 
@@ -1118,6 +1118,11 @@ function StepScreens({
   days,
   totalCost,
   meetsMinSpend,
+  tagFilter,
+  setTagFilter,
+  dimFilter,
+  setDimFilter,
+  inRangeCount,
 }: {
   screens: typeof SCREENS;
   creative?: Creative;
@@ -1130,6 +1135,11 @@ function StepScreens({
   days?: number;
   totalCost: number;
   meetsMinSpend: boolean;
+  tagFilter: Set<LocationTag>;
+  setTagFilter: (fn: (prev: Set<LocationTag>) => Set<LocationTag>) => void;
+  dimFilter: Set<string>;
+  setDimFilter: (fn: (prev: Set<string>) => Set<string>) => void;
+  inRangeCount: number;
 }) {
   const [visible, setVisible] = useState(SCREEN_PAGE);
   const sentinel = useRef<HTMLDivElement | null>(null);
@@ -1139,6 +1149,7 @@ function StepScreens({
       screens.map((s) => ({
         screen: s,
         status: screenAvailability(s, startDate, endDate, daysOfWeek, dayparts),
+        freeSlots: freeChosenSlots(s, dayparts, startDate, endDate, daysOfWeek),
       })),
     [screens, startDate, endDate, daysOfWeek, dayparts],
   );
@@ -1227,8 +1238,54 @@ function StepScreens({
         </div>
       </div>
 
+      <div className="mt-4 rounded-lg border bg-muted/20 p-3">
+        <p className="text-xs font-medium text-muted-foreground">
+          Narrow down the list (optional)
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <MultiSelectPopover
+            label="Location type"
+            options={LOCATION_TAGS as readonly string[]}
+            selected={tagFilter as Set<string>}
+            onToggle={(v) =>
+              setTagFilter((prev) => {
+                const next = new Set(prev);
+                const t = v as LocationTag;
+                if (next.has(t)) next.delete(t);
+                else next.add(t);
+                return next;
+              })
+            }
+            onSelectAll={() => setTagFilter(() => new Set(LOCATION_TAGS))}
+            onClear={() => setTagFilter(() => new Set())}
+          />
+          <MultiSelectPopover
+            label="Dimensions"
+            options={DIMENSION_PRESETS.map((p) => p.label)}
+            selected={
+              new Set(DIMENSION_PRESETS.filter((p) => dimFilter.has(p.id)).map((p) => p.label))
+            }
+            onToggle={(labelValue) => {
+              const preset = DIMENSION_PRESETS.find((p) => p.label === labelValue);
+              if (!preset) return;
+              setDimFilter((prev) => {
+                const next = new Set(prev);
+                if (next.has(preset.id)) next.delete(preset.id);
+                else next.add(preset.id);
+                return next;
+              });
+            }}
+            onSelectAll={() => setDimFilter(() => new Set(DIMENSION_PRESETS.map((p) => p.id)))}
+            onClear={() => setDimFilter(() => new Set())}
+          />
+          <span className="text-xs text-muted-foreground">
+            Showing {screens.length} of {inRangeCount} screens in your area
+          </span>
+        </div>
+      </div>
+
       <div className="mt-5 divide-y divide-border rounded-lg border">
-        {shown.map(({ screen: s, status }) => {
+        {shown.map(({ screen: s, status, freeSlots }) => {
           const matched = isMatched(s);
           const booked = status === "booked";
           const disabled = booked || !matched;
@@ -1248,12 +1305,26 @@ function StepScreens({
                   <span className="font-medium">{s.venue}</span>
                   <LocationTagPill tag={s.locationTag} />
                   <AvailabilityBadge a={status} />
-                  {status !== "available" && (
-                    <SlotInfoPopover screen={s} startDate={startDate} endDate={endDate} />
+                  {!booked && (
+                    <FreeSlotsPopover screen={s} freeSlots={freeSlots} startDate={startDate} endDate={endDate} />
                   )}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   {s.venueType} · {s.city} · {s.pincode} · {s.width}×{s.height}
+                </p>
+                <p className="mt-1 text-xs">
+                  {booked ? (
+                    <span className="text-muted-foreground">
+                      Already taken for all your chosen time-slots on these dates.
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Free for your dates:{" "}
+                      <span className="font-medium text-foreground">
+                        {freeSlots.map((f) => f.label).join(", ")}
+                      </span>
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="text-right text-sm">
@@ -1265,7 +1336,7 @@ function StepScreens({
         })}
         {withStatus.length === 0 && (
           <div className="p-6 text-center text-sm text-muted-foreground">
-            No screens match the filters you set on the schedule step.
+            No screens match the filters you set above.
           </div>
         )}
       </div>
@@ -1296,32 +1367,23 @@ function StepScreens({
   );
 }
 
-function SlotInfoPopover({
+function FreeSlotsPopover({
   screen,
+  freeSlots,
   startDate,
   endDate,
 }: {
   screen: (typeof SCREENS)[number];
+  freeSlots: { id: string; label: string; allDays: boolean }[];
   startDate?: string;
   endDate?: string;
 }) {
-  const from = startDate ?? toISO(new Date());
-  const to = endDate ? addDaysISO(endDate, 21) : addDaysISO(from, 28);
-  const rows = useMemo(() => {
-    const out: { day: string; booked: string[] }[] = [];
-    for (const day of daysBetween(from, to)) {
-      const booked = Array.from(bookedSlotsOn(screen, day));
-      if (booked.length > 0) out.push({ day, booked });
-    }
-    return out.slice(0, 14);
-  }, [screen, from, to]);
-
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={`Availability details for ${screen.venue}`}
+          aria-label={`Free time-slots for ${screen.venue}`}
           className="text-muted-foreground transition-colors hover:text-foreground"
         >
           <InfoIcon className="h-3.5 w-3.5" />
@@ -1330,19 +1392,20 @@ function SlotInfoPopover({
       <PopoverContent className="w-72" align="start">
         <p className="text-sm font-medium">{screen.venue}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Existing bookings between {fmtShort(from)} and {fmtShort(to)}. Anything not listed is free.
+          Time-slots this screen can run your ad in
+          {startDate && endDate ? `, ${fmtShort(startDate)}–${fmtShort(endDate)}` : ""}.
         </p>
-        <div className="mt-3 max-h-56 space-y-1.5 overflow-y-auto">
-          {rows.length === 0 && (
-            <p className="text-xs text-muted-foreground">No bookings in this window.</p>
+        <div className="mt-3 space-y-1.5">
+          {freeSlots.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              None of your chosen time-slots are free here.
+            </p>
           )}
-          {rows.map((r) => (
-            <div key={r.day} className="flex items-start justify-between gap-3 text-xs">
-              <span className="font-medium">{fmtShort(r.day)}</span>
-              <span className="text-right text-muted-foreground">
-                {r.booked
-                  .map((id) => DAYPARTS.find((d) => d.id === id)?.label ?? id)
-                  .join(", ")}
+          {freeSlots.map((f) => (
+            <div key={f.id} className="flex items-center justify-between gap-3 text-xs">
+              <span className="font-medium">{f.label}</span>
+              <span className="text-muted-foreground">
+                {f.allDays ? "Free on all your days" : "Free on some days"}
               </span>
             </div>
           ))}
@@ -1351,6 +1414,7 @@ function SlotInfoPopover({
     </Popover>
   );
 }
+
 
 
 function TagChip({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
