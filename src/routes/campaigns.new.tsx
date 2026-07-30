@@ -67,7 +67,6 @@ import {
   SCREENS,
   distanceKm,
   presetIdFor,
-  ALL_DAYPART_IDS,
   DAYPARTS,
   addDaysISO,
   bookedSlotsOn,
@@ -107,7 +106,6 @@ type FitMode = "contain" | "cover" | "fill";
 
 const STEP_LABELS = ["Details & Targeting", "Creative", "Schedule", "Screens", "Preview", "Payment"];
 
-const ALL_DOW = [0, 1, 2, 3, 4, 5, 6];
 const DOW_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const DOW_LABEL: Record<number, string> = {
   0: "Sun",
@@ -198,8 +196,8 @@ function NewCampaign() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minStartDate]);
 
-  const [daysOfWeek, setDaysOfWeek] = useState<number[]>(source?.daysOfWeek ?? ALL_DOW);
-  const [dayparts, setDayparts] = useState<string[]>(source?.dayparts ?? ALL_DAYPART_IDS);
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>(source?.daysOfWeek ?? []);
+  const [dayparts, setDayparts] = useState<string[]>(source?.dayparts ?? []);
   const [tagFilter, setTagFilter] = useState<Set<LocationTag>>(new Set());
   const [dimFilter, setDimFilter] = useState<Set<string>>(new Set());
 
@@ -1660,7 +1658,7 @@ function StepSchedule({
   candidateScreens: typeof SCREENS;
 }) {
   const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const showDateError = Boolean(startDate || endDate) && !scheduleValid;
+  const showDateError = Boolean(startDate && endDate) && !scheduleValid;
 
   const slotAvailable = (id: string) =>
     !startDate ||
