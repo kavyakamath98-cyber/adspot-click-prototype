@@ -531,55 +531,72 @@ function CampaignDetail() {
           </Card>
 
           {/* Reporting (moved above screens) */}
-          <Card className="p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h2 className="font-semibold">
-                  Reporting <span className="text-xs font-normal text-muted-foreground">(Estimated)</span>
-                </h2>
-                {selectedScreen ? (
-                  <div className="mt-1 flex items-center gap-2 text-xs">
-                    <span className="text-muted-foreground">Showing:</span>
-                    <span className="font-medium">{selectedScreen.venue}</span>
-                    <button
-                      className="inline-flex items-center gap-0.5 text-primary underline"
-                      onClick={() => setSelectedScreenId(null)}
-                    >
-                      <ChevronLeft className="h-3 w-3" /> Back to overall
-                    </button>
-                  </div>
-                ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Overall across all {screens.length} screens. Click a screen below to drill in.
-                  </p>
-                )}
+          {hasReporting ? (
+            <Card className="p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold">
+                    Reporting <span className="text-xs font-normal text-muted-foreground">(Estimated)</span>
+                  </h2>
+                  {selectedScreen ? (
+                    <div className="mt-1 flex items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">Showing:</span>
+                      <span className="font-medium">{selectedScreen.venue}</span>
+                      <button
+                        className="inline-flex items-center gap-0.5 text-primary underline"
+                        onClick={() => setSelectedScreenId(null)}
+                      >
+                        <ChevronLeft className="h-3 w-3" /> Back to overall
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Overall across all {screens.length} screens. Click a screen below to drill in.
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <Stat label="Est. plays" value={totalPlays.toLocaleString("en-IN")} />
-              <Stat label="Est. impressions" value={estImpressions.toLocaleString("en-IN")} />
-              <Stat label="Screen uptime" value="98%" />
-            </div>
-            <div className="mt-5 h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={11} />
-                  <YAxis stroke="var(--muted-foreground)" fontSize={11} />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--popover)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                  />
-                  <Bar dataKey="plays" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">All numbers are estimated for demo purposes.</p>
-          </Card>
+              <div className="grid grid-cols-3 gap-3">
+                <Stat label="Est. plays" value={totalPlays.toLocaleString("en-IN")} />
+                <Stat label="Est. impressions" value={estImpressions.toLocaleString("en-IN")} />
+                <Stat label="Screen uptime" value="98%" />
+              </div>
+              <div className="mt-5 h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={11} />
+                    <YAxis stroke="var(--muted-foreground)" fontSize={11} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--popover)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                    />
+                    <Bar dataKey="plays" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">All numbers are estimated for demo purposes.</p>
+            </Card>
+          ) : (
+            <Card className="p-5">
+              <h2 className="font-semibold">Reporting</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {screens.length === 0
+                  ? "No screens selected yet — reporting starts once your campaign is booked and running."
+                  : "Reporting will appear here once this campaign starts running."}
+              </p>
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                <Stat label="Est. plays" value="—" />
+                <Stat label="Est. impressions" value="—" />
+                <Stat label="Screen uptime" value="—" />
+              </div>
+            </Card>
+          )}
+
 
           {/* Screens (now below reporting), with infinite scroll + click to drill */}
           <ScreensSection
