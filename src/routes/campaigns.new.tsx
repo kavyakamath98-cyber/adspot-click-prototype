@@ -345,6 +345,27 @@ function NewCampaign() {
     navigate({ to: "/campaigns/$id", params: { id: newCampaign.id } });
   };
 
+  // New creative → submit for review first, pay only after it clears review.
+  const handleSubmitForReview = (outcome: "approve" | "reject") => {
+    if (!selectedCreative) return;
+    const newCampaign: Campaign = {
+      ...buildCampaign("pending_approval"),
+      id: `cmp_${Date.now()}`,
+      awaitingPayment: true,
+      paymentUnlocked: false,
+    };
+    addCampaign(newCampaign);
+    simulateCreativeReviewForCampaign(newCampaign.id, selectedCreative.id, outcome);
+    if (resubmit) updateCampaign(resubmit.id, { status: "completed" });
+    if (draft) updateCampaign(draft.id, { status: "completed" });
+    setReviewOpen(false);
+    toast.success("Campaign submitted — your creative is now in review", {
+      description: "Payment details unlock once the creative is approved.",
+    });
+    navigate({ to: "/campaigns/$id", params: { id: newCampaign.id } });
+  };
+
+
   return (
     <AppShell
       title={resubmit ? "Fix & Resubmit" : draft ? "Continue Draft" : "Create Campaign"}
