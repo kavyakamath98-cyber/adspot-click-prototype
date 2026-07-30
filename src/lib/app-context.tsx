@@ -28,6 +28,12 @@ interface AppState {
     forceOutcome?: "approve" | "reject",
   ) => void;
   cancelPendingCampaign: (id: string) => number; // full refund, no fee
+  simulateCreativeReviewForCampaign: (
+    campaignId: string,
+    creativeId: string,
+    forceOutcome?: "approve" | "reject",
+  ) => void;
+
   simulateReplaceCreativeReview: (
     campaignId: string,
     newCreativeId: string,
@@ -153,6 +159,58 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [campaigns, creatives],
   );
 
+  // New-creative flow: campaign is submitted before payment. The creative goes
+  // to review; on approval we unlock payment, on rejection the campaign is
+  // rejected with a reason so the user can upload a compliant creative.
+  const simulateCreativeReviewForCampaign = useCallback(
+    (campaignId: string, creativeId: string, forceOutcome?: "approve" | "reject") => {
+      const creative = creatives.find((c) => c.id === creativeId);
+      const forcedTag =
+        creative?.contentTag === "Alcohol"
+          ? "Alcohol or tobacco promotion"
+          : creative?.contentTag === "Adult"
+            ? "Explicit or inappropriate content"
+            : undefined;
+      const outcome: "approve" | "reject" = forcedTag
+        ? "reject"
+        : (forceOutcome ?? (Math.random() < 0.8 ? "approve" : "reject"));
+      const reason =
+        forcedTag ??
+        REJECTION_REASONS[Math.floor(Math.random() * (REJECTION_REASONS.length - 1))];
+
+      setTimeout(() => {
+        if (outcome === "approve") {
+          setCreatives((prev) =>
+            prev.map((cr) =>
+              cr.id === creativeId
+                ? { ...cr, status: "approved" as const, rejectionReason: undefined, previouslyApproved: true }
+                : cr,
+            ),
+          );
+          setCampaigns((prev) =>
+            prev.map((c) =>
+              c.id === campaignId ? { ...c, paymentUnlocked: true, rejectionReason: undefined } : c,
+            ),
+          );
+        } else {
+          setCreatives((prev) =>
+            prev.map((cr) =>
+              cr.id === creativeId ? { ...cr, status: "rejected" as const, rejectionReason: reason } : cr,
+            ),
+          );
+          setCampaigns((prev) =>
+            prev.map((c) =>
+              c.id === campaignId
+                ? { ...c, status: "rejected" as CampaignStatus, rejectionReason: reason }
+                : c,
+            ),
+          );
+        }
+      }, 4000);
+    },
+    [creatives],
+  );
+
   const cancelPendingCampaign = useCallback(
     (id: string) => {
       const camp = campaigns.find((c) => c.id === id);
@@ -165,6 +223,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [campaigns],
   );
+
 
 
   const simulateReplaceCreativeReview = useCallback(
@@ -278,6 +337,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       demoMode,
       setDemoMode,
       addCampaign,
+      simulateCreativeReviewForCampaign,
       updateCampaign,
       addCreative,
       markCreativeApproved,
@@ -297,6 +357,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       demoMode,
       setDemoMode,
       addCampaign,
+
+      simulateCreativeReviewForCampaign,
       updateCampaign,
       addCreative,
       markCreativeApproved,

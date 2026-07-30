@@ -126,6 +126,8 @@ function NewCampaign() {
     updateCampaign,
     chargeWallet,
     simulateApproval,
+    simulateCreativeReviewForCampaign,
+
     campaigns,
   } = useApp();
 
@@ -252,7 +254,9 @@ function NewCampaign() {
 
 
   const [payOpen, setPayOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+
 
   const canReachStep = (target: Step): boolean => {
     // A step is reachable if visited (jump back), or if all prior steps' minimum validity is met.
@@ -344,6 +348,27 @@ function NewCampaign() {
     toast.success("Payment successful — campaign submitted for review");
     navigate({ to: "/campaigns/$id", params: { id: newCampaign.id } });
   };
+
+  // New creative → submit for review first, pay only after it clears review.
+  const handleSubmitForReview = (outcome: "approve" | "reject") => {
+    if (!selectedCreative) return;
+    const newCampaign: Campaign = {
+      ...buildCampaign("pending_approval"),
+      id: `cmp_${Date.now()}`,
+      awaitingPayment: true,
+      paymentUnlocked: false,
+    };
+    addCampaign(newCampaign);
+    simulateCreativeReviewForCampaign(newCampaign.id, selectedCreative.id, outcome);
+    if (resubmit) updateCampaign(resubmit.id, { status: "completed" });
+    if (draft) updateCampaign(draft.id, { status: "completed" });
+    setReviewOpen(false);
+    toast.success("Campaign submitted — your creative is now in review", {
+      description: "Payment details unlock once the creative is approved.",
+    });
+    navigate({ to: "/campaigns/$id", params: { id: newCampaign.id } });
+  };
+
 
   return (
     <AppShell
@@ -446,12 +471,15 @@ function NewCampaign() {
               days={days}
               totalCost={totalCost}
               creative={selectedCreative}
+              deferPayment={isNewCreative}
+              onSubmitForReview={() => setReviewOpen(true)}
               onPay={() => {
                 setPayError(null);
                 setPayOpen(true);
               }}
             />
           )}
+
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
             <Button variant="ghost" onClick={goBack} disabled={step === 1}>
@@ -512,7 +540,36 @@ function NewCampaign() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Submit new creative for review — with simulated outcome */}
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Submit for approval</DialogTitle>
+            <DialogDescription>
+              Your campaign will be saved as Pending approval. No money is charged now — payment
+              opens up once your creative clears review.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md bg-secondary/50 p-4 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Amount payable later</span>
+              <span className="font-semibold">₹{totalCost.toLocaleString("en-IN")}</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Demo only: choose how the review should turn out.
+          </p>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => handleSubmitForReview("reject")}>
+              Simulate rejection
+            </Button>
+            <Button onClick={() => handleSubmitForReview("approve")}>Simulate approval</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
+
   );
 }
 
@@ -1836,6 +1893,8 @@ function Step6({
   days,
   totalCost,
   creative,
+  deferPayment,
+  onSubmitForReview,
   onPay,
 }: {
   name: string;
@@ -1845,13 +1904,17 @@ function Step6({
   days: number | undefined;
   totalCost: number;
   creative: Creative;
+  deferPayment?: boolean;
+  onSubmitForReview?: () => void;
   onPay: () => void;
 }) {
   return (
     <Card className="p-6">
-      <h2 className="text-lg font-semibold">Review & pay</h2>
+      <h2 className="text-lg font-semibold">{deferPayment ? "Review & submit" : "Review & pay"}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Confirm the details below and complete payment to submit your campaign for review.
+        {deferPayment
+          ? "Your creative is new, so it goes for approval first. We won't ask for payment yet."
+          : "Confirm the details below and complete payment to submit your campaign for review."}
       </p>
 
       <div className="mt-6 grid gap-6 md:grid-cols-[200px_1fr]">
@@ -1871,16 +1934,38 @@ function Step6({
           <SummaryRow label="Location" value={`${locationLabel} · ${radius} km`} />
           <SummaryRow label="Screens" value={`${screens}`} />
           <SummaryRow label="Duration" value={days ? `${days} days` : "—"} />
-          <SummaryRow label="Total" value={`₹${totalCost.toLocaleString("en-IN")}`} highlight />
+          <SummaryRow
+            label={deferPayment ? "Estimated total" : "Total"}
+            value={`₹${totalCost.toLocaleString("en-IN")}`}
+            highlight
+          />
         </dl>
       </div>
 
-      <Button onClick={onPay} className="mt-6 w-full" size="lg">
-        Pay ₹{totalCost.toLocaleString("en-IN")}
-      </Button>
+      {deferPayment ? (
+        <>
+          <div className="mt-6 rounded-lg border border-dashed bg-secondary/40 p-5 text-center">
+            <Clock className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
+            <p className="text-sm font-medium">
+              Your payment details will be available once the creative is approved.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              New creatives usually take 24–48 hours to review. Nothing is charged until then.
+            </p>
+          </div>
+          <Button onClick={onSubmitForReview} className="mt-4 w-full" size="lg">
+            Submit for approval
+          </Button>
+        </>
+      ) : (
+        <Button onClick={onPay} className="mt-6 w-full" size="lg">
+          Pay ₹{totalCost.toLocaleString("en-IN")}
+        </Button>
+      )}
     </Card>
   );
 }
+
 
 function SummaryRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (

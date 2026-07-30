@@ -145,7 +145,13 @@ export interface Campaign {
   pausedAt?: string;
   totalPausedDays?: number;
   lastStep?: number;
+  // Set when the campaign was submitted with a brand-new creative: payment is
+  // deferred until the creative clears review.
+  awaitingPayment?: boolean;
+  // Flips to true once the new creative is approved — unlocks the payment step.
+  paymentUnlocked?: boolean;
 }
+
 
 export const REJECTION_REASONS = [
   "Alcohol or tobacco promotion",

@@ -65,6 +65,8 @@ function CampaignDetail() {
     campaigns,
     creatives,
     updateCampaign,
+    chargeWallet,
+
     simulateReplaceCreativeReview,
     pauseCampaign,
     resumeCampaign,
@@ -117,8 +119,21 @@ function CampaignDetail() {
 
   const p = PINCODES[campaign.pincode];
 
+  const hasSchedule =
+    !!campaign.startDate &&
+    !!campaign.endDate &&
+    !Number.isNaN(new Date(campaign.startDate).getTime()) &&
+    !Number.isNaN(new Date(campaign.endDate).getTime());
+
+  // Reporting only makes sense once the campaign has screens and has run/been scheduled.
+  const hasReporting =
+    hasSchedule &&
+    screens.length > 0 &&
+    ["live", "paused", "completed", "approved_scheduled"].includes(campaign.status);
+
   // Chart data — overall or per-screen
   const chartData = useMemo(() => {
+    if (!hasSchedule) return [];
     const days = Math.max(
       1,
       Math.round(
@@ -141,6 +156,7 @@ function CampaignDetail() {
       };
     });
   }, [
+    hasSchedule,
     campaign.startDate,
     campaign.endDate,
     campaign.id,
@@ -156,22 +172,31 @@ function CampaignDetail() {
 
   const selectedScreen = selectedScreenId ? screens.find((s) => s.id === selectedScreenId) : null;
 
-  const totalDays = Math.max(
-    1,
-    Math.round(
-      (new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) /
-        86400000,
-    ) + 1,
-  );
+  const totalDays = hasSchedule
+    ? Math.max(
+        1,
+        Math.round(
+          (new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) /
+            86400000,
+        ) + 1,
+      )
+    : undefined;
   const today = new Date();
-  const elapsedDays = Math.max(
-    0,
-    Math.min(
-      totalDays,
-      Math.round((today.getTime() - new Date(campaign.startDate).getTime()) / 86400000) + 1,
-    ),
-  );
-  const remainingDays = Math.max(0, totalDays - elapsedDays);
+  const elapsedDays =
+    hasSchedule && totalDays !== undefined
+      ? Math.max(
+          0,
+          Math.min(
+            totalDays,
+            Math.round((today.getTime() - new Date(campaign.startDate).getTime()) / 86400000) + 1,
+          ),
+        )
+      : undefined;
+  const remainingDays =
+    totalDays !== undefined && elapsedDays !== undefined
+      ? Math.max(0, totalDays - elapsedDays)
+      : undefined;
+
 
   const pickFromLibrary = (cid: string) => {
     simulateReplaceCreativeReview(campaign.id, cid);
@@ -212,6 +237,18 @@ function CampaignDetail() {
     setScheduleOpen(false);
     toast.success("Schedule updated");
   };
+
+  const doPayNow = () => {
+    if (!chargeWallet(campaign.totalBudget)) {
+      toast.error("Insufficient wallet balance. Please top up and try again.");
+      return;
+    }
+    const status =
+      new Date(campaign.startDate) <= new Date() ? "live" : "approved_scheduled";
+    updateCampaign(campaign.id, { status, awaitingPayment: false, paymentUnlocked: false });
+    toast.success("Payment successful — your campaign is confirmed.");
+  };
+
 
   const contentUnderReviewBanner =
     campaign.status === "pending_approval" && new Date(campaign.startDate) < new Date();
@@ -280,25 +317,34 @@ function CampaignDetail() {
 
         <div className="mt-5 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
           <div className="rounded-lg border bg-secondary/30 p-4">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Calendar className="h-4 w-4 text-primary" />
-              {new Date(campaign.startDate).toLocaleDateString("en-IN", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}{" "}
-              →{" "}
-              {new Date(campaign.endDate).toLocaleDateString("en-IN", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
-            </div>
-            <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-              <MiniStat label="Total" value={`${totalDays} days`} />
-              <MiniStat label="Elapsed" value={`${elapsedDays} days`} />
-              <MiniStat label="Remaining" value={`${remainingDays} days`} />
-            </div>
+            {hasSchedule ? (
+              <>
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  {new Date(campaign.startDate).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}{" "}
+                  →{" "}
+                  {new Date(campaign.endDate).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                  <MiniStat label="Total" value={`${totalDays} days`} />
+                  <MiniStat label="Elapsed" value={`${elapsedDays} days`} />
+                  <MiniStat label="Remaining" value={`${remainingDays} days`} />
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                Dates not set yet — continue your draft to pick a schedule.
+              </div>
+            )}
             {campaign.recurrence && campaign.recurrence !== "none" && (
               <p className="mt-2 text-xs text-muted-foreground">
                 Repeats:{" "}
@@ -312,6 +358,7 @@ function CampaignDetail() {
               </p>
             )}
           </div>
+
           {canEditSchedule && (
             <Button
               variant="outline"
@@ -358,17 +405,72 @@ function CampaignDetail() {
         </Alert>
       )}
 
+      {campaign.awaitingPayment && !campaign.paymentUnlocked && campaign.status === "pending_approval" && (
+        <Alert className="mb-6 border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <Clock className="h-4 w-4" />
+          <AlertTitle>Creative under review — payment on hold</AlertTitle>
+          <AlertDescription>
+            Your payment details will be available once the creative is approved. New creatives
+            usually take 24–48 hours. Nothing has been charged.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {campaign.awaitingPayment && campaign.paymentUnlocked && campaign.status === "pending_approval" && (
+        <Card className="mb-6 border-primary/40 bg-primary/5 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="font-semibold">Creative approved — complete your payment</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Pay ₹{campaign.totalBudget.toLocaleString("en-IN")} to put this campaign live on your{" "}
+                {campaign.screenIds.length} selected screens.
+              </p>
+            </div>
+            <Button size="lg" onClick={doPayNow}>
+              Pay ₹{campaign.totalBudget.toLocaleString("en-IN")}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
           {/* Creative preview */}
           <Card className="p-5">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold">Current creative</h2>
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Currently Live
-              </span>
+              <h2 className="font-semibold">
+                {currentCreative ? "Current creative" : "Creative"}
+              </h2>
+              {campaign.status === "live" && currentCreative && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Currently Live
+                </span>
+              )}
+              {currentCreative && campaign.status !== "live" && (
+                <StatusBadge status={currentCreative.status} />
+              )}
             </div>
+            {!currentCreative && (
+              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                No creative chosen yet.
+                {campaign.status === "draft" && (
+                  <>
+                    {" "}
+                    <Link
+                      to="/campaigns/new"
+                      search={{ draftId: campaign.id }}
+                      className="text-primary underline"
+                    >
+                      Continue your draft
+                    </Link>{" "}
+                    to pick one.
+                  </>
+                )}
+              </div>
+            )}
             {currentCreative && (
+
               <div className="grid gap-4 sm:grid-cols-[240px_1fr]">
                 <div className="relative aspect-video overflow-hidden rounded border-4 border-neutral-800 bg-black">
                   {currentCreative.type === "image" ? (
@@ -429,55 +531,72 @@ function CampaignDetail() {
           </Card>
 
           {/* Reporting (moved above screens) */}
-          <Card className="p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h2 className="font-semibold">
-                  Reporting <span className="text-xs font-normal text-muted-foreground">(Estimated)</span>
-                </h2>
-                {selectedScreen ? (
-                  <div className="mt-1 flex items-center gap-2 text-xs">
-                    <span className="text-muted-foreground">Showing:</span>
-                    <span className="font-medium">{selectedScreen.venue}</span>
-                    <button
-                      className="inline-flex items-center gap-0.5 text-primary underline"
-                      onClick={() => setSelectedScreenId(null)}
-                    >
-                      <ChevronLeft className="h-3 w-3" /> Back to overall
-                    </button>
-                  </div>
-                ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Overall across all {screens.length} screens. Click a screen below to drill in.
-                  </p>
-                )}
+          {hasReporting ? (
+            <Card className="p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold">
+                    Reporting <span className="text-xs font-normal text-muted-foreground">(Estimated)</span>
+                  </h2>
+                  {selectedScreen ? (
+                    <div className="mt-1 flex items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">Showing:</span>
+                      <span className="font-medium">{selectedScreen.venue}</span>
+                      <button
+                        className="inline-flex items-center gap-0.5 text-primary underline"
+                        onClick={() => setSelectedScreenId(null)}
+                      >
+                        <ChevronLeft className="h-3 w-3" /> Back to overall
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Overall across all {screens.length} screens. Click a screen below to drill in.
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <Stat label="Est. plays" value={totalPlays.toLocaleString("en-IN")} />
-              <Stat label="Est. impressions" value={estImpressions.toLocaleString("en-IN")} />
-              <Stat label="Screen uptime" value="98%" />
-            </div>
-            <div className="mt-5 h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={11} />
-                  <YAxis stroke="var(--muted-foreground)" fontSize={11} />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--popover)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                  />
-                  <Bar dataKey="plays" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">All numbers are estimated for demo purposes.</p>
-          </Card>
+              <div className="grid grid-cols-3 gap-3">
+                <Stat label="Est. plays" value={totalPlays.toLocaleString("en-IN")} />
+                <Stat label="Est. impressions" value={estImpressions.toLocaleString("en-IN")} />
+                <Stat label="Screen uptime" value="98%" />
+              </div>
+              <div className="mt-5 h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={11} />
+                    <YAxis stroke="var(--muted-foreground)" fontSize={11} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--popover)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                    />
+                    <Bar dataKey="plays" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">All numbers are estimated for demo purposes.</p>
+            </Card>
+          ) : (
+            <Card className="p-5">
+              <h2 className="font-semibold">Reporting</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {screens.length === 0
+                  ? "No screens selected yet — reporting starts once your campaign is booked and running."
+                  : "Reporting will appear here once this campaign starts running."}
+              </p>
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                <Stat label="Est. plays" value="—" />
+                <Stat label="Est. impressions" value="—" />
+                <Stat label="Screen uptime" value="—" />
+              </div>
+            </Card>
+          )}
+
 
           {/* Screens (now below reporting), with infinite scroll + click to drill */}
           <ScreensSection
