@@ -336,7 +336,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       advertiser: demoMode === "new" ? NEW_ADVERTISER : RETURNING_ADVERTISER,
       demoMode,
       setDemoMode,
-      cancelPendingCampaign,
+      addCampaign,
       simulateCreativeReviewForCampaign,
       updateCampaign,
       addCreative,
