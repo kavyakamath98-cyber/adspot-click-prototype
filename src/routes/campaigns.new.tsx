@@ -540,7 +540,36 @@ function NewCampaign() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Submit new creative for review — with simulated outcome */}
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Submit for approval</DialogTitle>
+            <DialogDescription>
+              Your campaign will be saved as Pending approval. No money is charged now — payment
+              opens up once your creative clears review.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md bg-secondary/50 p-4 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Amount payable later</span>
+              <span className="font-semibold">₹{totalCost.toLocaleString("en-IN")}</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Demo only: choose how the review should turn out.
+          </p>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => handleSubmitForReview("reject")}>
+              Simulate rejection
+            </Button>
+            <Button onClick={() => handleSubmitForReview("approve")}>Simulate approval</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
+
   );
 }
 
