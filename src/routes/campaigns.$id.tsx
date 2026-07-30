@@ -303,25 +303,34 @@ function CampaignDetail() {
 
         <div className="mt-5 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
           <div className="rounded-lg border bg-secondary/30 p-4">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Calendar className="h-4 w-4 text-primary" />
-              {new Date(campaign.startDate).toLocaleDateString("en-IN", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}{" "}
-              →{" "}
-              {new Date(campaign.endDate).toLocaleDateString("en-IN", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
-            </div>
-            <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-              <MiniStat label="Total" value={`${totalDays} days`} />
-              <MiniStat label="Elapsed" value={`${elapsedDays} days`} />
-              <MiniStat label="Remaining" value={`${remainingDays} days`} />
-            </div>
+            {hasSchedule ? (
+              <>
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  {new Date(campaign.startDate).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}{" "}
+                  →{" "}
+                  {new Date(campaign.endDate).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                  <MiniStat label="Total" value={`${totalDays} days`} />
+                  <MiniStat label="Elapsed" value={`${elapsedDays} days`} />
+                  <MiniStat label="Remaining" value={`${remainingDays} days`} />
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                Dates not set yet — continue your draft to pick a schedule.
+              </div>
+            )}
             {campaign.recurrence && campaign.recurrence !== "none" && (
               <p className="mt-2 text-xs text-muted-foreground">
                 Repeats:{" "}
@@ -335,6 +344,7 @@ function CampaignDetail() {
               </p>
             )}
           </div>
+
           {canEditSchedule && (
             <Button
               variant="outline"
