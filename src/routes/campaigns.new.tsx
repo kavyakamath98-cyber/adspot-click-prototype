@@ -1864,6 +1864,8 @@ function Step6({
   days,
   totalCost,
   creative,
+  deferPayment,
+  onSubmitForReview,
   onPay,
 }: {
   name: string;
@@ -1873,13 +1875,17 @@ function Step6({
   days: number | undefined;
   totalCost: number;
   creative: Creative;
+  deferPayment?: boolean;
+  onSubmitForReview?: () => void;
   onPay: () => void;
 }) {
   return (
     <Card className="p-6">
-      <h2 className="text-lg font-semibold">Review & pay</h2>
+      <h2 className="text-lg font-semibold">{deferPayment ? "Review & submit" : "Review & pay"}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Confirm the details below and complete payment to submit your campaign for review.
+        {deferPayment
+          ? "Your creative is new, so it goes for approval first. We won't ask for payment yet."
+          : "Confirm the details below and complete payment to submit your campaign for review."}
       </p>
 
       <div className="mt-6 grid gap-6 md:grid-cols-[200px_1fr]">
@@ -1899,16 +1905,38 @@ function Step6({
           <SummaryRow label="Location" value={`${locationLabel} · ${radius} km`} />
           <SummaryRow label="Screens" value={`${screens}`} />
           <SummaryRow label="Duration" value={days ? `${days} days` : "—"} />
-          <SummaryRow label="Total" value={`₹${totalCost.toLocaleString("en-IN")}`} highlight />
+          <SummaryRow
+            label={deferPayment ? "Estimated total" : "Total"}
+            value={`₹${totalCost.toLocaleString("en-IN")}`}
+            highlight
+          />
         </dl>
       </div>
 
-      <Button onClick={onPay} className="mt-6 w-full" size="lg">
-        Pay ₹{totalCost.toLocaleString("en-IN")}
-      </Button>
+      {deferPayment ? (
+        <>
+          <div className="mt-6 rounded-lg border border-dashed bg-secondary/40 p-5 text-center">
+            <Clock className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
+            <p className="text-sm font-medium">
+              Your payment details will be available once the creative is approved.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              New creatives usually take 24–48 hours to review. Nothing is charged until then.
+            </p>
+          </div>
+          <Button onClick={onSubmitForReview} className="mt-4 w-full" size="lg">
+            Submit for approval
+          </Button>
+        </>
+      ) : (
+        <Button onClick={onPay} className="mt-6 w-full" size="lg">
+          Pay ₹{totalCost.toLocaleString("en-IN")}
+        </Button>
+      )}
     </Card>
   );
 }
+
 
 function SummaryRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
