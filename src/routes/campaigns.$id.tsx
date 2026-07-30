@@ -117,8 +117,21 @@ function CampaignDetail() {
 
   const p = PINCODES[campaign.pincode];
 
+  const hasSchedule =
+    !!campaign.startDate &&
+    !!campaign.endDate &&
+    !Number.isNaN(new Date(campaign.startDate).getTime()) &&
+    !Number.isNaN(new Date(campaign.endDate).getTime());
+
+  // Reporting only makes sense once the campaign has screens and has run/been scheduled.
+  const hasReporting =
+    hasSchedule &&
+    screens.length > 0 &&
+    ["live", "paused", "completed", "approved_scheduled"].includes(campaign.status);
+
   // Chart data — overall or per-screen
   const chartData = useMemo(() => {
+    if (!hasSchedule) return [];
     const days = Math.max(
       1,
       Math.round(
@@ -141,6 +154,7 @@ function CampaignDetail() {
       };
     });
   }, [
+    hasSchedule,
     campaign.startDate,
     campaign.endDate,
     campaign.id,
@@ -156,22 +170,31 @@ function CampaignDetail() {
 
   const selectedScreen = selectedScreenId ? screens.find((s) => s.id === selectedScreenId) : null;
 
-  const totalDays = Math.max(
-    1,
-    Math.round(
-      (new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) /
-        86400000,
-    ) + 1,
-  );
+  const totalDays = hasSchedule
+    ? Math.max(
+        1,
+        Math.round(
+          (new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) /
+            86400000,
+        ) + 1,
+      )
+    : undefined;
   const today = new Date();
-  const elapsedDays = Math.max(
-    0,
-    Math.min(
-      totalDays,
-      Math.round((today.getTime() - new Date(campaign.startDate).getTime()) / 86400000) + 1,
-    ),
-  );
-  const remainingDays = Math.max(0, totalDays - elapsedDays);
+  const elapsedDays =
+    hasSchedule && totalDays !== undefined
+      ? Math.max(
+          0,
+          Math.min(
+            totalDays,
+            Math.round((today.getTime() - new Date(campaign.startDate).getTime()) / 86400000) + 1,
+          ),
+        )
+      : undefined;
+  const remainingDays =
+    totalDays !== undefined && elapsedDays !== undefined
+      ? Math.max(0, totalDays - elapsedDays)
+      : undefined;
+
 
   const pickFromLibrary = (cid: string) => {
     simulateReplaceCreativeReview(campaign.id, cid);
