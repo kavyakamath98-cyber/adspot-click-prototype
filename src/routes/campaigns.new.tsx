@@ -1024,12 +1024,14 @@ function MultiSelectPopover({
   selected,
   onToggle,
   onClear,
+  onSelectAll,
 }: {
   label: string;
   options: readonly string[];
   selected: Set<string>;
   onToggle: (v: string) => void;
   onClear: () => void;
+  onSelectAll?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const count = selected.size;
@@ -1070,22 +1072,34 @@ function MultiSelectPopover({
               })}
             </CommandGroup>
           </CommandList>
-          {count > 0 && (
-            <div className="border-t p-2">
+          <div className="flex items-center justify-between border-t p-2">
+            {onSelectAll ? (
               <button
                 type="button"
-                onClick={onClear}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                onClick={onSelectAll}
+                disabled={count === options.length}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
               >
-                <X className="h-3 w-3" /> Clear all
+                <Check className="h-3 w-3" /> Select all
               </button>
-            </div>
-          )}
+            ) : (
+              <span />
+            )}
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={count === 0}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
+            >
+              <X className="h-3 w-3" /> Clear all
+            </button>
+          </div>
         </Command>
       </PopoverContent>
     </Popover>
   );
 }
+
 
 
 /* ---------- Step 3 (Screens) ---------- */
