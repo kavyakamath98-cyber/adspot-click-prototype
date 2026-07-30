@@ -126,6 +126,8 @@ function NewCampaign() {
     updateCampaign,
     chargeWallet,
     simulateApproval,
+    simulateCreativeReviewForCampaign,
+
     campaigns,
   } = useApp();
 
@@ -252,7 +254,9 @@ function NewCampaign() {
 
 
   const [payOpen, setPayOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+
 
   const canReachStep = (target: Step): boolean => {
     // A step is reachable if visited (jump back), or if all prior steps' minimum validity is met.
