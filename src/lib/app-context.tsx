@@ -356,7 +356,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       creatives,
       demoMode,
       setDemoMode,
-      cancelPendingCampaign,
+      addCampaign,
+
       simulateCreativeReviewForCampaign,
       updateCampaign,
       addCreative,
