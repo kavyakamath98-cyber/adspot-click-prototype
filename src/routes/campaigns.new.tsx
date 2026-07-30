@@ -471,12 +471,15 @@ function NewCampaign() {
               days={days}
               totalCost={totalCost}
               creative={selectedCreative}
+              deferPayment={isNewCreative}
+              onSubmitForReview={() => setReviewOpen(true)}
               onPay={() => {
                 setPayError(null);
                 setPayOpen(true);
               }}
             />
           )}
+
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
             <Button variant="ghost" onClick={goBack} disabled={step === 1}>
