@@ -236,6 +236,18 @@ function CampaignDetail() {
     toast.success("Schedule updated");
   };
 
+  const doPayNow = () => {
+    if (!chargeWallet(campaign.totalBudget)) {
+      toast.error("Insufficient wallet balance. Please top up and try again.");
+      return;
+    }
+    const status =
+      new Date(campaign.startDate) <= new Date() ? "live" : "approved_scheduled";
+    updateCampaign(campaign.id, { status, awaitingPayment: false, paymentUnlocked: false });
+    toast.success("Payment successful — your campaign is confirmed.");
+  };
+
+
   const contentUnderReviewBanner =
     campaign.status === "pending_approval" && new Date(campaign.startDate) < new Date();
 
