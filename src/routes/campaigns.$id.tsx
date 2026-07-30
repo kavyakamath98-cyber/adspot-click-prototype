@@ -65,6 +65,8 @@ function CampaignDetail() {
     campaigns,
     creatives,
     updateCampaign,
+    chargeWallet,
+
     simulateReplaceCreativeReview,
     pauseCampaign,
     resumeCampaign,
