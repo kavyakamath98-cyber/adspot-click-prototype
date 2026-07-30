@@ -1802,25 +1802,25 @@ function CheckChip({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+        "group inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all",
         disabled
-          ? "cursor-not-allowed border-dashed border-border bg-muted/40 text-muted-foreground/60 line-through"
+          ? "cursor-not-allowed border-dashed border-border bg-muted/30 text-muted-foreground/60"
           : checked
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-border bg-background text-foreground hover:bg-accent",
+            ? "border-primary bg-primary/10 text-foreground shadow-[0_0_0_1px_var(--color-primary)]"
+            : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-secondary hover:text-foreground",
       )}
     >
       <span
         className={cn(
-          "grid h-4 w-4 place-items-center rounded-sm border",
+          "grid h-4 w-4 shrink-0 place-items-center rounded border transition-colors",
           disabled
-            ? "border-muted-foreground/40"
+            ? "border-muted-foreground/30 bg-transparent"
             : checked
-              ? "border-primary-foreground bg-primary-foreground/20"
-              : "border-muted-foreground/50",
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-muted-foreground/40 bg-background",
         )}
       >
-        {checked && !disabled && <Check className="h-3 w-3" />}
+        {checked && !disabled && <Check className="h-3 w-3" strokeWidth={3} />}
       </span>
       {label}
     </button>
