@@ -1151,7 +1151,7 @@ function StepScreens({
       screens.map((s) => ({
         screen: s,
         status: screenAvailability(s, startDate, endDate, daysOfWeek, dayparts),
-        freeSlots: freeChosenSlots(s, dayparts, startDate, endDate, daysOfWeek),
+        breakdown: slotAvailabilityBreakdown(s, dayparts, startDate, endDate, daysOfWeek),
       })),
     [screens, startDate, endDate, daysOfWeek, dayparts],
   );
