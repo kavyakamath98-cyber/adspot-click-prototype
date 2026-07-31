@@ -242,7 +242,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const simulateReplaceCreativeReview = useCallback(
     (campaignId: string, newCreativeId: string, forceOutcome?: "approve" | "reject") => {
       setCampaigns((prev) =>
-        prev.map((c) => (c.id === campaignId ? { ...c, pendingCreativeId: newCreativeId } : c)),
+        prev.map((c) =>
+          c.id === campaignId
+            ? {
+                ...c,
+                pendingCreativeId: newCreativeId,
+                rejectedCreativeId: undefined,
+                rejectedCreativeReason: undefined,
+              }
+            : c,
+        ),
       );
       setCreatives((prev) =>
         prev.map((cr) => (cr.id === newCreativeId ? { ...cr, status: "pending" } : cr)),
