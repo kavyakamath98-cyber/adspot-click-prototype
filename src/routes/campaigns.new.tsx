@@ -126,7 +126,6 @@ function NewCampaign() {
     addCampaign,
     updateCampaign,
     chargeWallet,
-    simulateApproval,
     simulateCreativeReviewForCampaign,
 
     campaigns,
