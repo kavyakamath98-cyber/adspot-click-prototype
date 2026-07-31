@@ -1474,12 +1474,14 @@ function SlotAvailabilityPopover({
   status,
   startDate,
   endDate,
+  blockedReason,
 }: {
   screen: (typeof SCREENS)[number];
   breakdown: ReturnType<typeof slotAvailabilityBreakdown>;
   status: "available" | "partial" | "booked";
   startDate?: string;
   endDate?: string;
+  blockedReason?: string;
 }) {
   const { slots, dates } = breakdown;
   const bookableDays = dates.filter((d) =>
@@ -1497,7 +1499,19 @@ function SlotAvailabilityPopover({
           <InfoIcon className="h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
+      {blockedReason ? (
+        <PopoverContent className="w-72 p-0" align="start">
+          <div className="border-b bg-muted/40 px-4 py-3">
+            <p className="text-sm font-semibold">{screen.venue}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Can't be booked</p>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-xs text-muted-foreground">{blockedReason}</p>
+          </div>
+        </PopoverContent>
+      ) : (
       <PopoverContent className="w-80 p-0" align="start">
+
         <div className="border-b bg-muted/40 px-4 py-3">
           <p className="text-sm font-semibold">{screen.venue}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
