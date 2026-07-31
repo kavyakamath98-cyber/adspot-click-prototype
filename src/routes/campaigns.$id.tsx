@@ -486,6 +486,23 @@ function CampaignDetail() {
         </Alert>
       )}
 
+      {rejectedCreative && (
+        <Alert className="mb-6 border-destructive/40 bg-destructive/5">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>
+            New creative "{rejectedCreative.name}" was rejected
+          </AlertTitle>
+          <AlertDescription>
+            Reason: {campaign.rejectedCreativeReason ?? rejectedCreative.rejectionReason}. Your
+            campaign keeps running as usual on the current creative
+            {currentCreative ? ` "${currentCreative.name}"` : ""}. Upload a compliant creative and
+            try the swap again whenever you're ready.
+          </AlertDescription>
+        </Alert>
+      )}
+
+
+
       {campaign.awaitingPayment && !campaign.paymentUnlocked && campaign.status === "pending_approval" && (
         <Alert className="mb-6 border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
           <Clock className="h-4 w-4" />
