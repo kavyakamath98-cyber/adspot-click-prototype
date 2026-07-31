@@ -2114,6 +2114,8 @@ function Step6({
   deferPayment,
   onSubmitForReview,
   onPay,
+  paidEdit,
+  amountPaid,
 }: {
   name: string;
   locationLabel: string;
@@ -2125,14 +2127,21 @@ function Step6({
   deferPayment?: boolean;
   onSubmitForReview?: () => void;
   onPay: () => void;
+  paidEdit?: boolean;
+  amountPaid?: number;
 }) {
+  const delta = paidEdit ? totalCost - (amountPaid ?? 0) : totalCost;
   return (
     <Card className="p-6">
-      <h2 className="text-lg font-semibold">{deferPayment ? "Review & submit" : "Review & pay"}</h2>
+      <h2 className="text-lg font-semibold">
+        {paidEdit ? "Review your changes" : deferPayment ? "Review & submit" : "Review & pay"}
+      </h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        {deferPayment
-          ? "Your creative is new, so it goes for approval first. We won't ask for payment yet."
-          : "Confirm the details below and complete payment to submit your campaign for review."}
+        {paidEdit
+          ? "Here's how your changes affect the price. Anything extra is charged now; savings come back to your wallet."
+          : deferPayment
+            ? "Your creative is new, so it goes for approval first. We won't ask for payment yet."
+            : "Confirm the details below and complete payment to submit your campaign for review."}
       </p>
 
       <div className="mt-6 grid gap-6 md:grid-cols-[200px_1fr]">
@@ -2160,7 +2169,26 @@ function Step6({
         </dl>
       </div>
 
-      {deferPayment ? (
+      {paidEdit && (
+        <div className="mt-6 rounded-lg border bg-secondary/40 p-4 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Already paid</span>
+            <span className="font-medium">₹{(amountPaid ?? 0).toLocaleString("en-IN")}</span>
+          </div>
+          <div className="mt-1 flex justify-between">
+            <span className="text-muted-foreground">New total</span>
+            <span className="font-medium">₹{totalCost.toLocaleString("en-IN")}</span>
+          </div>
+          <div className="mt-2 flex justify-between border-t pt-2 text-base font-semibold">
+            <span>
+              {delta > 0 ? "Extra to pay" : delta < 0 ? "Refund to wallet" : "No change in price"}
+            </span>
+            <span>₹{Math.abs(delta).toLocaleString("en-IN")}</span>
+          </div>
+        </div>
+      )}
+
+      {deferPayment && !paidEdit ? (
         <>
           <div className="mt-6 rounded-lg border border-dashed bg-secondary/40 p-5 text-center">
             <Clock className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
@@ -2177,7 +2205,13 @@ function Step6({
         </>
       ) : (
         <Button onClick={onPay} className="mt-6 w-full" size="lg">
-          Pay ₹{totalCost.toLocaleString("en-IN")}
+          {paidEdit
+            ? delta > 0
+              ? `Pay ₹${delta.toLocaleString("en-IN")} & save changes`
+              : delta < 0
+                ? `Save changes & get ₹${(-delta).toLocaleString("en-IN")} back`
+                : "Save changes"
+            : `Pay ₹${totalCost.toLocaleString("en-IN")}`}
         </Button>
       )}
     </Card>
