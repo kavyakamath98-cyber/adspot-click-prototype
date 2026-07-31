@@ -35,12 +35,15 @@ function LibraryPage() {
     );
   }, [creatives, q]);
 
-  const inUseByLive = (creativeId: string) =>
-    campaigns.some(
-      (c) =>
-        (c.creativeId === creativeId || c.pendingCreativeId === creativeId) &&
-        c.status === "live",
+  const usageFor = (creativeId: string) =>
+    campaigns.filter(
+      (c) => c.creativeId === creativeId || c.pendingCreativeId === creativeId,
     );
+
+  const inUseByLive = (creativeId: string) =>
+    usageFor(creativeId).some((c) => c.status === "live");
+
+
 
   return (
     <AppShell title="Content Library">
