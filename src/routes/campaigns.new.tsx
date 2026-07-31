@@ -138,7 +138,7 @@ function NewCampaign() {
     simulateReplaceCreativeReview,
     pauseCampaign,
     resumeCampaign,
-    stopCampaign,
+    cancelPendingCampaign,
 
     campaigns,
   } = useApp();
