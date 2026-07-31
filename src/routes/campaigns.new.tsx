@@ -510,22 +510,22 @@ function NewCampaign() {
       back={{ to: "/campaigns", label: "Back to campaigns" }}
     >
       {/* Campaign controls live inside the edit flow, for every manageable state */}
-      {editing &&
-        (editing.status === "live" ||
-          editing.status === "paused" ||
-          editing.status === "approved_scheduled" ||
-          editing.status === "pending_approval") && (
+      {managed && managed.status !== "completed" && (
         <Card className="mb-6 border-primary/30 bg-secondary/30 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold">
-                {editing.status === "live"
+                {managed.status === "live"
                   ? "This campaign is running"
-                  : editing.status === "paused"
+                  : managed.status === "paused"
                     ? "This campaign is paused"
-                    : editing.status === "approved_scheduled"
+                    : managed.status === "approved_scheduled"
                       ? "This campaign is approved and scheduled"
-                      : "This campaign is awaiting approval"}
+                      : managed.status === "rejected"
+                        ? "This campaign was rejected"
+                        : managed.status === "draft"
+                          ? "This campaign is a saved draft"
+                          : "This campaign is awaiting approval"}
               </p>
               <p className="text-xs text-muted-foreground">
                 Swap the creative, change the schedule or stop it right here — or edit any step
@@ -539,19 +539,19 @@ function NewCampaign() {
               <Button variant="outline" className="gap-1.5" onClick={() => goStep(3)}>
                 <Calendar className="h-4 w-4" /> Adjust schedule
               </Button>
-              {editing.status === "live" && (
+              {managed.status === "live" && (
                 <Button
                   variant="outline"
                   className="gap-1.5"
                   onClick={() => {
-                    pauseCampaign(editing.id);
+                    pauseCampaign(managed.id);
                     toast.success("Campaign paused");
                   }}
                 >
                   <Pause className="h-4 w-4" /> Pause
                 </Button>
               )}
-              {editing.status === "paused" && (
+              {managed.status === "paused" && (
                 <Button
                   variant="outline"
                   className="gap-1.5"
@@ -566,12 +566,18 @@ function NewCampaign() {
                 onClick={() => setStopOpen(true)}
               >
                 <Square className="h-4 w-4" />{" "}
-                {editing.status === "pending_approval" ? "Cancel campaign" : "Stop campaign"}
+                {isUnpaidManaged
+                  ? "Discard campaign"
+                  : managed.status === "pending_approval"
+                    ? "Cancel campaign"
+                    : "Stop campaign"}
               </Button>
             </div>
           </div>
         </Card>
       )}
+
+
 
 
       <div className="mb-6">
