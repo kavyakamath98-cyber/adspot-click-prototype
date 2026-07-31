@@ -54,6 +54,49 @@ export interface ScreenBooking {
 export const CONTENT_TAGS = ["General/Info", "Alcohol", "Sensitive", "Adult"] as const;
 export type ContentTag = (typeof CONTENT_TAGS)[number];
 
+/** Plain-language definitions shown behind the info icon next to the content tag. */
+export const CONTENT_TAG_INFO: Record<
+  ContentTag,
+  { definition: string; examples: string[]; outcome: string }
+> = {
+  "General/Info": {
+    definition:
+      "Everyday promotional or informational content that anyone, including children, can see.",
+    examples: ["Restaurant menu offer", "Clinic timings", "Gym membership discount", "Festive sale"],
+    outcome: "Runs on all screens.",
+  },
+  Alcohol: {
+    definition: "Any promotion of alcohol, tobacco, vaping or other regulated intoxicants.",
+    examples: ["Bar happy-hour offer", "Beer brand ad", "Wine tasting event", "Cigarette brand"],
+    outcome: "Rejected at review — not permitted on our screens.",
+  },
+  Sensitive: {
+    definition:
+      "Legal, non-explicit content that some viewers may find uncomfortable in a public place. It is about tone and topic, not nudity.",
+    examples: [
+      "Medical procedures (surgery, hair transplant before/after)",
+      "Weight-loss or body-image claims",
+      "Debt, loans and money-lending offers",
+      "Politics, religion or social causes",
+      "Crime, injury or accident imagery (e.g. insurance ads)",
+    ],
+    outcome:
+      "Allowed, but reviewed more carefully and kept off family-heavy screens such as school and clinic waiting areas.",
+  },
+  Adult: {
+    definition:
+      "Sexual or explicit content, or content legally restricted to viewers over 18. This is about explicitness, not just discomfort.",
+    examples: [
+      "Nudity or sexually suggestive imagery",
+      "Dating or escort services",
+      "Adult stores and products",
+      "Gambling and betting",
+    ],
+    outcome: "Rejected at review — never permitted on public screens.",
+  },
+};
+
+
 export interface Screen {
   id: string;
   venue: string;
