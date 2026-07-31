@@ -84,6 +84,7 @@ function LibraryPage() {
         </button>
 
         {results.map((c) => {
+          const usage = usageFor(c.id);
           const locked = inUseByLive(c.id);
           return (
             <Card key={c.id} className="overflow-hidden">
@@ -102,9 +103,10 @@ function LibraryPage() {
                 </div>
                 <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
                   <StatusBadge status={c.status} />
-                  {locked && <InUseBadge />}
+                  {usage.length > 0 && <UsagePopover usage={usage} live={locked} />}
                 </div>
               </div>
+
               <div className="p-4">
                 <h3 className="truncate font-medium">{c.name}</h3>
                 <p className="mt-0.5 text-xs text-muted-foreground">
