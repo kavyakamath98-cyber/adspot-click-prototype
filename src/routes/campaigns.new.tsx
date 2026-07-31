@@ -1269,12 +1269,21 @@ function StepScreens({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [withStatus]);
 
-  const selectAllAvailable = () => {
-    const ids = withStatus
-      .filter((r) => r.status !== "booked" && isMatched(r.screen))
-      .map((r) => r.screen.id);
-    setSelected(Array.from(new Set([...selected, ...ids])));
+  const selectableIds = withStatus
+    .filter((r) => r.status !== "booked" && isMatched(r.screen))
+    .map((r) => r.screen.id);
+  const allSelected =
+    selectableIds.length > 0 && selectableIds.every((id) => selected.includes(id));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      const drop = new Set(selectableIds);
+      setSelected(selected.filter((id) => !drop.has(id)));
+    } else {
+      setSelected(Array.from(new Set([...selected, ...selectableIds])));
+    }
   };
+
 
   const perDay = selected.reduce((sum, id) => {
     const s = SCREENS.find((x) => x.id === id);
