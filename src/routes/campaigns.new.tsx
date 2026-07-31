@@ -721,6 +721,7 @@ function Step1({
   setRadius,
   inRangeCount,
   tagCounts,
+  lockBasics,
 }: {
   name: string;
   setName: (v: string) => void;
@@ -730,6 +731,7 @@ function Step1({
   setRadius: (v: number) => void;
   inRangeCount: number;
   tagCounts: Record<string, number>;
+  lockBasics?: boolean;
 }) {
   const [query, setQuery] = useState(locationLabel);
   const [open, setOpen] = useState(false);
@@ -744,6 +746,16 @@ function Step1({
 
   return (
     <Card className="p-6">
+      {lockBasics && (
+        <Alert className="mb-5">
+          <InfoIcon className="h-4 w-4" />
+          <AlertTitle>This campaign is already live</AlertTitle>
+          <AlertDescription>
+            The name and area stay fixed while it runs. You can still change the radius, screens,
+            schedule and creative — any price difference is settled on the last step.
+          </AlertDescription>
+        </Alert>
+      )}
       <div>
         <Label htmlFor="cname" className="text-base">Campaign name</Label>
         <Input
@@ -752,14 +764,21 @@ function Step1({
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g., Diwali Weekend Push"
           className="mt-1.5 text-base"
+          disabled={lockBasics}
         />
-        <p className="mt-1 text-xs text-muted-foreground">Give your ad a clear, memorable name.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {lockBasics
+            ? "Name can't be changed once the campaign is live."
+            : "Give your ad a clear, memorable name."}
+        </p>
       </div>
 
       <div className="mt-6">
         <h2 className="text-lg font-semibold">Where should this ad run?</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Search a neighborhood, area, or pincode — we'll pin the center on the map.
+          {lockBasics
+            ? "The area is locked for a live campaign — adjust the radius below instead."
+            : "Search a neighborhood, area, or pincode — we'll pin the center on the map."}
         </p>
 
         <div className="relative mt-4">
@@ -770,12 +789,13 @@ function Step1({
               setQuery(e.target.value);
               setOpen(true);
             }}
-            onFocus={() => setOpen(true)}
+            onFocus={() => !lockBasics && setOpen(true)}
             onBlur={() => setTimeout(() => setOpen(false), 150)}
             placeholder="Search for a place, e.g. Indiranagar, Bangalore"
             className="pl-9"
+            disabled={lockBasics}
           />
-          {open && suggestions.length > 0 && (
+          {!lockBasics && open && suggestions.length > 0 && (
             <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border bg-popover shadow-lg">
               {suggestions.map((s) => (
                 <button
