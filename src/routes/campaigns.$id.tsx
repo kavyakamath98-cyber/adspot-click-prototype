@@ -275,8 +275,9 @@ function CampaignDetail() {
       endDate: editEnd,
       daysOfWeek: editDays,
       dayparts: editSlots,
-      totalBudget: newBudget,
+      totalBudget: campaign.totalBudget + budgetDelta,
     });
+
     setScheduleOpen(false);
     if (budgetDelta > 0) {
       toast.success(
