@@ -72,12 +72,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 
   const addCampaign = useCallback((c: Campaign) => {
-    setCampaigns((prev) => [c, ...prev]);
+    const stamped = { ...c, updatedAt: c.updatedAt ?? new Date().toISOString() };
+    setCampaigns((prev) => [stamped, ...prev]);
   }, []);
 
   const updateCampaign = useCallback((id: string, patch: Partial<Campaign>) => {
-    setCampaigns((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    setCampaigns((prev) =>
+      prev.map((c) =>
+        c.id === id ? { ...c, ...patch, updatedAt: patch.updatedAt ?? new Date().toISOString() } : c,
+      ),
+    );
   }, []);
+
+  const refundToWallet = useCallback((amount: number) => {
+    setWallet((w) => w + Math.max(0, amount));
+  }, []);
+
 
   const addCreative = useCallback((c: Creative) => {
     setCreatives((prev) => [c, ...prev]);
