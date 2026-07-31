@@ -659,39 +659,55 @@ function NewCampaign() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editing?.status === "pending_approval"
-                ? "Cancel this campaign?"
-                : "Stop campaign permanently?"}
+              {isUnpaidManaged
+                ? "Discard this campaign?"
+                : managed?.status === "pending_approval"
+                  ? "Cancel this campaign?"
+                  : "Stop campaign permanently?"}
             </DialogTitle>
             <DialogDescription>
-              {editing?.status === "pending_approval"
-                ? "This campaign hasn't started yet. Cancelling withdraws it from approval and refunds anything you've paid, in full."
-                : "This is permanent. Once stopped, the campaign cannot be resumed — different from Pause. Unused budget is refunded to your wallet."}
+              {isUnpaidManaged
+                ? "Nothing has been paid for this campaign yet. Discarding removes it from your list — this can't be undone."
+                : managed?.status === "pending_approval"
+                  ? "This campaign hasn't started yet. Cancelling withdraws it from approval and refunds anything you've paid, in full."
+                  : "This is permanent. Once stopped, the campaign cannot be resumed — different from Pause. Unused budget is refunded to your wallet."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStopOpen(false)}>
-              {editing?.status === "pending_approval" ? "Keep it" : "Keep it running"}
+              {isUnpaidManaged
+                ? "Keep it"
+                : managed?.status === "pending_approval"
+                  ? "Keep it"
+                  : "Keep it running"}
             </Button>
             <Button
               variant="destructive"
               onClick={() => {
-                if (!editing) return;
-                const pending = editing.status === "pending_approval";
-                const refund = pending
-                  ? cancelPendingCampaign(editing.id)
-                  : stopCampaign(editing.id);
+                if (!managed) return;
                 setStopOpen(false);
-                toast.success(
-                  `${pending ? "Campaign cancelled" : "Campaign stopped"}. ₹${refund.toLocaleString("en-IN")} refunded to wallet (mock).`,
-                );
-                navigate({ to: "/campaigns/$id", params: { id: editing.id } });
+                if (isUnpaidManaged) {
+                  updateCampaign(managed.id, { status: "completed" });
+                  toast.success("Campaign discarded.");
+                } else {
+                  const pending = managed.status === "pending_approval";
+                  const refund = pending
+                    ? cancelPendingCampaign(managed.id)
+                    : stopCampaign(managed.id);
+                  toast.success(
+                    `${pending ? "Campaign cancelled" : "Campaign stopped"}. ₹${refund.toLocaleString("en-IN")} refunded to wallet (mock).`,
+                  );
+                }
+                navigate({ to: "/campaigns/$id", params: { id: managed.id } });
               }}
             >
-              {editing?.status === "pending_approval"
-                ? "Cancel campaign"
-                : "Stop campaign permanently"}
+              {isUnpaidManaged
+                ? "Discard campaign"
+                : managed?.status === "pending_approval"
+                  ? "Cancel campaign"
+                  : "Stop campaign permanently"}
             </Button>
+
 
           </DialogFooter>
         </DialogContent>
