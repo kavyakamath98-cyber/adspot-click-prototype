@@ -18,15 +18,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { useApp } from "@/lib/app-context";
 import {
   CONTENT_TAGS,
+  CONTENT_TAG_INFO,
   INDUSTRIES,
   type ContentTag,
   type Creative,
   type Industry,
 } from "@/lib/mockData";
+
 
 export function AddCreativeDialog({
   open,
