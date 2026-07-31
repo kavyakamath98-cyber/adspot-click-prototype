@@ -1158,7 +1158,53 @@ function cnLocal(...xs: (string | false | undefined)[]) {
   return xs.filter(Boolean).join(" ");
 }
 
+/** Same day/slot checkbox chip used in the create-campaign wizard. */
+function CheckChip({
+  label,
+  checked,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={onClick}
+      className={cnLocal(
+        "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all",
+        disabled
+          ? "cursor-not-allowed border-dashed border-border bg-muted/30 text-muted-foreground/60"
+          : checked
+            ? "border-primary bg-primary/10 text-foreground shadow-[0_0_0_1px_var(--color-primary)]"
+            : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-secondary hover:text-foreground",
+      )}
+    >
+      <span
+        className={cnLocal(
+          "grid h-4 w-4 shrink-0 place-items-center rounded border transition-colors",
+          disabled
+            ? "border-muted-foreground/30 bg-transparent"
+            : checked
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-muted-foreground/40 bg-background",
+        )}
+      >
+        {checked && !disabled && <Check className="h-3 w-3" strokeWidth={3} />}
+      </span>
+      {label}
+    </button>
+  );
+}
+
 function MiniStat({ label, value }: { label: string; value: string }) {
+
   return (
     <div className="rounded-md bg-background p-2">
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
