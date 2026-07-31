@@ -1,13 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Search, Trash2, Plus, ImageIcon, Film } from "lucide-react";
-import { AppShell, InUseBadge, StatusBadge, VideoPlayOverlay } from "@/components/AppShell";
+import { Search, Trash2, Plus, ImageIcon, Film, Info } from "lucide-react";
+import { AppShell, StatusBadge, VideoPlayOverlay } from "@/components/AppShell";
 import { AddCreativeDialog } from "@/components/AddCreativeDialog";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useApp } from "@/lib/app-context";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/library")({
   head: () => ({
@@ -35,12 +37,15 @@ function LibraryPage() {
     );
   }, [creatives, q]);
 
-  const inUseByLive = (creativeId: string) =>
-    campaigns.some(
-      (c) =>
-        (c.creativeId === creativeId || c.pendingCreativeId === creativeId) &&
-        c.status === "live",
+  const usageFor = (creativeId: string) =>
+    campaigns.filter(
+      (c) => c.creativeId === creativeId || c.pendingCreativeId === creativeId,
     );
+
+  const inUseByLive = (creativeId: string) =>
+    usageFor(creativeId).some((c) => c.status === "live");
+
+
 
   return (
     <AppShell title="Content Library">
@@ -81,6 +86,7 @@ function LibraryPage() {
         </button>
 
         {results.map((c) => {
+          const usage = usageFor(c.id);
           const locked = inUseByLive(c.id);
           return (
             <Card key={c.id} className="overflow-hidden">
@@ -99,9 +105,10 @@ function LibraryPage() {
                 </div>
                 <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
                   <StatusBadge status={c.status} />
-                  {locked && <InUseBadge />}
+                  {usage.length > 0 && <UsagePopover usage={usage} live={locked} />}
                 </div>
               </div>
+
               <div className="p-4">
                 <h3 className="truncate font-medium">{c.name}</h3>
                 <p className="mt-0.5 text-xs text-muted-foreground">
@@ -126,28 +133,25 @@ function LibraryPage() {
                   </p>
                 )}
                 <div className="mt-3 flex items-center justify-between gap-2">
-                  <Link to="/campaigns/new" search={{ creativeId: c.id }}>
-                    <Button size="sm" variant="secondary" className="gap-1">
-                      <Plus className="h-3.5 w-3.5" /> Use in campaign
-                    </Button>
-                  </Link>
-                  <div className="flex flex-col items-end">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={locked}
-                      onClick={() => {
-                        deleteCreative(c.id);
-                        toast.success("Creative deleted");
-                      }}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    {locked && (
-                      <span className="text-[10px] text-muted-foreground">In use by live campaign</span>
-                    )}
-                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {usage.length === 0
+                      ? "Not used in any campaign yet"
+                      : locked
+                        ? "In use by a live campaign"
+                        : `Used in ${usage.length} campaign${usage.length > 1 ? "s" : ""}`}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={locked}
+                    onClick={() => {
+                      deleteCreative(c.id);
+                      toast.success("Creative deleted");
+                    }}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </Card>
@@ -165,3 +169,49 @@ function LibraryPage() {
     </AppShell>
   );
 }
+
+/** Compact "In use" chip that reveals exactly which campaigns use the creative. */
+function UsagePopover({
+  usage,
+  live,
+}: {
+  usage: { id: string; name: string; status: string }[];
+  live: boolean;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium backdrop-blur transition-colors ${
+            live
+              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300"
+              : "bg-background/85 text-muted-foreground hover:bg-background"
+          }`}
+        >
+          {live && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
+          In use · {usage.length}
+          <Info className="h-3 w-3" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 p-3">
+        <p className="text-xs font-medium">Used in these campaigns</p>
+        <ul className="mt-2 space-y-1.5">
+          {usage.map((c) => (
+            <li key={c.id} className="flex items-center justify-between gap-2">
+              <Link
+                to="/campaigns/$id"
+                params={{ id: c.id }}
+                className="truncate text-xs text-primary hover:underline"
+              >
+                {c.name}
+              </Link>
+              <StatusBadge status={c.status} />
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+

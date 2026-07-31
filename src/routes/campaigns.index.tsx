@@ -1,12 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, MapPin, Monitor, Plus, Search, TrendingUp } from "lucide-react";
+import { ArrowUpDown, Calendar, MapPin, Monitor, Plus, Search, TrendingUp } from "lucide-react";
 import { AppShell, StatusBadge } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 import { useApp } from "@/lib/app-context";
-import { PINCODES, type CampaignStatus } from "@/lib/mockData";
+import { PINCODES, displayStatus, type CampaignStatus } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/campaigns/")({
@@ -34,26 +42,53 @@ const STATUS_FILTERS: { key: CampaignStatus | "all"; label: string }[] = [
 
 const PAGE = 8;
 
+const SORT_OPTIONS = [
+  { key: "created_desc", label: "Date created (new → old)" },
+  { key: "created_asc", label: "Date created (old → new)" },
+  { key: "modified_desc", label: "Date modified (new → old)" },
+  { key: "modified_asc", label: "Date modified (old → new)" },
+] as const;
+type SortKey = (typeof SORT_OPTIONS)[number]["key"];
+
+const time = (d?: string) => {
+  const t = d ? new Date(d).getTime() : NaN;
+  return Number.isNaN(t) ? 0 : t;
+};
+
 function CampaignsList() {
   const { campaigns } = useApp();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<CampaignStatus | "all">("all");
+  const [sort, setSort] = useState<SortKey>("created_desc");
   const [visible, setVisible] = useState(PAGE);
   const sentinel = useRef<HTMLDivElement | null>(null);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return campaigns.filter((c) => {
+    const list = campaigns.filter((c) => {
       if (status !== "all" && c.status !== status) return false;
       if (s && !c.name.toLowerCase().includes(s)) return false;
       return true;
     });
-  }, [campaigns, q, status]);
+    return [...list].sort((a, b) => {
+      switch (sort) {
+        case "created_asc":
+          return time(a.createdAt) - time(b.createdAt);
+        case "modified_desc":
+          return time(b.updatedAt ?? b.createdAt) - time(a.updatedAt ?? a.createdAt);
+        case "modified_asc":
+          return time(a.updatedAt ?? a.createdAt) - time(b.updatedAt ?? b.createdAt);
+        default:
+          return time(b.createdAt) - time(a.createdAt);
+      }
+    });
+  }, [campaigns, q, status, sort]);
 
   const shown = filtered.slice(0, visible);
   const hasMore = visible < filtered.length;
 
-  useEffect(() => setVisible(PAGE), [q, status]);
+  useEffect(() => setVisible(PAGE), [q, status, sort]);
+
 
   useEffect(() => {
     if (!hasMore) return;
@@ -88,6 +123,20 @@ function CampaignsList() {
               className="pl-9"
             />
           </div>
+          <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+            <SelectTrigger className="w-[230px]">
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((o) => (
+                <SelectItem key={o.key} value={o.key}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Link to="/campaigns/new">
             <Button className="gap-2">
               <Plus className="h-4 w-4" /> New Campaign
@@ -154,12 +203,20 @@ function CampaignsList() {
                           Created {new Date(c.createdAt).toLocaleDateString("en-IN")}
                         </p>
                       </div>
-                      <StatusBadge status={c.status} />
+                      <StatusBadge status={displayStatus(c)} />
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <Info icon={MapPin} label={`${c.locationLabel ?? p?.label ?? c.pincode} · ${c.radiusKm} km`} />
                       <Info icon={Monitor} label={`${c.screenIds.length} screens`} />
-                      <Info icon={Calendar} label={`${fmt(c.startDate)} → ${fmt(c.endDate)}`} />
+                      <Info
+                        icon={Calendar}
+                        label={
+                          fmt(c.startDate) && fmt(c.endDate)
+                            ? `${fmt(c.startDate)} → ${fmt(c.endDate)}`
+                            : "Dates not set"
+                        }
+                      />
+
                       <Info
                         icon={TrendingUp}
                         label={`₹${c.spendToDate.toLocaleString("en-IN")} / ₹${c.totalBudget.toLocaleString("en-IN")}`}
@@ -191,8 +248,11 @@ function CampaignsList() {
 }
 
 function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  const t = d ? new Date(d) : null;
+  if (!t || Number.isNaN(t.getTime())) return "";
+  return t.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
+
 
 function Info({ icon: Icon, label }: { icon: React.ComponentType<{ className?: string }>; label: string }) {
   return (

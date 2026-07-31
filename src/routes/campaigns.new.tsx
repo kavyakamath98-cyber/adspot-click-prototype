@@ -68,6 +68,7 @@ import {
   distanceKm,
   presetIdFor,
   DAYPARTS,
+  dowsInRange,
   addDaysISO,
   bookedSlotsOn,
   daysBetween,
@@ -273,8 +274,15 @@ function NewCampaign() {
         return !!locationLabel && !!pincode && inRangeScreens.length > 0 && name.trim().length > 0;
       case 2:
         return !!selectedCreative && selectedCreative.status !== "rejected";
-      case 3:
-        return scheduleValid && daysOfWeek.length > 0 && dayparts.length > 0;
+      case 3: {
+        const allowed =
+          scheduleValid && startDate && endDate ? dowsInRange(startDate, endDate) : [];
+        const daysFitRange =
+          allowed.length === 0 || daysOfWeek.every((d) => allowed.includes(d));
+        return scheduleValid && daysOfWeek.length > 0 && daysFitRange && dayparts.length > 0;
+      }
+
+
       case 4:
         return selectedScreens.length > 0 && meetsMinSpend;
       case 5:
@@ -910,7 +918,7 @@ function Step2({
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Name, tag, industry"
+              placeholder="Name, industry"
               className="pl-9"
             />
           </div>
@@ -1133,11 +1141,18 @@ function MultiSelectPopover({
             {onSelectAll ? (
               <button
                 type="button"
-                onClick={onSelectAll}
-                disabled={count === options.length}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
+                onClick={() => (count === options.length ? onClear() : onSelectAll())}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
               >
-                <Check className="h-3 w-3" /> Select all
+                {count === options.length ? (
+                  <>
+                    <X className="h-3 w-3" /> Unselect all
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3 w-3" /> Select all
+                  </>
+                )}
               </button>
             ) : (
               <span />
@@ -1151,6 +1166,7 @@ function MultiSelectPopover({
               <X className="h-3 w-3" /> Clear all
             </button>
           </div>
+
         </Command>
       </PopoverContent>
     </Popover>
@@ -1253,12 +1269,21 @@ function StepScreens({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [withStatus]);
 
-  const selectAllAvailable = () => {
-    const ids = withStatus
-      .filter((r) => r.status !== "booked" && isMatched(r.screen))
-      .map((r) => r.screen.id);
-    setSelected(Array.from(new Set([...selected, ...ids])));
+  const selectableIds = withStatus
+    .filter((r) => r.status !== "booked" && isMatched(r.screen))
+    .map((r) => r.screen.id);
+  const allSelected =
+    selectableIds.length > 0 && selectableIds.every((id) => selected.includes(id));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      const drop = new Set(selectableIds);
+      setSelected(selected.filter((id) => !drop.has(id)));
+    } else {
+      setSelected(Array.from(new Set([...selected, ...selectableIds])));
+    }
   };
+
 
   const perDay = selected.reduce((sum, id) => {
     const s = SCREENS.find((x) => x.id === id);
@@ -1285,9 +1310,10 @@ function StepScreens({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm" onClick={selectAllAvailable}>
-            Select All Available
+          <Button variant="secondary" size="sm" onClick={toggleSelectAll}>
+            {allSelected ? "Unselect All" : "Select All Available"}
           </Button>
+
           <div className="text-sm">
             <span className="text-muted-foreground">Per day:</span>{" "}
             <span className="font-semibold">₹{perDay.toLocaleString("en-IN")}</span>
@@ -1600,88 +1626,119 @@ function StepPreview({
   setFitMode,
 }: {
   creative: Creative;
-  screens: { width: number; height: number }[];
+  screens: typeof SCREENS;
   fitMode: FitMode;
   setFitMode: (v: FitMode) => void;
 }) {
-  const dims = Array.from(new Set(screens.map((s) => `${s.width}x${s.height}`))).map((d) => {
-    const [w, h] = d.split("x").map(Number);
-    return { w, h };
-  });
+  // One row per distinct screen size, listing the screen types that use it.
+  const rows = useMemo(() => {
+    const map = new Map<
+      string,
+      { w: number; h: number; types: Set<string>; count: number }
+    >();
+    for (const s of screens) {
+      const key = `${s.width}x${s.height}`;
+      const row = map.get(key) ?? { w: s.width, h: s.height, types: new Set<string>(), count: 0 };
+      row.types.add(s.venueType);
+      row.count += 1;
+      map.set(key, row);
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count);
+  }, [screens]);
 
   return (
     <Card className="p-6">
       <h2 className="text-lg font-semibold">Preview on your selected screens</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        We only show previews for the dimensions actually in use — {screens.length} selected screen{screens.length === 1 ? "" : "s"}, {dims.length} unique size{dims.length === 1 ? "" : "s"}.
+        This is how your ad will look on each screen size you booked — {screens.length} screen
+        {screens.length === 1 ? "" : "s"}, {rows.length} size{rows.length === 1 ? "" : "s"}.
       </p>
 
       <div className="mt-4 flex items-center gap-2">
-        {(["contain", "cover", "fill"] as FitMode[]).map((m) => (
+        {(["contain", "cover"] as FitMode[]).map((m) => (
           <button
             key={m}
             onClick={() => setFitMode(m)}
             className={cn(
-              "rounded-md border px-3 py-1.5 text-sm capitalize transition-colors",
+              "rounded-md border px-3 py-1.5 text-sm transition-colors",
               fitMode === m
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border hover:bg-secondary",
             )}
           >
-            {m === "contain" ? "Fit" : m === "cover" ? "Fill" : "Stretch"}
+            {m === "contain" ? "Fit" : "Fill"}
           </button>
         ))}
+        <span className="text-xs text-muted-foreground">
+          {fitMode === "contain"
+            ? "Fit shows your whole creative, with blank edges if the shapes differ."
+            : "Fill covers the screen fully, cropping the edges of your creative."}
+        </span>
       </div>
 
-      {fitMode === "fill" && (
-        <Alert variant="destructive" className="mt-4">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Distortion warning</AlertTitle>
-          <AlertDescription>Stretch mode may visibly distort your creative. Fit or Fill are recommended.</AlertDescription>
-        </Alert>
-      )}
-
-      {dims.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="mt-6 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
           Select screens in the previous step to see previews here.
         </div>
       ) : (
-        <div className="mt-6 flex flex-wrap gap-6">
-          {dims.map(({ w, h }) => {
-            const isLandscape = w > h;
-            const displayW = isLandscape ? 320 : 180;
-            const displayH = (displayW * h) / w;
-            return (
-              <div key={`${w}x${h}`} className="text-center">
-                <div
-                  className="overflow-hidden rounded-md border-4 border-neutral-800 bg-black shadow-lg"
-                  style={{ width: displayW, height: displayH }}
-                >
-                  {creative.type === "image" ? (
-                    <img src={creative.url} alt="" className="h-full w-full" style={{ objectFit: fitMode }} />
-                  ) : (
-                    <video
-                      src={creative.url}
-                      className="h-full w-full"
-                      style={{ objectFit: fitMode }}
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                    />
-                  )}
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {w}×{h} · {isLandscape ? "Landscape" : "Portrait"}
-                </p>
-              </div>
-            );
-          })}
+        <div className="mt-6 overflow-hidden rounded-lg border">
+          <table className="w-full table-fixed text-sm">
+            <thead className="bg-secondary/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="w-[40%] px-4 py-2 font-medium">Screen type</th>
+                <th className="px-4 py-2 font-medium">How your ad will look</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {rows.map(({ w, h, types, count }) => {
+                const isLandscape = w > h;
+                const displayW = isLandscape ? 300 : 150;
+                const displayH = Math.round((displayW * h) / w);
+                return (
+                  <tr key={`${w}x${h}`} className="align-middle">
+                    <td className="px-4 py-4">
+                      <div className="font-medium">{[...types].join(", ")}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {w}×{h} · {isLandscape ? "Landscape" : "Portrait"} · {count} screen
+                        {count === 1 ? "" : "s"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div
+                        className="overflow-hidden rounded-md border-4 border-neutral-800 bg-black shadow-md"
+                        style={{ width: displayW, height: displayH }}
+                      >
+                        {creative.type === "image" ? (
+                          <img
+                            src={creative.url}
+                            alt=""
+                            className="h-full w-full"
+                            style={{ objectFit: fitMode }}
+                          />
+                        ) : (
+                          <video
+                            src={creative.url}
+                            className="h-full w-full"
+                            style={{ objectFit: fitMode }}
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                          />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </Card>
   );
 }
+
 
 /* ---------- Schedule step ---------- */
 
@@ -1717,6 +1774,11 @@ function StepSchedule({
   const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const showDateError = Boolean(startDate && endDate) && !scheduleValid;
 
+  // Only weekdays that actually occur inside the chosen range can be picked.
+  const allowedDows = scheduleValid && startDate && endDate ? dowsInRange(startDate, endDate) : [];
+  const dayOutOfRange = (d: number) => allowedDows.length > 0 && !allowedDows.includes(d);
+  const staleDays = daysOfWeek.filter(dayOutOfRange);
+
   const slotAvailable = (id: string) =>
     !startDate ||
     !endDate ||
@@ -1726,6 +1788,7 @@ function StepSchedule({
     setDaysOfWeek(daysOfWeek.includes(d) ? daysOfWeek.filter((x) => x !== d) : [...daysOfWeek, d]);
   const toggleSlot = (id: string) =>
     setDayparts(dayparts.includes(id) ? dayparts.filter((x) => x !== id) : [...dayparts, id]);
+
 
   return (
     <Card className="p-6">
@@ -1797,14 +1860,28 @@ function StepSchedule({
             <CheckChip
               key={label}
               label={label}
-              checked={daysOfWeek.includes(i)}
+              checked={daysOfWeek.includes(i) && !dayOutOfRange(i)}
+              disabled={dayOutOfRange(i)}
               onClick={() => toggleDay(i)}
             />
           ))}
         </div>
+        {allowedDows.length > 0 && allowedDows.length < 7 && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Greyed-out days don't fall between {fmtShort(startDate!)} and {fmtShort(endDate!)}.
+          </p>
+        )}
+        {staleDays.length > 0 && (
+          <p className="mt-2 text-xs text-destructive">
+            {staleDays.map((d) => dayLabels[d]).join(", ")}{" "}
+            {staleDays.length === 1 ? "does" : "do"} not fall between your chosen dates. Remove{" "}
+            {staleDays.length === 1 ? "it" : "them"} or widen your date range.
+          </p>
+        )}
         {daysOfWeek.length === 0 && (
           <p className="mt-2 text-xs text-destructive">Pick at least one day.</p>
         )}
+
       </div>
 
       {/* Time slots */}

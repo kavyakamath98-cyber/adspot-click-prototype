@@ -45,7 +45,14 @@ import {
   Tooltip,
 } from "recharts";
 import { useApp } from "@/lib/app-context";
-import { SCREENS, PINCODES } from "@/lib/mockData";
+import {
+  SCREENS,
+  PINCODES,
+  DAYPARTS,
+  DOW_LABELS,
+  displayStatus,
+  dowsInRange,
+} from "@/lib/mockData";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/campaigns/$id")({
@@ -66,7 +73,7 @@ function CampaignDetail() {
     creatives,
     updateCampaign,
     chargeWallet,
-
+    refundToWallet,
     simulateReplaceCreativeReview,
     pauseCampaign,
     resumeCampaign,
@@ -86,6 +93,8 @@ function CampaignDetail() {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [editStart, setEditStart] = useState(campaign?.startDate ?? "");
   const [editEnd, setEditEnd] = useState(campaign?.endDate ?? "");
+  const [editDays, setEditDays] = useState<number[]>(campaign?.daysOfWeek ?? []);
+  const [editSlots, setEditSlots] = useState<string[]>(campaign?.dayparts ?? []);
   const [selectedScreenId, setSelectedScreenId] = useState<string | null>(null);
 
   // Impression ticker for live campaigns
@@ -232,11 +241,50 @@ function CampaignDetail() {
     );
   };
 
-  const doSaveSchedule = () => {
-    updateCampaign(campaign.id, { startDate: editStart, endDate: editEnd });
-    setScheduleOpen(false);
-    toast.success("Schedule updated");
+  // Price the campaign purely on run-length × the daily cost of its screens, so a
+  // longer end date costs more and a shorter one gives money back.
+  const dailyRate = screens.reduce((sum, s) => sum + s.pricePerDay, 0);
+  const daysBetween = (a: string, b: string) => {
+    const t1 = new Date(a).getTime();
+    const t2 = new Date(b).getTime();
+    if (Number.isNaN(t1) || Number.isNaN(t2)) return 0;
+    return Math.max(0, Math.round((t2 - t1) / 86400000) + 1);
   };
+  const currentDays = daysBetween(campaign.startDate, campaign.endDate);
+  const newDays = editStart && editEnd ? daysBetween(editStart, editEnd) : 0;
+  const newBudget = dailyRate > 0 ? newDays * dailyRate : campaign.totalBudget;
+  const budgetDelta = newBudget - campaign.totalBudget;
+
+  const doSaveSchedule = () => {
+    if (budgetDelta > 0 && !chargeWallet(budgetDelta)) {
+      toast.error(
+        `Insufficient wallet balance. You need ₹${budgetDelta.toLocaleString("en-IN")} to extend this campaign.`,
+      );
+      return;
+    }
+    if (budgetDelta < 0) refundToWallet(-budgetDelta);
+
+    updateCampaign(campaign.id, {
+      startDate: editStart,
+      endDate: editEnd,
+      daysOfWeek: editDays,
+      dayparts: editSlots,
+      totalBudget: newBudget,
+    });
+    setScheduleOpen(false);
+    if (budgetDelta > 0) {
+      toast.success(
+        `Campaign extended. ₹${budgetDelta.toLocaleString("en-IN")} charged from your wallet.`,
+      );
+    } else if (budgetDelta < 0) {
+      toast.success(
+        `Campaign shortened. ₹${(-budgetDelta).toLocaleString("en-IN")} refunded to your wallet.`,
+      );
+    } else {
+      toast.success("Schedule updated");
+    }
+  };
+
 
   const doPayNow = () => {
     if (!chargeWallet(campaign.totalBudget)) {
@@ -265,7 +313,7 @@ function CampaignDetail() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <StatusBadge status={campaign.status} />
+              <StatusBadge status={displayStatus(campaign)} />
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               Created {new Date(campaign.createdAt).toLocaleDateString("en-IN")}
@@ -366,6 +414,14 @@ function CampaignDetail() {
               onClick={() => {
                 setEditStart(campaign.startDate);
                 setEditEnd(campaign.endDate);
+                setEditDays(
+                  campaign.daysOfWeek?.length
+                    ? campaign.daysOfWeek
+                    : dowsInRange(campaign.startDate, campaign.endDate),
+                );
+                setEditSlots(
+                  campaign.dayparts?.length ? campaign.dayparts : DAYPARTS.map((d) => d.id),
+                );
                 setScheduleOpen(true);
               }}
             >
@@ -448,7 +504,13 @@ function CampaignDetail() {
                 </span>
               )}
               {currentCreative && campaign.status !== "live" && (
-                <StatusBadge status={currentCreative.status} />
+                <StatusBadge
+                  status={
+                    campaign.status === "pending_approval" && currentCreative.status === "approved"
+                      ? "pending"
+                      : currentCreative.status
+                  }
+                />
               )}
             </div>
             {!currentCreative && (
@@ -781,11 +843,11 @@ function CampaignDetail() {
 
       {/* Schedule adjust modal */}
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Adjust schedule</DialogTitle>
             <DialogDescription>
-              Change the start or end date. Additional days will be charged (mock).
+              Change your dates, the days of the week and the time-slots your ad plays in.
             </DialogDescription>
           </DialogHeader>
           {(() => {
@@ -798,6 +860,11 @@ function CampaignDetail() {
                   ? todayStr
                   : editStart
                 : editStart;
+            const allowedDows = dowsInRange(editStart, editEnd);
+            const datesValid = !!editStart && !!editEnd && editEnd >= editStart && editEnd >= minEnd;
+            const staleDays = editDays.filter((d) => allowedDows.length && !allowedDows.includes(d));
+            const noDays = datesValid && editDays.length === 0;
+            const noSlots = editSlots.length === 0;
             return (
               <>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -827,20 +894,153 @@ function CampaignDetail() {
                     />
                   </div>
                 </div>
+
+                <div>
+                  <Label>Days of the week</Label>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Your ad runs on the days you pick.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {DOW_LABELS.map((label, idx) => {
+                      const disabled = allowedDows.length > 0 && !allowedDows.includes(idx);
+                      const on = editDays.includes(idx);
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() =>
+                            setEditDays((prev) =>
+                              prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx],
+                            )
+                          }
+                          className={cnLocal(
+                            "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                            disabled
+                              ? "cursor-not-allowed border-dashed border-border bg-muted/40 text-muted-foreground/50"
+                              : on
+                                ? "border-primary bg-primary/10 text-foreground"
+                                : "border-border bg-background text-muted-foreground hover:bg-secondary/60",
+                          )}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {staleDays.length > 0 && (
+                    <p className="mt-1.5 text-xs text-destructive">
+                      {staleDays.map((d) => DOW_LABELS[d]).join(", ")}{" "}
+                      {staleDays.length === 1 ? "does" : "do"} not fall between your chosen dates —
+                      remove {staleDays.length === 1 ? "it" : "them"} or widen the date range.
+                    </p>
+                  )}
+                  {noDays && (
+                    <p className="mt-1.5 text-xs text-destructive">Pick at least one day.</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label>Time slots</Label>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Your ad plays during the time-slots you pick.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {DAYPARTS.map((dp) => {
+                      const on = editSlots.includes(dp.id);
+                      return (
+                        <button
+                          key={dp.id}
+                          type="button"
+                          onClick={() =>
+                            setEditSlots((prev) =>
+                              prev.includes(dp.id)
+                                ? prev.filter((s) => s !== dp.id)
+                                : [...prev, dp.id],
+                            )
+                          }
+                          className={cnLocal(
+                            "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                            on
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-border bg-background text-muted-foreground hover:bg-secondary/60",
+                          )}
+                        >
+                          {dp.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {noSlots && (
+                    <p className="mt-1.5 text-xs text-destructive">Pick at least one time slot.</p>
+                  )}
+                </div>
+
+                {datesValid && dailyRate > 0 && (
+                  <div className="rounded-md bg-secondary/50 p-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        Current run · {currentDays} day{currentDays === 1 ? "" : "s"}
+                      </span>
+                      <span>₹{campaign.totalBudget.toLocaleString("en-IN")}</span>
+                    </div>
+                    <div className="mt-1 flex justify-between">
+                      <span className="text-muted-foreground">
+                        New run · {newDays} day{newDays === 1 ? "" : "s"}
+                      </span>
+                      <span>₹{newBudget.toLocaleString("en-IN")}</span>
+                    </div>
+                    <div className="mt-2 flex justify-between border-t pt-2 font-medium">
+                      <span>
+                        {budgetDelta > 0
+                          ? "To pay now"
+                          : budgetDelta < 0
+                            ? "Refund to wallet"
+                            : "No change"}
+                      </span>
+                      <span
+                        className={
+                          budgetDelta > 0
+                            ? "text-destructive"
+                            : budgetDelta < 0
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : ""
+                        }
+                      >
+                        ₹{Math.abs(budgetDelta).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      {budgetDelta > 0
+                        ? "Extra days are charged from your wallet when you save. The extension only takes effect once paid."
+                        : budgetDelta < 0
+                          ? "The unused days are refunded to your wallet when you save."
+                          : "Your dates change with no cost impact."}
+                    </p>
+                  </div>
+                )}
+
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setScheduleOpen(false)}>
                     Cancel
                   </Button>
                   <Button
                     onClick={doSaveSchedule}
-                    disabled={!editStart || !editEnd || editEnd < editStart || editEnd < minEnd}
+                    disabled={
+                      !datesValid || staleDays.length > 0 || editDays.length === 0 || noSlots
+                    }
                   >
-                    Save schedule
+                    {budgetDelta > 0
+                      ? `Pay ₹${budgetDelta.toLocaleString("en-IN")} & extend`
+                      : budgetDelta < 0
+                        ? `Save & refund ₹${(-budgetDelta).toLocaleString("en-IN")}`
+                        : "Save schedule"}
                   </Button>
                 </DialogFooter>
               </>
             );
           })()}
+
         </DialogContent>
       </Dialog>
 

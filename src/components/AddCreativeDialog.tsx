@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Loader2, Upload } from "lucide-react";
+import { Info, Loader2, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,15 +18,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { useApp } from "@/lib/app-context";
 import {
   CONTENT_TAGS,
+  CONTENT_TAG_INFO,
   INDUSTRIES,
   type ContentTag,
   type Creative,
   type Industry,
 } from "@/lib/mockData";
+
 
 export function AddCreativeDialog({
   open,
@@ -144,7 +147,42 @@ export function AddCreativeDialog({
           </div>
 
           <div>
-            <Label>Content tag</Label>
+            <div className="flex items-center gap-1.5">
+              <Label>Content tag</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="What do these content tags mean?"
+                    className="text-muted-foreground transition-colors hover:text-primary"
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="max-h-80 w-80 overflow-y-auto p-3">
+                  <p className="text-xs font-semibold">What each tag means</p>
+                  <div className="mt-2 space-y-3">
+                    {CONTENT_TAGS.map((t) => {
+                      const info = CONTENT_TAG_INFO[t];
+                      return (
+                        <div key={t}>
+                          <p className="text-xs font-medium">{t}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{info.definition}</p>
+                          <ul className="mt-1 list-disc pl-4 text-[11px] text-muted-foreground">
+                            {info.examples.map((e) => (
+                              <li key={e}>{e}</li>
+                            ))}
+                          </ul>
+                          <p className="mt-1 text-[11px] font-medium text-foreground">
+                            {info.outcome}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
             <Select value={contentTag} onValueChange={(v) => setContentTag(v as ContentTag)}>
               <SelectTrigger className="mt-1.5">
                 <SelectValue placeholder="Select content type" />
@@ -158,9 +196,10 @@ export function AddCreativeDialog({
               </SelectContent>
             </Select>
             <p className="mt-1 text-xs text-muted-foreground">
-              Classifies the content itself. Alcohol and Adult content is rejected at review.
+              {CONTENT_TAG_INFO[contentTag].outcome}
             </p>
           </div>
+
 
           <div>
             <Label>Creative name (optional)</Label>
