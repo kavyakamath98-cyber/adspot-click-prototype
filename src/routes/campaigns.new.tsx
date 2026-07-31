@@ -133,6 +133,7 @@ function NewCampaign() {
     chargeWallet,
     refundToWallet,
     simulateCreativeReviewForCampaign,
+    simulateReplaceCreativeReview,
     pauseCampaign,
     resumeCampaign,
     stopCampaign,
