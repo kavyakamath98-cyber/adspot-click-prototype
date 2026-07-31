@@ -601,8 +601,12 @@ function NewCampaign() {
           </DialogHeader>
           <div className="my-2 rounded-md bg-secondary/50 p-4">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Amount to charge</span>
-              <span className="font-semibold">₹{totalCost.toLocaleString("en-IN")}</span>
+              <span className="text-muted-foreground">
+                {priceDelta < 0 ? "Amount to refund" : "Amount to charge"}
+              </span>
+              <span className="font-semibold">
+                ₹{Math.abs(priceDelta).toLocaleString("en-IN")}
+              </span>
             </div>
           </div>
           {payError && (
