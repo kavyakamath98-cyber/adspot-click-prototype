@@ -12,7 +12,9 @@ import {
   Square,
   AlertTriangle,
   Clock,
+  Check,
   ChevronLeft,
+
 } from "lucide-react";
 import {
   AppShell,
@@ -256,7 +258,15 @@ function CampaignDetail() {
   const dailyRate =
     currentDays > 0 ? Math.round(campaign.totalBudget / currentDays) : listRate;
   const newDays = editStart && editEnd ? daysBetween(editStart, editEnd) : 0;
-  const newBudget = newDays > 0 && dailyRate > 0 ? newDays * dailyRate : campaign.totalBudget;
+  // Same run-length ⇒ exactly the same price. Re-deriving it from a rounded day
+  // rate would otherwise ask for a few rupees on an unchanged schedule.
+  const newBudget =
+    newDays === currentDays
+      ? campaign.totalBudget
+      : newDays > 0 && dailyRate > 0
+        ? newDays * dailyRate
+        : campaign.totalBudget;
+
   // Never refund below what has already been delivered.
   const budgetDelta = Math.max(newBudget, campaign.spendToDate) - campaign.totalBudget;
 
@@ -405,27 +415,26 @@ function CampaignDetail() {
                   <p>
                     <span className="text-muted-foreground">Runs on: </span>
                     <span className="font-medium text-foreground">
-                      {campaign.daysOfWeek?.length
-                        ? campaign.daysOfWeek.length === 7
-                          ? "Every day"
-                          : [...campaign.daysOfWeek]
-                              .sort((a, b) => a - b)
-                              .map((d) => DOW_LABELS[d])
-                              .join(", ")
-                        : "Every day"}
+                      {(campaign.daysOfWeek?.length
+                        ? [...campaign.daysOfWeek].sort((a, b) => a - b)
+                        : [0, 1, 2, 3, 4, 5, 6]
+                      )
+                        .map((d) => DOW_LABELS[d])
+                        .join(", ")}
                     </span>
                   </p>
                   <p>
                     <span className="text-muted-foreground">Time slots: </span>
                     <span className="font-medium text-foreground">
-                      {campaign.dayparts?.length
-                        ? DAYPARTS.filter((d) => campaign.dayparts!.includes(d.id))
-                            .map((d) => d.label)
-                            .join(" · ")
-                        : "All day"}
+                      {DAYPARTS.filter(
+                        (d) => !campaign.dayparts?.length || campaign.dayparts.includes(d.id),
+                      )
+                        .map((d) => d.label)
+                        .join(" · ")}
                     </span>
                   </p>
                 </div>
+
               </>
 
             ) : (
@@ -942,33 +951,21 @@ function CampaignDetail() {
                     Your ad runs on the days you pick.
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {DOW_LABELS.map((label, idx) => {
-                      const disabled = allowedDows.length > 0 && !allowedDows.includes(idx);
-                      const on = editDays.includes(idx);
-                      return (
-                        <button
-                          key={label}
-                          type="button"
-                          disabled={disabled}
-                          onClick={() =>
-                            setEditDays((prev) =>
-                              prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx],
-                            )
-                          }
-                          className={cnLocal(
-                            "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
-                            disabled
-                              ? "cursor-not-allowed border-dashed border-border bg-muted/40 text-muted-foreground/50"
-                              : on
-                                ? "border-primary bg-primary/10 text-foreground"
-                                : "border-border bg-background text-muted-foreground hover:bg-secondary/60",
-                          )}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
+                    {DOW_LABELS.map((label, idx) => (
+                      <CheckChip
+                        key={label}
+                        label={label}
+                        checked={editDays.includes(idx)}
+                        disabled={allowedDows.length > 0 && !allowedDows.includes(idx)}
+                        onClick={() =>
+                          setEditDays((prev) =>
+                            prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx],
+                          )
+                        }
+                      />
+                    ))}
                   </div>
+
                   {staleDays.length > 0 && (
                     <p className="mt-1.5 text-xs text-destructive">
                       {staleDays.map((d) => DOW_LABELS[d]).join(", ")}{" "}
@@ -987,31 +984,22 @@ function CampaignDetail() {
                     Your ad plays during the time-slots you pick.
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {DAYPARTS.map((dp) => {
-                      const on = editSlots.includes(dp.id);
-                      return (
-                        <button
-                          key={dp.id}
-                          type="button"
-                          onClick={() =>
-                            setEditSlots((prev) =>
-                              prev.includes(dp.id)
-                                ? prev.filter((s) => s !== dp.id)
-                                : [...prev, dp.id],
-                            )
-                          }
-                          className={cnLocal(
-                            "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
-                            on
-                              ? "border-primary bg-primary/10 text-foreground"
-                              : "border-border bg-background text-muted-foreground hover:bg-secondary/60",
-                          )}
-                        >
-                          {dp.label}
-                        </button>
-                      );
-                    })}
+                    {DAYPARTS.map((dp) => (
+                      <CheckChip
+                        key={dp.id}
+                        label={dp.label}
+                        checked={editSlots.includes(dp.id)}
+                        onClick={() =>
+                          setEditSlots((prev) =>
+                            prev.includes(dp.id)
+                              ? prev.filter((s) => s !== dp.id)
+                              : [...prev, dp.id],
+                          )
+                        }
+                      />
+                    ))}
                   </div>
+
                   {noSlots && (
                     <p className="mt-1.5 text-xs text-destructive">Pick at least one time slot.</p>
                   )}
@@ -1170,7 +1158,53 @@ function cnLocal(...xs: (string | false | undefined)[]) {
   return xs.filter(Boolean).join(" ");
 }
 
+/** Same day/slot checkbox chip used in the create-campaign wizard. */
+function CheckChip({
+  label,
+  checked,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={onClick}
+      className={cnLocal(
+        "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all",
+        disabled
+          ? "cursor-not-allowed border-dashed border-border bg-muted/30 text-muted-foreground/60"
+          : checked
+            ? "border-primary bg-primary/10 text-foreground shadow-[0_0_0_1px_var(--color-primary)]"
+            : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-secondary hover:text-foreground",
+      )}
+    >
+      <span
+        className={cnLocal(
+          "grid h-4 w-4 shrink-0 place-items-center rounded border transition-colors",
+          disabled
+            ? "border-muted-foreground/30 bg-transparent"
+            : checked
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-muted-foreground/40 bg-background",
+        )}
+      >
+        {checked && !disabled && <Check className="h-3 w-3" strokeWidth={3} />}
+      </span>
+      {label}
+    </button>
+  );
+}
+
 function MiniStat({ label, value }: { label: string; value: string }) {
+
   return (
     <div className="rounded-md bg-background p-2">
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
