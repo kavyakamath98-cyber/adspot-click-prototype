@@ -399,7 +399,16 @@ function NewCampaign() {
 
   return (
     <AppShell
-      title={resubmit ? "Fix & Resubmit" : draft ? "Continue Draft" : "Create Campaign"}
+      title={
+        resubmit
+          ? "Fix & Resubmit"
+          : editing?.status === "pending_approval"
+            ? "Edit Campaign"
+            : draft
+              ? "Continue Draft"
+              : "Create Campaign"
+      }
+
       back={{ to: "/campaigns", label: "Back to campaigns" }}
     >
       <div className="mb-6">
