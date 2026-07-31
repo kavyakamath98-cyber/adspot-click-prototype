@@ -646,30 +646,41 @@ function NewCampaign() {
       <Dialog open={stopOpen} onOpenChange={setStopOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Stop campaign permanently?</DialogTitle>
+            <DialogTitle>
+              {editing?.status === "pending_approval"
+                ? "Cancel this campaign?"
+                : "Stop campaign permanently?"}
+            </DialogTitle>
             <DialogDescription>
-              This is permanent. Once stopped, the campaign cannot be resumed — different from
-              Pause. Unused budget is refunded to your wallet.
+              {editing?.status === "pending_approval"
+                ? "This campaign hasn't started yet. Cancelling withdraws it from approval and refunds anything you've paid, in full."
+                : "This is permanent. Once stopped, the campaign cannot be resumed — different from Pause. Unused budget is refunded to your wallet."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStopOpen(false)}>
-              Keep it running
+              {editing?.status === "pending_approval" ? "Keep it" : "Keep it running"}
             </Button>
             <Button
               variant="destructive"
               onClick={() => {
                 if (!editing) return;
-                const refund = stopCampaign(editing.id);
+                const pending = editing.status === "pending_approval";
+                const refund = pending
+                  ? cancelPendingCampaign(editing.id)
+                  : stopCampaign(editing.id);
                 setStopOpen(false);
                 toast.success(
-                  `Campaign stopped. ₹${refund.toLocaleString("en-IN")} refunded to wallet (mock).`,
+                  `${pending ? "Campaign cancelled" : "Campaign stopped"}. ₹${refund.toLocaleString("en-IN")} refunded to wallet (mock).`,
                 );
                 navigate({ to: "/campaigns/$id", params: { id: editing.id } });
               }}
             >
-              Stop campaign permanently
+              {editing?.status === "pending_approval"
+                ? "Cancel campaign"
+                : "Stop campaign permanently"}
             </Button>
+
           </DialogFooter>
         </DialogContent>
       </Dialog>
