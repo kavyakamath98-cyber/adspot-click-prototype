@@ -1141,11 +1141,18 @@ function MultiSelectPopover({
             {onSelectAll ? (
               <button
                 type="button"
-                onClick={onSelectAll}
-                disabled={count === options.length}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
+                onClick={() => (count === options.length ? onClear() : onSelectAll())}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
               >
-                <Check className="h-3 w-3" /> Select all
+                {count === options.length ? (
+                  <>
+                    <X className="h-3 w-3" /> Unselect all
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3 w-3" /> Select all
+                  </>
+                )}
               </button>
             ) : (
               <span />
@@ -1159,6 +1166,7 @@ function MultiSelectPopover({
               <X className="h-3 w-3" /> Clear all
             </button>
           </div>
+
         </Command>
       </PopoverContent>
     </Popover>
