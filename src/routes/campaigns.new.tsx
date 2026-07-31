@@ -836,7 +836,7 @@ function NewCampaign() {
               <ArrowLeft className="mr-1 h-4 w-4" /> Back
             </Button>
             <div className="flex items-center gap-2">
-              {isLiveEdit ? (
+              {noDraftEdit ? (
                 <Button
                   variant="outline"
                   className="gap-1.5"
