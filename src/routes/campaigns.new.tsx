@@ -126,6 +126,7 @@ function NewCampaign() {
     addCampaign,
     updateCampaign,
     chargeWallet,
+    refundToWallet,
     simulateCreativeReviewForCampaign,
 
     campaigns,
@@ -134,13 +135,22 @@ function NewCampaign() {
   const resubmit = resubmitId ? campaigns.find((c) => c.id === resubmitId) : undefined;
   const draft = draftId ? campaigns.find((c) => c.id === draftId) : undefined;
   const source = resubmit ?? draft;
+  // A campaign that was already paid for (live / scheduled) — edits are
+  // allowed but the price difference is settled on the last step.
+  const paidEdit = !!draft && (draft.status === "live" || draft.status === "approved_scheduled");
+  const isLiveEdit = draft?.status === "live";
+  const amountPaid = paidEdit ? (draft?.totalBudget ?? 0) : 0;
+  // A fully-filled campaign should reopen with every step unlocked so the user
+  // can see and change any of the original inputs.
+  const sourceComplete =
+    !!source && !!source.startDate && !!source.endDate && (source.screenIds?.length ?? 0) > 0;
 
   const [step, setStep] = useState<Step>(() => {
-    const s = (source?.lastStep ?? 1) as number;
+    const s = (source?.lastStep ?? (sourceComplete ? 1 : 1)) as number;
     return (Math.min(6, Math.max(1, s)) as Step);
   });
   const [visited, setVisited] = useState<Set<Step>>(() => {
-    const initial = (source?.lastStep ?? 1) as number;
+    const initial = (sourceComplete ? 6 : (source?.lastStep ?? 1)) as number;
     const set = new Set<Step>();
     for (let i = 1; i <= Math.min(6, Math.max(1, initial)); i++) set.add(i as Step);
     return set;
