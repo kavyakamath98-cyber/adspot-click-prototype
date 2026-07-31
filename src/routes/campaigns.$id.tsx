@@ -352,13 +352,13 @@ function CampaignDetail() {
             )}
             {(campaign.status === "pending_approval" ||
               campaign.status === "live" ||
+              campaign.status === "paused" ||
               campaign.status === "approved_scheduled") && (
               <Link to="/campaigns/new" search={{ draftId: campaign.id }}>
-                <Button variant="outline" className="gap-1.5">
-                  Edit campaign
-                </Button>
+                <Button className="gap-1.5">Edit campaign</Button>
               </Link>
             )}
+
 
           </div>
         </div>
