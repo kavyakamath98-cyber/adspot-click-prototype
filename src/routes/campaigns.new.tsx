@@ -133,9 +133,13 @@ function NewCampaign() {
     chargeWallet,
     refundToWallet,
     simulateCreativeReviewForCampaign,
+    pauseCampaign,
+    resumeCampaign,
+    stopCampaign,
 
     campaigns,
   } = useApp();
+
 
   const resubmit = resubmitId ? campaigns.find((c) => c.id === resubmitId) : undefined;
   const draft = draftId ? campaigns.find((c) => c.id === draftId) : undefined;
