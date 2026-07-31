@@ -460,6 +460,31 @@ function NewCampaign() {
     navigate({ to: "/campaigns/$id", params: { id: campaignId } });
   };
 
+  // Live campaign + a brand-new creative → the live creative keeps running
+  // while the new one goes through the 24–48h review.
+  const liveCreativeReview =
+    isLiveEdit && !!selectedCreative && isNewCreative && selectedCreative.id !== editing?.creativeId;
+
+  const handleLiveReplaceSubmit = (outcome: "approve" | "reject") => {
+    if (!editing || !selectedCreative) return;
+    if (priceDelta > 0) {
+      if (!chargeWallet(priceDelta)) {
+        toast.error("Insufficient wallet balance. Please top up and try again.");
+        return;
+      }
+    } else if (priceDelta < 0) {
+      refundToWallet(-priceDelta);
+    }
+    // Keep the currently live creative on the campaign; the new one is pending.
+    const built = buildCampaign(editing.status, editing.creativeId);
+    updateCampaign(editing.id, built);
+    simulateReplaceCreativeReview(editing.id, selectedCreative.id, outcome);
+    setReviewOpen(false);
+    toast.success("New creative sent for approval", {
+      description: "Your campaign keeps running on the current creative until it's approved.",
+    });
+    navigate({ to: "/campaigns/$id", params: { id: editing.id } });
+  };
 
 
   return (
