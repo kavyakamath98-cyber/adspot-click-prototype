@@ -305,8 +305,12 @@ function NewCampaign() {
     if (step > 1) goStep(((step as number) - 1) as Step);
   };
 
+  // Editing an existing campaign (a draft, or one that is still awaiting
+  // approval) updates it in place instead of spawning a duplicate.
+  const editing = draft;
+
   const buildCampaign = (status: Campaign["status"]): Campaign => ({
-    id: source?.id && status === "draft" ? source.id : `cmp_${Date.now()}`,
+    id: editing?.id ?? `cmp_${Date.now()}`,
     name: name.trim() || "Untitled campaign",
     status,
     pincode,
@@ -330,13 +334,20 @@ function NewCampaign() {
   });
 
   const handleSaveDraft = () => {
-    const c = buildCampaign("draft");
-    if (draft) {
-      updateCampaign(draft.id, c);
+    // Keep an in-review campaign in its pending state while it is edited.
+    const keepStatus =
+      editing && editing.status === "pending_approval" ? "pending_approval" : "draft";
+    const c = buildCampaign(keepStatus);
+    if (editing) {
+      updateCampaign(editing.id, {
+        ...c,
+        awaitingPayment: editing.awaitingPayment,
+        paymentUnlocked: editing.paymentUnlocked,
+      });
     } else {
       addCampaign(c);
     }
-    toast.success("Saved as draft", {
+    toast.success(keepStatus === "draft" ? "Saved as draft" : "Changes saved", {
       description: "You can keep editing, or leave and come back later.",
     });
   };
@@ -347,40 +358,57 @@ function NewCampaign() {
       setPayError("Insufficient wallet balance. Please top up and try again.");
       return;
     }
-    const newCampaign = buildCampaign("pending_approval");
-    addCampaign(newCampaign);
-    simulateApproval(newCampaign.id, selectedCreative.id);
+    const built = buildCampaign("pending_approval");
+    const campaignId = built.id;
+    if (editing) {
+      updateCampaign(editing.id, { ...built, awaitingPayment: false, paymentUnlocked: false });
+    } else {
+      addCampaign(built);
+    }
+    simulateApproval(campaignId, selectedCreative.id);
     if (resubmit) updateCampaign(resubmit.id, { status: "completed" });
-    if (draft) updateCampaign(draft.id, { status: "completed" });
     setPayOpen(false);
     toast.success("Payment successful — campaign submitted for review");
-    navigate({ to: "/campaigns/$id", params: { id: newCampaign.id } });
+    navigate({ to: "/campaigns/$id", params: { id: campaignId } });
   };
 
   // New creative → submit for review first, pay only after it clears review.
   const handleSubmitForReview = (outcome: "approve" | "reject") => {
     if (!selectedCreative) return;
-    const newCampaign: Campaign = {
+    const built: Campaign = {
       ...buildCampaign("pending_approval"),
-      id: `cmp_${Date.now()}`,
       awaitingPayment: true,
       paymentUnlocked: false,
     };
-    addCampaign(newCampaign);
-    simulateCreativeReviewForCampaign(newCampaign.id, selectedCreative.id, outcome);
+    const campaignId = built.id;
+    if (editing) {
+      updateCampaign(editing.id, built);
+    } else {
+      addCampaign(built);
+    }
+    simulateCreativeReviewForCampaign(campaignId, selectedCreative.id, outcome);
     if (resubmit) updateCampaign(resubmit.id, { status: "completed" });
-    if (draft) updateCampaign(draft.id, { status: "completed" });
     setReviewOpen(false);
     toast.success("Campaign submitted — your creative is now in review", {
       description: "Payment details unlock once the creative is approved.",
     });
-    navigate({ to: "/campaigns/$id", params: { id: newCampaign.id } });
+    navigate({ to: "/campaigns/$id", params: { id: campaignId } });
   };
+
 
 
   return (
     <AppShell
-      title={resubmit ? "Fix & Resubmit" : draft ? "Continue Draft" : "Create Campaign"}
+      title={
+        resubmit
+          ? "Fix & Resubmit"
+          : editing?.status === "pending_approval"
+            ? "Edit Campaign"
+            : draft
+              ? "Continue Draft"
+              : "Create Campaign"
+      }
+
       back={{ to: "/campaigns", label: "Back to campaigns" }}
     >
       <div className="mb-6">
@@ -1380,11 +1408,16 @@ function StepScreens({
             (f) => f.bookedDates.length > 0 && f.freeDates.length > 0,
           );
           const totalDays = breakdown.dates.length;
+          const blockedReason = !matched
+            ? `Your creative is ${creativeLandscape ? "landscape" : "portrait"} and this screen is ${
+                s.width > s.height ? "landscape" : "portrait"
+              } (${s.width}×${s.height}), so it can't be booked with this creative.`
+            : undefined;
           return (
             <div
               key={s.id}
               className={cn("flex items-center gap-4 px-4 py-3", disabled && "opacity-70")}
-              title={!matched ? "This screen's orientation doesn't match your creative." : ""}
+              title={blockedReason ?? ""}
             >
               <Checkbox checked={checked} disabled={disabled} onCheckedChange={() => toggle(s.id)} />
               <div className="grid h-10 w-10 place-items-center rounded bg-secondary">
@@ -1394,20 +1427,29 @@ function StepScreens({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{s.venue}</span>
                   <LocationTagPill tag={s.locationTag} />
-                  <AvailabilityBadge a={status} />
+                  {blockedReason ? (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      Doesn't fit your creative
+                    </span>
+                  ) : (
+                    <AvailabilityBadge a={status} />
+                  )}
                   <SlotAvailabilityPopover
                     screen={s}
                     breakdown={breakdown}
                     status={status}
                     startDate={startDate}
                     endDate={endDate}
+                    blockedReason={blockedReason}
                   />
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   {s.venueType} · {s.city} · {s.pincode} · {s.width}×{s.height}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {booked ? (
+                  {blockedReason ? (
+                    <>{blockedReason}</>
+                  ) : booked ? (
                     <>Someone else has booked all your time-slots here, on every one of your dates.</>
                   ) : partlyFree.length === 0 ? (
                     <>
@@ -1427,6 +1469,7 @@ function StepScreens({
                   )}
                 </p>
               </div>
+
 
               <div className="text-right text-sm">
                 <div className="font-semibold">₹{s.pricePerDay}</div>
@@ -1474,12 +1517,14 @@ function SlotAvailabilityPopover({
   status,
   startDate,
   endDate,
+  blockedReason,
 }: {
   screen: (typeof SCREENS)[number];
   breakdown: ReturnType<typeof slotAvailabilityBreakdown>;
   status: "available" | "partial" | "booked";
   startDate?: string;
   endDate?: string;
+  blockedReason?: string;
 }) {
   const { slots, dates } = breakdown;
   const bookableDays = dates.filter((d) =>
@@ -1497,7 +1542,19 @@ function SlotAvailabilityPopover({
           <InfoIcon className="h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
+      {blockedReason ? (
+        <PopoverContent className="w-72 p-0" align="start">
+          <div className="border-b bg-muted/40 px-4 py-3">
+            <p className="text-sm font-semibold">{screen.venue}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Can't be booked</p>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-xs text-muted-foreground">{blockedReason}</p>
+          </div>
+        </PopoverContent>
+      ) : (
       <PopoverContent className="w-80 p-0" align="start">
+
         <div className="border-b bg-muted/40 px-4 py-3">
           <p className="text-sm font-semibold">{screen.venue}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1585,7 +1642,9 @@ function SlotAvailabilityPopover({
           </p>
         </div>
       </PopoverContent>
+      )}
     </Popover>
+
   );
 }
 
@@ -1777,6 +1836,16 @@ function StepSchedule({
   // Only weekdays that actually occur inside the chosen range can be picked.
   const allowedDows = scheduleValid && startDate && endDate ? dowsInRange(startDate, endDate) : [];
   const dayOutOfRange = (d: number) => allowedDows.length > 0 && !allowedDows.includes(d);
+
+  // Dates changed? Silently drop weekdays that no longer occur in the range so a
+  // stale pick can't keep a validation message on screen.
+  useEffect(() => {
+    if (allowedDows.length === 0) return;
+    const kept = daysOfWeek.filter((d) => allowedDows.includes(d));
+    if (kept.length !== daysOfWeek.length) setDaysOfWeek(kept);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, scheduleValid]);
+
   const staleDays = daysOfWeek.filter(dayOutOfRange);
 
   const slotAvailable = (id: string) =>
@@ -1784,10 +1853,13 @@ function StepSchedule({
     !endDate ||
     candidateScreens.some((s) => slotFreeSomewhere(s, id, startDate, endDate, daysOfWeek));
 
-  const toggleDay = (d: number) =>
+  const toggleDay = (d: number) => {
+    if (dayOutOfRange(d)) return;
     setDaysOfWeek(daysOfWeek.includes(d) ? daysOfWeek.filter((x) => x !== d) : [...daysOfWeek, d]);
+  };
   const toggleSlot = (id: string) =>
     setDayparts(dayparts.includes(id) ? dayparts.filter((x) => x !== id) : [...dayparts, id]);
+
 
 
   return (

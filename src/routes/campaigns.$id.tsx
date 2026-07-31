@@ -242,8 +242,9 @@ function CampaignDetail() {
   };
 
   // Price the campaign purely on run-length × the daily cost of its screens, so a
-  // longer end date costs more and a shorter one gives money back.
-  const dailyRate = screens.reduce((sum, s) => sum + s.pricePerDay, 0);
+  // longer end date costs more and a shorter one gives money back. Derive the
+  // day rate from what the advertiser actually paid so a shortened campaign
+  // refunds against the original budget, not today's list prices.
   const daysBetween = (a: string, b: string) => {
     const t1 = new Date(a).getTime();
     const t2 = new Date(b).getTime();
@@ -251,9 +252,14 @@ function CampaignDetail() {
     return Math.max(0, Math.round((t2 - t1) / 86400000) + 1);
   };
   const currentDays = daysBetween(campaign.startDate, campaign.endDate);
+  const listRate = screens.reduce((sum, s) => sum + s.pricePerDay, 0);
+  const dailyRate =
+    currentDays > 0 ? Math.round(campaign.totalBudget / currentDays) : listRate;
   const newDays = editStart && editEnd ? daysBetween(editStart, editEnd) : 0;
-  const newBudget = dailyRate > 0 ? newDays * dailyRate : campaign.totalBudget;
-  const budgetDelta = newBudget - campaign.totalBudget;
+  const newBudget = newDays > 0 && dailyRate > 0 ? newDays * dailyRate : campaign.totalBudget;
+  // Never refund below what has already been delivered.
+  const budgetDelta = Math.max(newBudget, campaign.spendToDate) - campaign.totalBudget;
+
 
   const doSaveSchedule = () => {
     if (budgetDelta > 0 && !chargeWallet(budgetDelta)) {
@@ -269,8 +275,9 @@ function CampaignDetail() {
       endDate: editEnd,
       daysOfWeek: editDays,
       dayparts: editSlots,
-      totalBudget: newBudget,
+      totalBudget: campaign.totalBudget + budgetDelta,
     });
+
     setScheduleOpen(false);
     if (budgetDelta > 0) {
       toast.success(
@@ -360,6 +367,14 @@ function CampaignDetail() {
                 <Button className="gap-1.5">Continue draft</Button>
               </Link>
             )}
+            {campaign.status === "pending_approval" && campaign.awaitingPayment && (
+              <Link to="/campaigns/new" search={{ draftId: campaign.id }}>
+                <Button variant="outline" className="gap-1.5">
+                  Edit campaign
+                </Button>
+              </Link>
+            )}
+
           </div>
         </div>
 
@@ -386,7 +401,33 @@ function CampaignDetail() {
                   <MiniStat label="Elapsed" value={`${elapsedDays} days`} />
                   <MiniStat label="Remaining" value={`${remainingDays} days`} />
                 </div>
+                <div className="mt-3 space-y-1.5 border-t pt-3 text-xs">
+                  <p>
+                    <span className="text-muted-foreground">Runs on: </span>
+                    <span className="font-medium text-foreground">
+                      {campaign.daysOfWeek?.length
+                        ? campaign.daysOfWeek.length === 7
+                          ? "Every day"
+                          : [...campaign.daysOfWeek]
+                              .sort((a, b) => a - b)
+                              .map((d) => DOW_LABELS[d])
+                              .join(", ")
+                        : "Every day"}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Time slots: </span>
+                    <span className="font-medium text-foreground">
+                      {campaign.dayparts?.length
+                        ? DAYPARTS.filter((d) => campaign.dayparts!.includes(d.id))
+                            .map((d) => d.label)
+                            .join(" · ")
+                        : "All day"}
+                    </span>
+                  </p>
+                </div>
               </>
+
             ) : (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
