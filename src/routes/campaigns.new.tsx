@@ -68,6 +68,7 @@ import {
   distanceKm,
   presetIdFor,
   DAYPARTS,
+  dowsInRange,
   addDaysISO,
   bookedSlotsOn,
   daysBetween,
