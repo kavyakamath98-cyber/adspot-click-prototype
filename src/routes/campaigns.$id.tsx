@@ -337,35 +337,8 @@ function CampaignDetail() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {(campaign.status === "live" || campaign.status === "paused") && (
-              <Button
-                variant="secondary"
-                onClick={() => setReplaceOpen(true)}
-                className="gap-1.5"
-              >
-                <RefreshCw className="h-4 w-4" /> Replace Creative
-              </Button>
-            )}
-            {campaign.status === "live" && (
-              <Button variant="outline" onClick={doPause} className="gap-1.5">
-                <Pause className="h-4 w-4" /> Pause
-              </Button>
-            )}
-            {campaign.status === "paused" && (
-              <Button variant="outline" onClick={openResume} className="gap-1.5">
-                <Play className="h-4 w-4" /> Resume
-              </Button>
-            )}
-            {canEditSchedule && (
-              <Button
-                variant="outline"
-                onClick={() => setStopOpen(true)}
-                className="gap-1.5 text-destructive hover:text-destructive"
-              >
-                <Square className="h-4 w-4" /> Stop Campaign
-              </Button>
-            )}
             {campaign.status === "rejected" && (
+
               <Link to="/campaigns/new" search={{ resubmitId: campaign.id }}>
                 <Button className="gap-1.5">
                   <RefreshCw className="h-4 w-4" /> Fix & Resubmit
