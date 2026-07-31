@@ -15,7 +15,12 @@ import {
   Plus,
   Filter,
   X,
+  Pause,
+  Play,
+  Square,
+  RefreshCw,
 } from "lucide-react";
+
 import {
   AppShell,
   InUseBadge,
