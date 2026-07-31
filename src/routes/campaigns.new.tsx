@@ -1599,7 +1599,9 @@ function SlotAvailabilityPopover({
           </p>
         </div>
       </PopoverContent>
+      )}
     </Popover>
+
   );
 }
 
