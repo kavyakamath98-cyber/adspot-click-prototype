@@ -126,6 +126,7 @@ function NewCampaign() {
     addCampaign,
     updateCampaign,
     chargeWallet,
+    refundToWallet,
     simulateCreativeReviewForCampaign,
 
     campaigns,
@@ -134,13 +135,22 @@ function NewCampaign() {
   const resubmit = resubmitId ? campaigns.find((c) => c.id === resubmitId) : undefined;
   const draft = draftId ? campaigns.find((c) => c.id === draftId) : undefined;
   const source = resubmit ?? draft;
+  // A campaign that was already paid for (live / scheduled) — edits are
+  // allowed but the price difference is settled on the last step.
+  const paidEdit = !!draft && (draft.status === "live" || draft.status === "approved_scheduled");
+  const isLiveEdit = draft?.status === "live";
+  const amountPaid = paidEdit ? (draft?.totalBudget ?? 0) : 0;
+  // A fully-filled campaign should reopen with every step unlocked so the user
+  // can see and change any of the original inputs.
+  const sourceComplete =
+    !!source && !!source.startDate && !!source.endDate && (source.screenIds?.length ?? 0) > 0;
 
   const [step, setStep] = useState<Step>(() => {
-    const s = (source?.lastStep ?? 1) as number;
+    const s = (source?.lastStep ?? (sourceComplete ? 1 : 1)) as number;
     return (Math.min(6, Math.max(1, s)) as Step);
   });
   const [visited, setVisited] = useState<Set<Step>>(() => {
-    const initial = (source?.lastStep ?? 1) as number;
+    const initial = (sourceComplete ? 6 : (source?.lastStep ?? 1)) as number;
     const set = new Set<Step>();
     for (let i = 1; i <= Math.min(6, Math.max(1, initial)); i++) set.add(i as Step);
     return set;
@@ -199,8 +209,22 @@ function NewCampaign() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minStartDate]);
 
-  const [daysOfWeek, setDaysOfWeek] = useState<number[]>(source?.daysOfWeek ?? []);
-  const [dayparts, setDayparts] = useState<string[]>(source?.dayparts ?? []);
+  // Older/seeded campaigns may not carry day + slot picks — fall back to the
+  // full schedule so an edit shows what the campaign is actually running.
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>(
+    source?.daysOfWeek?.length
+      ? source.daysOfWeek
+      : source?.startDate && source?.endDate
+        ? dowsInRange(source.startDate, source.endDate)
+        : [],
+  );
+  const [dayparts, setDayparts] = useState<string[]>(
+    source?.dayparts?.length
+      ? source.dayparts
+      : source?.startDate && source?.endDate
+        ? DAYPARTS.map((d) => d.id)
+        : [],
+  );
   const [tagFilter, setTagFilter] = useState<Set<LocationTag>>(new Set());
   const [dimFilter, setDimFilter] = useState<Set<string>>(new Set());
 
@@ -323,8 +347,8 @@ function NewCampaign() {
     startDate: startDate ?? "",
     endDate: endDate ?? "",
     totalBudget: totalCost,
-    spendToDate: 0,
-    estimatedImpressions: 0,
+    spendToDate: editing?.spendToDate ?? 0,
+    estimatedImpressions: editing?.estimatedImpressions ?? 0,
     createdAt: source?.createdAt ?? new Date().toISOString(),
     fitMode,
     playSec,
@@ -334,16 +358,17 @@ function NewCampaign() {
   });
 
   const handleSaveDraft = () => {
-    // Keep an in-review campaign in its pending state while it is edited.
-    const keepStatus =
-      editing && editing.status === "pending_approval" ? "pending_approval" : "draft";
+    // Keep an already-approved / in-review campaign in its own state while it
+    // is edited — only brand-new campaigns fall back to "draft".
+    const keepStatus: Campaign["status"] =
+      editing && editing.status !== "draft" ? editing.status : "draft";
     const c = buildCampaign(keepStatus);
     if (editing) {
       const stillPending = keepStatus === "pending_approval";
       updateCampaign(editing.id, {
         ...c,
-        awaitingPayment: stillPending ? true : undefined,
-        paymentUnlocked: stillPending ? !isNewCreative : undefined,
+        awaitingPayment: stillPending ? true : editing.awaitingPayment,
+        paymentUnlocked: stillPending ? !isNewCreative : editing.paymentUnlocked,
       });
     } else {
       addCampaign(c);
@@ -353,15 +378,22 @@ function NewCampaign() {
     });
   };
 
+  // Difference to settle when editing a campaign that was already paid for.
+  const priceDelta = paidEdit ? totalCost - amountPaid : totalCost;
+
   const handlePaySuccess = () => {
     if (!selectedCreative) return;
-    if (!chargeWallet(totalCost)) {
-      setPayError("Insufficient wallet balance. Please top up and try again.");
-      return;
+    if (priceDelta > 0) {
+      if (!chargeWallet(priceDelta)) {
+        setPayError("Insufficient wallet balance. Please top up and try again.");
+        return;
+      }
+    } else if (priceDelta < 0) {
+      refundToWallet(-priceDelta);
     }
     const launchStatus: Campaign["status"] =
       startDate && new Date(startDate) <= new Date() ? "live" : "approved_scheduled";
-    const built = buildCampaign(launchStatus);
+    const built = buildCampaign(paidEdit ? (editing?.status ?? launchStatus) : launchStatus);
     const campaignId = built.id;
     if (editing) {
       updateCampaign(editing.id, { ...built, awaitingPayment: false, paymentUnlocked: false });
@@ -371,9 +403,15 @@ function NewCampaign() {
     if (resubmit) updateCampaign(resubmit.id, { status: "completed" });
     setPayOpen(false);
     toast.success(
-      launchStatus === "live"
-        ? "Payment successful — your campaign is live"
-        : "Payment successful — your campaign is scheduled",
+      paidEdit
+        ? priceDelta === 0
+          ? "Changes saved — no extra charge"
+          : priceDelta > 0
+            ? `Changes saved — ₹${priceDelta.toLocaleString("en-IN")} charged`
+            : `Changes saved — ₹${(-priceDelta).toLocaleString("en-IN")} refunded`
+        : launchStatus === "live"
+          ? "Payment successful — your campaign is live"
+          : "Payment successful — your campaign is scheduled",
     );
     navigate({ to: "/campaigns/$id", params: { id: campaignId } });
   };
@@ -408,7 +446,7 @@ function NewCampaign() {
       title={
         resubmit
           ? "Fix & Resubmit"
-          : editing?.status === "pending_approval"
+          : editing && editing.status !== "draft"
             ? "Edit Campaign"
             : draft
               ? "Continue Draft"
@@ -446,6 +484,7 @@ function NewCampaign() {
               setRadius={setRadius}
               inRangeCount={inRangeScreens.length}
               tagCounts={tagCounts}
+              lockBasics={isLiveEdit}
             />
           )}
           {step === 2 && (
@@ -514,6 +553,8 @@ function NewCampaign() {
               totalCost={totalCost}
               creative={selectedCreative}
               deferPayment={isNewCreative}
+              paidEdit={paidEdit}
+              amountPaid={amountPaid}
               onSubmitForReview={() => setReviewOpen(true)}
               onPay={() => {
                 setPayError(null);
@@ -563,8 +604,12 @@ function NewCampaign() {
           </DialogHeader>
           <div className="my-2 rounded-md bg-secondary/50 p-4">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Amount to charge</span>
-              <span className="font-semibold">₹{totalCost.toLocaleString("en-IN")}</span>
+              <span className="text-muted-foreground">
+                {priceDelta < 0 ? "Amount to refund" : "Amount to charge"}
+              </span>
+              <span className="font-semibold">
+                ₹{Math.abs(priceDelta).toLocaleString("en-IN")}
+              </span>
             </div>
           </div>
           {payError && (
@@ -678,6 +723,7 @@ function Step1({
   setRadius,
   inRangeCount,
   tagCounts,
+  lockBasics,
 }: {
   name: string;
   setName: (v: string) => void;
@@ -687,6 +733,7 @@ function Step1({
   setRadius: (v: number) => void;
   inRangeCount: number;
   tagCounts: Record<string, number>;
+  lockBasics?: boolean;
 }) {
   const [query, setQuery] = useState(locationLabel);
   const [open, setOpen] = useState(false);
@@ -701,6 +748,16 @@ function Step1({
 
   return (
     <Card className="p-6">
+      {lockBasics && (
+        <Alert className="mb-5">
+          <InfoIcon className="h-4 w-4" />
+          <AlertTitle>This campaign is already live</AlertTitle>
+          <AlertDescription>
+            The name and area stay fixed while it runs. You can still change the radius, screens,
+            schedule and creative — any price difference is settled on the last step.
+          </AlertDescription>
+        </Alert>
+      )}
       <div>
         <Label htmlFor="cname" className="text-base">Campaign name</Label>
         <Input
@@ -709,14 +766,21 @@ function Step1({
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g., Diwali Weekend Push"
           className="mt-1.5 text-base"
+          disabled={lockBasics}
         />
-        <p className="mt-1 text-xs text-muted-foreground">Give your ad a clear, memorable name.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {lockBasics
+            ? "Name can't be changed once the campaign is live."
+            : "Give your ad a clear, memorable name."}
+        </p>
       </div>
 
       <div className="mt-6">
         <h2 className="text-lg font-semibold">Where should this ad run?</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Search a neighborhood, area, or pincode — we'll pin the center on the map.
+          {lockBasics
+            ? "The area is locked for a live campaign — adjust the radius below instead."
+            : "Search a neighborhood, area, or pincode — we'll pin the center on the map."}
         </p>
 
         <div className="relative mt-4">
@@ -727,12 +791,13 @@ function Step1({
               setQuery(e.target.value);
               setOpen(true);
             }}
-            onFocus={() => setOpen(true)}
+            onFocus={() => !lockBasics && setOpen(true)}
             onBlur={() => setTimeout(() => setOpen(false), 150)}
             placeholder="Search for a place, e.g. Indiranagar, Bangalore"
             className="pl-9"
+            disabled={lockBasics}
           />
-          {open && suggestions.length > 0 && (
+          {!lockBasics && open && suggestions.length > 0 && (
             <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border bg-popover shadow-lg">
               {suggestions.map((s) => (
                 <button
@@ -2051,6 +2116,8 @@ function Step6({
   deferPayment,
   onSubmitForReview,
   onPay,
+  paidEdit,
+  amountPaid,
 }: {
   name: string;
   locationLabel: string;
@@ -2062,14 +2129,21 @@ function Step6({
   deferPayment?: boolean;
   onSubmitForReview?: () => void;
   onPay: () => void;
+  paidEdit?: boolean;
+  amountPaid?: number;
 }) {
+  const delta = paidEdit ? totalCost - (amountPaid ?? 0) : totalCost;
   return (
     <Card className="p-6">
-      <h2 className="text-lg font-semibold">{deferPayment ? "Review & submit" : "Review & pay"}</h2>
+      <h2 className="text-lg font-semibold">
+        {paidEdit ? "Review your changes" : deferPayment ? "Review & submit" : "Review & pay"}
+      </h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        {deferPayment
-          ? "Your creative is new, so it goes for approval first. We won't ask for payment yet."
-          : "Confirm the details below and complete payment to submit your campaign for review."}
+        {paidEdit
+          ? "Here's how your changes affect the price. Anything extra is charged now; savings come back to your wallet."
+          : deferPayment
+            ? "Your creative is new, so it goes for approval first. We won't ask for payment yet."
+            : "Confirm the details below and complete payment to submit your campaign for review."}
       </p>
 
       <div className="mt-6 grid gap-6 md:grid-cols-[200px_1fr]">
@@ -2097,7 +2171,26 @@ function Step6({
         </dl>
       </div>
 
-      {deferPayment ? (
+      {paidEdit && (
+        <div className="mt-6 rounded-lg border bg-secondary/40 p-4 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Already paid</span>
+            <span className="font-medium">₹{(amountPaid ?? 0).toLocaleString("en-IN")}</span>
+          </div>
+          <div className="mt-1 flex justify-between">
+            <span className="text-muted-foreground">New total</span>
+            <span className="font-medium">₹{totalCost.toLocaleString("en-IN")}</span>
+          </div>
+          <div className="mt-2 flex justify-between border-t pt-2 text-base font-semibold">
+            <span>
+              {delta > 0 ? "Extra to pay" : delta < 0 ? "Refund to wallet" : "No change in price"}
+            </span>
+            <span>₹{Math.abs(delta).toLocaleString("en-IN")}</span>
+          </div>
+        </div>
+      )}
+
+      {deferPayment && !paidEdit ? (
         <>
           <div className="mt-6 rounded-lg border border-dashed bg-secondary/40 p-5 text-center">
             <Clock className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
@@ -2114,7 +2207,13 @@ function Step6({
         </>
       ) : (
         <Button onClick={onPay} className="mt-6 w-full" size="lg">
-          Pay ₹{totalCost.toLocaleString("en-IN")}
+          {paidEdit
+            ? delta > 0
+              ? `Pay ₹${delta.toLocaleString("en-IN")} & save changes`
+              : delta < 0
+                ? `Save changes & get ₹${(-delta).toLocaleString("en-IN")} back`
+                : "Save changes"
+            : `Pay ₹${totalCost.toLocaleString("en-IN")}`}
         </Button>
       )}
     </Card>
