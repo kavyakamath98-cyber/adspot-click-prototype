@@ -918,7 +918,7 @@ function Step2({
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Name, tag, industry"
+              placeholder="Name, industry"
               className="pl-9"
             />
           </div>
