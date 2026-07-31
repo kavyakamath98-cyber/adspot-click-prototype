@@ -161,6 +161,9 @@ function NewCampaign() {
       draft.status === "paused" ||
       draft.status === "approved_scheduled");
   const isLiveEdit = draft?.status === "live";
+  // Already-approved campaigns (live or scheduled) can't go back to draft —
+  // the edit is either applied immediately or cancelled.
+  const noDraftEdit = isLiveEdit || draft?.status === "approved_scheduled";
   const amountPaid = paidEdit ? (draft?.totalBudget ?? 0) : 0;
   // A fully-filled campaign should reopen with every step unlocked so the user
   // can see and change any of the original inputs.
