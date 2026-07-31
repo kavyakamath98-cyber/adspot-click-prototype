@@ -1717,6 +1717,11 @@ function StepSchedule({
   const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const showDateError = Boolean(startDate && endDate) && !scheduleValid;
 
+  // Only weekdays that actually occur inside the chosen range can be picked.
+  const allowedDows = scheduleValid && startDate && endDate ? dowsInRange(startDate, endDate) : [];
+  const dayOutOfRange = (d: number) => allowedDows.length > 0 && !allowedDows.includes(d);
+  const staleDays = daysOfWeek.filter(dayOutOfRange);
+
   const slotAvailable = (id: string) =>
     !startDate ||
     !endDate ||
@@ -1726,6 +1731,7 @@ function StepSchedule({
     setDaysOfWeek(daysOfWeek.includes(d) ? daysOfWeek.filter((x) => x !== d) : [...daysOfWeek, d]);
   const toggleSlot = (id: string) =>
     setDayparts(dayparts.includes(id) ? dayparts.filter((x) => x !== id) : [...dayparts, id]);
+
 
   return (
     <Card className="p-6">
