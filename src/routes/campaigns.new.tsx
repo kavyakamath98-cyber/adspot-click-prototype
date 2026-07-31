@@ -339,11 +339,11 @@ function NewCampaign() {
       editing && editing.status === "pending_approval" ? "pending_approval" : "draft";
     const c = buildCampaign(keepStatus);
     if (editing) {
-      const creativeChanged = editing.creativeId !== c.creativeId;
+      const stillPending = keepStatus === "pending_approval";
       updateCampaign(editing.id, {
         ...c,
-        awaitingPayment: isNewCreative,
-        paymentUnlocked: creativeChanged ? false : editing.paymentUnlocked,
+        awaitingPayment: stillPending ? true : undefined,
+        paymentUnlocked: stillPending ? !isNewCreative : undefined,
       });
     } else {
       addCampaign(c);
