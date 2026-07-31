@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Loader2, Upload } from "lucide-react";
+import { Info, Loader2, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
