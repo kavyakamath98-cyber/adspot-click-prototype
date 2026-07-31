@@ -258,7 +258,15 @@ function CampaignDetail() {
   const dailyRate =
     currentDays > 0 ? Math.round(campaign.totalBudget / currentDays) : listRate;
   const newDays = editStart && editEnd ? daysBetween(editStart, editEnd) : 0;
-  const newBudget = newDays > 0 && dailyRate > 0 ? newDays * dailyRate : campaign.totalBudget;
+  // Same run-length ⇒ exactly the same price. Re-deriving it from a rounded day
+  // rate would otherwise ask for a few rupees on an unchanged schedule.
+  const newBudget =
+    newDays === currentDays
+      ? campaign.totalBudget
+      : newDays > 0 && dailyRate > 0
+        ? newDays * dailyRate
+        : campaign.totalBudget;
+
   // Never refund below what has already been delivered.
   const budgetDelta = Math.max(newBudget, campaign.spendToDate) - campaign.totalBudget;
 
