@@ -464,6 +464,54 @@ function NewCampaign() {
 
       back={{ to: "/campaigns", label: "Back to campaigns" }}
     >
+      {/* Running-campaign controls live inside the edit flow */}
+      {editing && (editing.status === "live" || editing.status === "paused") && (
+        <Card className="mb-6 border-primary/30 bg-secondary/30 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">
+                {editing.status === "live" ? "This campaign is running" : "This campaign is paused"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Pause, stop or swap the creative right here — or edit any step below.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" className="gap-1.5" onClick={() => goStep(2)}>
+                <RefreshCw className="h-4 w-4" /> Replace creative
+              </Button>
+              {editing.status === "live" ? (
+                <Button
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => {
+                    pauseCampaign(editing.id);
+                    toast.success("Campaign paused");
+                  }}
+                >
+                  <Pause className="h-4 w-4" /> Pause
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setResumeOpen(true)}
+                >
+                  <Play className="h-4 w-4" /> Resume
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                className="gap-1.5 text-destructive hover:text-destructive"
+                onClick={() => setStopOpen(true)}
+              >
+                <Square className="h-4 w-4" /> Stop campaign
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <div className="mb-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <p className="text-sm text-muted-foreground">
@@ -475,6 +523,89 @@ function NewCampaign() {
         </div>
         <Stepper current={step} canReach={canReachStep} onJump={goStep} />
       </div>
+
+      {/* Resume options */}
+      <Dialog open={resumeOpen} onOpenChange={setResumeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resume campaign</DialogTitle>
+            <DialogDescription>
+              Choose what happens to the days lost while the campaign was paused.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {(
+              [
+                ["shift_end", "Push the end date out", "Get the full run you paid for."],
+                ["keep_end", "Keep the original end date", "Campaign ends as planned."],
+              ] as const
+            ).map(([mode, title, sub]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setResumeMode(mode)}
+                className={cn(
+                  "w-full rounded-lg border p-3 text-left transition",
+                  resumeMode === mode
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:bg-secondary/50",
+                )}
+              >
+                <p className="text-sm font-medium">{title}</p>
+                <p className="text-xs text-muted-foreground">{sub}</p>
+              </button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResumeOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!editing) return;
+                resumeCampaign(editing.id, resumeMode);
+                setResumeOpen(false);
+                toast.success("Campaign resumed");
+              }}
+            >
+              Resume
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stop campaign */}
+      <Dialog open={stopOpen} onOpenChange={setStopOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Stop campaign permanently?</DialogTitle>
+            <DialogDescription>
+              This is permanent. Once stopped, the campaign cannot be resumed — different from
+              Pause. Unused budget is refunded to your wallet.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStopOpen(false)}>
+              Keep it running
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!editing) return;
+                const refund = stopCampaign(editing.id);
+                setStopOpen(false);
+                toast.success(
+                  `Campaign stopped. ₹${refund.toLocaleString("en-IN")} refunded to wallet (mock).`,
+                );
+                navigate({ to: "/campaigns/$id", params: { id: editing.id } });
+              }}
+            >
+              Stop campaign permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div>
