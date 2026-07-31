@@ -87,6 +87,9 @@ function CampaignDetail() {
   const pendingCreative = campaign?.pendingCreativeId
     ? creatives.find((c) => c.id === campaign.pendingCreativeId)
     : undefined;
+  const rejectedCreative = campaign?.rejectedCreativeId
+    ? creatives.find((c) => c.id === campaign.rejectedCreativeId)
+    : undefined;
 
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [stopOpen, setStopOpen] = useState(false);
