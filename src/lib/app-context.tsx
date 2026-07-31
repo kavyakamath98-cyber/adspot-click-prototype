@@ -294,7 +294,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
             ),
           );
           setCampaigns((prev) =>
-            prev.map((c) => (c.id === campaignId ? { ...c, pendingCreativeId: undefined } : c)),
+            prev.map((c) =>
+              c.id === campaignId
+                ? {
+                    ...c,
+                    pendingCreativeId: undefined,
+                    rejectedCreativeId: newCreativeId,
+                    rejectedCreativeReason: reason,
+                  }
+                : c,
+            ),
           );
         }
       }, 4000);
