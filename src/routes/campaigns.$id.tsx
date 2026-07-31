@@ -45,7 +45,14 @@ import {
   Tooltip,
 } from "recharts";
 import { useApp } from "@/lib/app-context";
-import { SCREENS, PINCODES, DAYPARTS, displayStatus } from "@/lib/mockData";
+import {
+  SCREENS,
+  PINCODES,
+  DAYPARTS,
+  DOW_LABELS,
+  displayStatus,
+  dowsInRange,
+} from "@/lib/mockData";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/campaigns/$id")({

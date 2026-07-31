@@ -45,6 +45,23 @@ export const DAYPARTS: Daypart[] = [
 ];
 export const ALL_DAYPART_IDS = DAYPARTS.map((d) => d.id);
 
+export const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** Which weekdays (0-6) actually occur between two ISO dates, inclusive. */
+export function dowsInRange(start: string, end: string): number[] {
+  if (!start || !end) return [];
+  const s = new Date(start);
+  const e = new Date(end);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || e < s) return [];
+  const out = new Set<number>();
+  const cursor = new Date(s);
+  while (cursor <= e && out.size < 7) {
+    out.add(cursor.getDay());
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return [...out].sort((a, b) => a - b);
+}
+
 export interface ScreenBooking {
   start: string; // YYYY-MM-DD
   end: string; // YYYY-MM-DD inclusive
