@@ -484,6 +484,7 @@ function NewCampaign() {
               setRadius={setRadius}
               inRangeCount={inRangeScreens.length}
               tagCounts={tagCounts}
+              lockBasics={isLiveEdit}
             />
           )}
           {step === 2 && (
