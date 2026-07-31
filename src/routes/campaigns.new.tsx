@@ -274,8 +274,14 @@ function NewCampaign() {
         return !!locationLabel && !!pincode && inRangeScreens.length > 0 && name.trim().length > 0;
       case 2:
         return !!selectedCreative && selectedCreative.status !== "rejected";
-      case 3": // eslint-disable-line
-        return false;
+      case 3: {
+        const allowed =
+          scheduleValid && startDate && endDate ? dowsInRange(startDate, endDate) : [];
+        const daysFitRange =
+          allowed.length === 0 || daysOfWeek.every((d) => allowed.includes(d));
+        return scheduleValid && daysOfWeek.length > 0 && daysFitRange && dayparts.length > 0;
+      }
+
 
       case 4:
         return selectedScreens.length > 0 && meetsMinSpend;
