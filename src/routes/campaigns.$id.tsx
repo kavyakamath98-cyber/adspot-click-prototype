@@ -414,6 +414,14 @@ function CampaignDetail() {
               onClick={() => {
                 setEditStart(campaign.startDate);
                 setEditEnd(campaign.endDate);
+                setEditDays(
+                  campaign.daysOfWeek?.length
+                    ? campaign.daysOfWeek
+                    : dowsInRange(campaign.startDate, campaign.endDate),
+                );
+                setEditSlots(
+                  campaign.dayparts?.length ? campaign.dayparts : DAYPARTS.map((d) => d.id),
+                );
                 setScheduleOpen(true);
               }}
             >
