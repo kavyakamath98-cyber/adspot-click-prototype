@@ -377,7 +377,7 @@ function CampaignDetail() {
                 <Button className="gap-1.5">Continue draft</Button>
               </Link>
             )}
-            {campaign.status === "pending_approval" && campaign.awaitingPayment && (
+            {campaign.status === "pending_approval" && (
               <Link to="/campaigns/new" search={{ draftId: campaign.id }}>
                 <Button variant="outline" className="gap-1.5">
                   Edit campaign
@@ -566,7 +566,7 @@ function CampaignDetail() {
             {!currentCreative && (
               <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
                 No creative chosen yet.
-                {campaign.status === "draft" && (
+                {(campaign.status === "draft" || campaign.status === "pending_approval") && (
                   <>
                     {" "}
                     <Link
@@ -574,7 +574,7 @@ function CampaignDetail() {
                       search={{ draftId: campaign.id }}
                       className="text-primary underline"
                     >
-                      Continue your draft
+                      {campaign.status === "pending_approval" ? "Edit this campaign" : "Continue your draft"}
                     </Link>{" "}
                     to pick one.
                   </>

@@ -187,10 +187,11 @@ function NewCampaign() {
   // Step 3 — schedule (undefined until user picks real dates)
   const isNewCreative = !!selectedCreative && !selectedCreative.previouslyApproved;
   const minStartDate = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + (isNewCreative ? 2 : 1));
-    return d.toISOString().slice(0, 10);
-  }, [isNewCreative]);
+    const tomorrow = addDaysISO(toISO(new Date()), 1);
+    if (!isNewCreative || !selectedCreative) return tomorrow;
+    const reviewReadyDate = addDaysISO(selectedCreative.uploadedAt, 2);
+    return reviewReadyDate > tomorrow ? reviewReadyDate : tomorrow;
+  }, [isNewCreative, selectedCreative]);
 
   const [startDate, setStartDate] = useState<string | undefined>(source?.startDate || undefined);
   const [endDate, setEndDate] = useState<string | undefined>(source?.endDate || undefined);
@@ -339,10 +340,11 @@ function NewCampaign() {
       editing && editing.status === "pending_approval" ? "pending_approval" : "draft";
     const c = buildCampaign(keepStatus);
     if (editing) {
+      const creativeChanged = editing.creativeId !== c.creativeId;
       updateCampaign(editing.id, {
         ...c,
-        awaitingPayment: editing.awaitingPayment,
-        paymentUnlocked: editing.paymentUnlocked,
+        awaitingPayment: isNewCreative,
+        paymentUnlocked: creativeChanged ? false : editing.paymentUnlocked,
       });
     } else {
       addCampaign(c);
@@ -358,17 +360,22 @@ function NewCampaign() {
       setPayError("Insufficient wallet balance. Please top up and try again.");
       return;
     }
-    const built = buildCampaign("pending_approval");
+    const launchStatus: Campaign["status"] =
+      startDate && new Date(startDate) <= new Date() ? "live" : "approved_scheduled";
+    const built = buildCampaign(launchStatus);
     const campaignId = built.id;
     if (editing) {
       updateCampaign(editing.id, { ...built, awaitingPayment: false, paymentUnlocked: false });
     } else {
       addCampaign(built);
     }
-    simulateApproval(campaignId, selectedCreative.id);
     if (resubmit) updateCampaign(resubmit.id, { status: "completed" });
     setPayOpen(false);
-    toast.success("Payment successful — campaign submitted for review");
+    toast.success(
+      launchStatus === "live"
+        ? "Payment successful — your campaign is live"
+        : "Payment successful — your campaign is scheduled",
+    );
     navigate({ to: "/campaigns/$id", params: { id: campaignId } });
   };
 
