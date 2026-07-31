@@ -215,7 +215,15 @@ function CampaignsList() {
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <Info icon={MapPin} label={`${c.locationLabel ?? p?.label ?? c.pincode} · ${c.radiusKm} km`} />
                       <Info icon={Monitor} label={`${c.screenIds.length} screens`} />
-                      <Info icon={Calendar} label={`${fmt(c.startDate)} → ${fmt(c.endDate)}`} />
+                      <Info
+                        icon={Calendar}
+                        label={
+                          fmt(c.startDate) && fmt(c.endDate)
+                            ? `${fmt(c.startDate)} → ${fmt(c.endDate)}`
+                            : "Dates not set"
+                        }
+                      />
+
                       <Info
                         icon={TrendingUp}
                         label={`₹${c.spendToDate.toLocaleString("en-IN")} / ₹${c.totalBudget.toLocaleString("en-IN")}`}
