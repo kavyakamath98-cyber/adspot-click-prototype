@@ -255,8 +255,11 @@ function CampaignsList() {
 }
 
 function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  const t = d ? new Date(d) : null;
+  if (!t || Number.isNaN(t.getTime())) return "";
+  return t.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
+
 
 function Info({ icon: Icon, label }: { icon: React.ComponentType<{ className?: string }>; label: string }) {
   return (
