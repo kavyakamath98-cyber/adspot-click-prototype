@@ -554,9 +554,21 @@ function NewCampaign() {
           <p className="text-sm text-muted-foreground">
             Step {step} of 6 · {STEP_LABELS[step - 1]}
           </p>
-          <Button variant="outline" onClick={handleSaveDraft} className="gap-1.5">
-            <Save className="h-4 w-4" /> Save as Draft
-          </Button>
+          {isLiveEdit ? (
+            <Button
+              variant="outline"
+              className="gap-1.5"
+              onClick={() =>
+                navigate({ to: "/campaigns/$id", params: { id: editing!.id } })
+              }
+            >
+              Cancel
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={handleSaveDraft} className="gap-1.5">
+              <Save className="h-4 w-4" /> Save as Draft
+            </Button>
+          )}
         </div>
         <Stepper current={step} canReach={canReachStep} onJump={goStep} />
       </div>
