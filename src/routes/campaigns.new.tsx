@@ -139,6 +139,8 @@ function NewCampaign() {
     pauseCampaign,
     resumeCampaign,
     cancelPendingCampaign,
+    stopCampaign,
+
 
     campaigns,
   } = useApp();
