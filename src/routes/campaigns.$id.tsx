@@ -951,33 +951,21 @@ function CampaignDetail() {
                     Your ad runs on the days you pick.
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {DOW_LABELS.map((label, idx) => {
-                      const disabled = allowedDows.length > 0 && !allowedDows.includes(idx);
-                      const on = editDays.includes(idx);
-                      return (
-                        <button
-                          key={label}
-                          type="button"
-                          disabled={disabled}
-                          onClick={() =>
-                            setEditDays((prev) =>
-                              prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx],
-                            )
-                          }
-                          className={cnLocal(
-                            "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
-                            disabled
-                              ? "cursor-not-allowed border-dashed border-border bg-muted/40 text-muted-foreground/50"
-                              : on
-                                ? "border-primary bg-primary/10 text-foreground"
-                                : "border-border bg-background text-muted-foreground hover:bg-secondary/60",
-                          )}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
+                    {DOW_LABELS.map((label, idx) => (
+                      <CheckChip
+                        key={label}
+                        label={label}
+                        checked={editDays.includes(idx)}
+                        disabled={allowedDows.length > 0 && !allowedDows.includes(idx)}
+                        onClick={() =>
+                          setEditDays((prev) =>
+                            prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx],
+                          )
+                        }
+                      />
+                    ))}
                   </div>
+
                   {staleDays.length > 0 && (
                     <p className="mt-1.5 text-xs text-destructive">
                       {staleDays.map((d) => DOW_LABELS[d]).join(", ")}{" "}
