@@ -446,7 +446,7 @@ function NewCampaign() {
       title={
         resubmit
           ? "Fix & Resubmit"
-          : editing?.status === "pending_approval"
+          : editing && editing.status !== "draft"
             ? "Edit Campaign"
             : draft
               ? "Continue Draft"
