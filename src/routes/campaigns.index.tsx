@@ -34,26 +34,60 @@ const STATUS_FILTERS: { key: CampaignStatus | "all"; label: string }[] = [
 
 const PAGE = 8;
 
+const SORT_OPTIONS = [
+  { key: "created_desc", label: "Date created (new → old)" },
+  { key: "created_asc", label: "Date created (old → new)" },
+  { key: "modified_desc", label: "Date modified (new → old)" },
+  { key: "modified_asc", label: "Date modified (old → new)" },
+] as const;
+type SortKey = (typeof SORT_OPTIONS)[number]["key"];
+
+const time = (d?: string) => {
+  const t = d ? new Date(d).getTime() : NaN;
+  return Number.isNaN(t) ? 0 : t;
+};
+
+/** Campaigns whose creative cleared review but still need payment get their own state. */
+export function displayStatus(c: { status: string; awaitingPayment?: boolean; paymentUnlocked?: boolean }) {
+  return c.awaitingPayment && c.paymentUnlocked && c.status === "pending_approval"
+    ? "payment_pending"
+    : c.status;
+}
+
 function CampaignsList() {
   const { campaigns } = useApp();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<CampaignStatus | "all">("all");
+  const [sort, setSort] = useState<SortKey>("created_desc");
   const [visible, setVisible] = useState(PAGE);
   const sentinel = useRef<HTMLDivElement | null>(null);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return campaigns.filter((c) => {
+    const list = campaigns.filter((c) => {
       if (status !== "all" && c.status !== status) return false;
       if (s && !c.name.toLowerCase().includes(s)) return false;
       return true;
     });
-  }, [campaigns, q, status]);
+    return [...list].sort((a, b) => {
+      switch (sort) {
+        case "created_asc":
+          return time(a.createdAt) - time(b.createdAt);
+        case "modified_desc":
+          return time(b.updatedAt ?? b.createdAt) - time(a.updatedAt ?? a.createdAt);
+        case "modified_asc":
+          return time(a.updatedAt ?? a.createdAt) - time(b.updatedAt ?? b.createdAt);
+        default:
+          return time(b.createdAt) - time(a.createdAt);
+      }
+    });
+  }, [campaigns, q, status, sort]);
 
   const shown = filtered.slice(0, visible);
   const hasMore = visible < filtered.length;
 
-  useEffect(() => setVisible(PAGE), [q, status]);
+  useEffect(() => setVisible(PAGE), [q, status, sort]);
+
 
   useEffect(() => {
     if (!hasMore) return;
