@@ -603,7 +603,7 @@ function NewCampaign() {
           <p className="text-sm text-muted-foreground">
             Step {step} of 6 · {STEP_LABELS[step - 1]}
           </p>
-          {isLiveEdit ? (
+          {noDraftEdit ? (
             <Button
               variant="outline"
               className="gap-1.5"
