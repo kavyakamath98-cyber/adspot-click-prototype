@@ -145,6 +145,9 @@ export interface Campaign {
   pausedAt?: string;
   totalPausedDays?: number;
   lastStep?: number;
+  /** Last time anything on the campaign changed (ISO date string). */
+  updatedAt?: string;
+
   // Set when the campaign was submitted with a brand-new creative: payment is
   // deferred until the creative clears review.
   awaitingPayment?: boolean;
