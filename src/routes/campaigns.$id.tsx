@@ -234,11 +234,50 @@ function CampaignDetail() {
     );
   };
 
-  const doSaveSchedule = () => {
-    updateCampaign(campaign.id, { startDate: editStart, endDate: editEnd });
-    setScheduleOpen(false);
-    toast.success("Schedule updated");
+  // Price the campaign purely on run-length × the daily cost of its screens, so a
+  // longer end date costs more and a shorter one gives money back.
+  const dailyRate = screens.reduce((sum, s) => sum + s.pricePerDay, 0);
+  const daysBetween = (a: string, b: string) => {
+    const t1 = new Date(a).getTime();
+    const t2 = new Date(b).getTime();
+    if (Number.isNaN(t1) || Number.isNaN(t2)) return 0;
+    return Math.max(0, Math.round((t2 - t1) / 86400000) + 1);
   };
+  const currentDays = daysBetween(campaign.startDate, campaign.endDate);
+  const newDays = editStart && editEnd ? daysBetween(editStart, editEnd) : 0;
+  const newBudget = dailyRate > 0 ? newDays * dailyRate : campaign.totalBudget;
+  const budgetDelta = newBudget - campaign.totalBudget;
+
+  const doSaveSchedule = () => {
+    if (budgetDelta > 0 && !chargeWallet(budgetDelta)) {
+      toast.error(
+        `Insufficient wallet balance. You need ₹${budgetDelta.toLocaleString("en-IN")} to extend this campaign.`,
+      );
+      return;
+    }
+    if (budgetDelta < 0) refundToWallet(-budgetDelta);
+
+    updateCampaign(campaign.id, {
+      startDate: editStart,
+      endDate: editEnd,
+      daysOfWeek: editDays,
+      dayparts: editSlots,
+      totalBudget: newBudget,
+    });
+    setScheduleOpen(false);
+    if (budgetDelta > 0) {
+      toast.success(
+        `Campaign extended. ₹${budgetDelta.toLocaleString("en-IN")} charged from your wallet.`,
+      );
+    } else if (budgetDelta < 0) {
+      toast.success(
+        `Campaign shortened. ₹${(-budgetDelta).toLocaleString("en-IN")} refunded to your wallet.`,
+      );
+    } else {
+      toast.success("Schedule updated");
+    }
+  };
+
 
   const doPayNow = () => {
     if (!chargeWallet(campaign.totalBudget)) {
