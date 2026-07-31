@@ -200,7 +200,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           );
           setCampaigns((prev) =>
             prev.map((c) =>
-              c.id === campaignId ? { ...c, paymentUnlocked: true, rejectionReason: undefined } : c,
+              c.id === campaignId && c.creativeId === creativeId
+                ? { ...c, paymentUnlocked: true, awaitingPayment: true, rejectionReason: undefined }
+                : c,
             ),
           );
         } else {
@@ -211,7 +213,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           );
           setCampaigns((prev) =>
             prev.map((c) =>
-              c.id === campaignId
+              c.id === campaignId && c.creativeId === creativeId
                 ? { ...c, status: "rejected" as CampaignStatus, rejectionReason: reason }
                 : c,
             ),
