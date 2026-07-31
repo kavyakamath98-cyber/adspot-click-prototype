@@ -1380,11 +1380,16 @@ function StepScreens({
             (f) => f.bookedDates.length > 0 && f.freeDates.length > 0,
           );
           const totalDays = breakdown.dates.length;
+          const blockedReason = !matched
+            ? `Your creative is ${creativeLandscape ? "landscape" : "portrait"} and this screen is ${
+                s.width > s.height ? "landscape" : "portrait"
+              } (${s.width}×${s.height}), so it can't be booked with this creative.`
+            : undefined;
           return (
             <div
               key={s.id}
               className={cn("flex items-center gap-4 px-4 py-3", disabled && "opacity-70")}
-              title={!matched ? "This screen's orientation doesn't match your creative." : ""}
+              title={blockedReason ?? ""}
             >
               <Checkbox checked={checked} disabled={disabled} onCheckedChange={() => toggle(s.id)} />
               <div className="grid h-10 w-10 place-items-center rounded bg-secondary">
@@ -1394,20 +1399,29 @@ function StepScreens({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{s.venue}</span>
                   <LocationTagPill tag={s.locationTag} />
-                  <AvailabilityBadge a={status} />
+                  {blockedReason ? (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      Doesn't fit your creative
+                    </span>
+                  ) : (
+                    <AvailabilityBadge a={status} />
+                  )}
                   <SlotAvailabilityPopover
                     screen={s}
                     breakdown={breakdown}
                     status={status}
                     startDate={startDate}
                     endDate={endDate}
+                    blockedReason={blockedReason}
                   />
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   {s.venueType} · {s.city} · {s.pincode} · {s.width}×{s.height}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {booked ? (
+                  {blockedReason ? (
+                    <>{blockedReason}</>
+                  ) : booked ? (
                     <>Someone else has booked all your time-slots here, on every one of your dates.</>
                   ) : partlyFree.length === 0 ? (
                     <>
@@ -1427,6 +1441,7 @@ function StepScreens({
                   )}
                 </p>
               </div>
+
 
               <div className="text-right text-sm">
                 <div className="font-semibold">₹{s.pricePerDay}</div>
