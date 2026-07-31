@@ -354,6 +354,10 @@ function NewCampaign() {
   // Editing an existing campaign (a draft, or one that is still awaiting
   // approval) updates it in place instead of spawning a duplicate.
   const editing = draft;
+  // Campaign the in-flow control banner acts on — includes drafts and the
+  // rejected campaign being resubmitted.
+  const managed = draft ?? resubmit;
+  const isUnpaidManaged = managed?.status === "draft" || managed?.status === "rejected";
 
   const buildCampaign = (
     status: Campaign["status"],
