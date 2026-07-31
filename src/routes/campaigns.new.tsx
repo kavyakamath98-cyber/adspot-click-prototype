@@ -742,6 +742,7 @@ function NewCampaign() {
               totalCost={totalCost}
               creative={selectedCreative}
               deferPayment={isNewCreative}
+              liveCreativeReview={liveCreativeReview}
               paidEdit={paidEdit}
               amountPaid={amountPaid}
               onSubmitForReview={() => setReviewOpen(true)}
@@ -758,9 +759,21 @@ function NewCampaign() {
               <ArrowLeft className="mr-1 h-4 w-4" /> Back
             </Button>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleSaveDraft} className="gap-1.5">
-                <Save className="h-4 w-4" /> Save as Draft
-              </Button>
+              {isLiveEdit ? (
+                <Button
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() =>
+                    navigate({ to: "/campaigns/$id", params: { id: editing!.id } })
+                  }
+                >
+                  Cancel
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={handleSaveDraft} className="gap-1.5">
+                  <Save className="h-4 w-4" /> Save as Draft
+                </Button>
+              )}
               {step < 6 && (
                 <Button onClick={goNext} disabled={!stepValid(step)}>
                   Next <ArrowRight className="ml-1 h-4 w-4" />
