@@ -1803,14 +1803,28 @@ function StepSchedule({
             <CheckChip
               key={label}
               label={label}
-              checked={daysOfWeek.includes(i)}
+              checked={daysOfWeek.includes(i) && !dayOutOfRange(i)}
+              disabled={dayOutOfRange(i)}
               onClick={() => toggleDay(i)}
             />
           ))}
         </div>
+        {allowedDows.length > 0 && allowedDows.length < 7 && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Greyed-out days don't fall between {fmtShort(startDate!)} and {fmtShort(endDate!)}.
+          </p>
+        )}
+        {staleDays.length > 0 && (
+          <p className="mt-2 text-xs text-destructive">
+            {staleDays.map((d) => dayLabels[d]).join(", ")}{" "}
+            {staleDays.length === 1 ? "does" : "do"} not fall between your chosen dates. Remove{" "}
+            {staleDays.length === 1 ? "it" : "them"} or widen your date range.
+          </p>
+        )}
         {daysOfWeek.length === 0 && (
           <p className="mt-2 text-xs text-destructive">Pick at least one day.</p>
         )}
+
       </div>
 
       {/* Time slots */}
