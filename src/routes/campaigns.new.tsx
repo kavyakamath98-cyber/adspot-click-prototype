@@ -347,8 +347,8 @@ function NewCampaign() {
     startDate: startDate ?? "",
     endDate: endDate ?? "",
     totalBudget: totalCost,
-    spendToDate: 0,
-    estimatedImpressions: 0,
+    spendToDate: editing?.spendToDate ?? 0,
+    estimatedImpressions: editing?.estimatedImpressions ?? 0,
     createdAt: source?.createdAt ?? new Date().toISOString(),
     fitMode,
     playSec,
@@ -358,16 +358,17 @@ function NewCampaign() {
   });
 
   const handleSaveDraft = () => {
-    // Keep an in-review campaign in its pending state while it is edited.
-    const keepStatus =
-      editing && editing.status === "pending_approval" ? "pending_approval" : "draft";
+    // Keep an already-approved / in-review campaign in its own state while it
+    // is edited — only brand-new campaigns fall back to "draft".
+    const keepStatus: Campaign["status"] =
+      editing && editing.status !== "draft" ? editing.status : "draft";
     const c = buildCampaign(keepStatus);
     if (editing) {
       const stillPending = keepStatus === "pending_approval";
       updateCampaign(editing.id, {
         ...c,
-        awaitingPayment: stillPending ? true : undefined,
-        paymentUnlocked: stillPending ? !isNewCreative : undefined,
+        awaitingPayment: stillPending ? true : editing.awaitingPayment,
+        paymentUnlocked: stillPending ? !isNewCreative : editing.paymentUnlocked,
       });
     } else {
       addCampaign(c);
@@ -377,15 +378,22 @@ function NewCampaign() {
     });
   };
 
+  // Difference to settle when editing a campaign that was already paid for.
+  const priceDelta = paidEdit ? totalCost - amountPaid : totalCost;
+
   const handlePaySuccess = () => {
     if (!selectedCreative) return;
-    if (!chargeWallet(totalCost)) {
-      setPayError("Insufficient wallet balance. Please top up and try again.");
-      return;
+    if (priceDelta > 0) {
+      if (!chargeWallet(priceDelta)) {
+        setPayError("Insufficient wallet balance. Please top up and try again.");
+        return;
+      }
+    } else if (priceDelta < 0) {
+      refundToWallet(-priceDelta);
     }
     const launchStatus: Campaign["status"] =
       startDate && new Date(startDate) <= new Date() ? "live" : "approved_scheduled";
-    const built = buildCampaign(launchStatus);
+    const built = buildCampaign(paidEdit ? (editing?.status ?? launchStatus) : launchStatus);
     const campaignId = built.id;
     if (editing) {
       updateCampaign(editing.id, { ...built, awaitingPayment: false, paymentUnlocked: false });
@@ -395,9 +403,15 @@ function NewCampaign() {
     if (resubmit) updateCampaign(resubmit.id, { status: "completed" });
     setPayOpen(false);
     toast.success(
-      launchStatus === "live"
-        ? "Payment successful — your campaign is live"
-        : "Payment successful — your campaign is scheduled",
+      paidEdit
+        ? priceDelta === 0
+          ? "Changes saved — no extra charge"
+          : priceDelta > 0
+            ? `Changes saved — ₹${priceDelta.toLocaleString("en-IN")} charged`
+            : `Changes saved — ₹${(-priceDelta).toLocaleString("en-IN")} refunded`
+        : launchStatus === "live"
+          ? "Payment successful — your campaign is live"
+          : "Payment successful — your campaign is scheduled",
     );
     navigate({ to: "/campaigns/$id", params: { id: campaignId } });
   };
