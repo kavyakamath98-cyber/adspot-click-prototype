@@ -984,31 +984,22 @@ function CampaignDetail() {
                     Your ad plays during the time-slots you pick.
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {DAYPARTS.map((dp) => {
-                      const on = editSlots.includes(dp.id);
-                      return (
-                        <button
-                          key={dp.id}
-                          type="button"
-                          onClick={() =>
-                            setEditSlots((prev) =>
-                              prev.includes(dp.id)
-                                ? prev.filter((s) => s !== dp.id)
-                                : [...prev, dp.id],
-                            )
-                          }
-                          className={cnLocal(
-                            "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
-                            on
-                              ? "border-primary bg-primary/10 text-foreground"
-                              : "border-border bg-background text-muted-foreground hover:bg-secondary/60",
-                          )}
-                        >
-                          {dp.label}
-                        </button>
-                      );
-                    })}
+                    {DAYPARTS.map((dp) => (
+                      <CheckChip
+                        key={dp.id}
+                        label={dp.label}
+                        checked={editSlots.includes(dp.id)}
+                        onClick={() =>
+                          setEditSlots((prev) =>
+                            prev.includes(dp.id)
+                              ? prev.filter((s) => s !== dp.id)
+                              : [...prev, dp.id],
+                          )
+                        }
+                      />
+                    ))}
                   </div>
+
                   {noSlots && (
                     <p className="mt-1.5 text-xs text-destructive">Pick at least one time slot.</p>
                   )}
