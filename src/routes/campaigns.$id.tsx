@@ -45,7 +45,7 @@ import {
   Tooltip,
 } from "recharts";
 import { useApp } from "@/lib/app-context";
-import { SCREENS, PINCODES } from "@/lib/mockData";
+import { SCREENS, PINCODES, DAYPARTS, displayStatus } from "@/lib/mockData";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/campaigns/$id")({
@@ -66,7 +66,7 @@ function CampaignDetail() {
     creatives,
     updateCampaign,
     chargeWallet,
-
+    refundToWallet,
     simulateReplaceCreativeReview,
     pauseCampaign,
     resumeCampaign,
@@ -86,6 +86,8 @@ function CampaignDetail() {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [editStart, setEditStart] = useState(campaign?.startDate ?? "");
   const [editEnd, setEditEnd] = useState(campaign?.endDate ?? "");
+  const [editDays, setEditDays] = useState<number[]>(campaign?.daysOfWeek ?? []);
+  const [editSlots, setEditSlots] = useState<string[]>(campaign?.dayparts ?? []);
   const [selectedScreenId, setSelectedScreenId] = useState<string | null>(null);
 
   // Impression ticker for live campaigns
@@ -265,7 +267,7 @@ function CampaignDetail() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <StatusBadge status={campaign.status} />
+              <StatusBadge status={displayStatus(campaign)} />
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               Created {new Date(campaign.createdAt).toLocaleDateString("en-IN")}
@@ -448,7 +450,13 @@ function CampaignDetail() {
                 </span>
               )}
               {currentCreative && campaign.status !== "live" && (
-                <StatusBadge status={currentCreative.status} />
+                <StatusBadge
+                  status={
+                    campaign.status === "pending_approval" && currentCreative.status === "approved"
+                      ? "pending"
+                      : currentCreative.status
+                  }
+                />
               )}
             </div>
             {!currentCreative && (
