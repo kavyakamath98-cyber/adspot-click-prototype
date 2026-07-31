@@ -122,6 +122,20 @@ function CampaignsList() {
               className="pl-9"
             />
           </div>
+          <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+            <SelectTrigger className="w-[230px]">
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((o) => (
+                <SelectItem key={o.key} value={o.key}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Link to="/campaigns/new">
             <Button className="gap-2">
               <Plus className="h-4 w-4" /> New Campaign
