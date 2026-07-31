@@ -209,8 +209,22 @@ function NewCampaign() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minStartDate]);
 
-  const [daysOfWeek, setDaysOfWeek] = useState<number[]>(source?.daysOfWeek ?? []);
-  const [dayparts, setDayparts] = useState<string[]>(source?.dayparts ?? []);
+  // Older/seeded campaigns may not carry day + slot picks — fall back to the
+  // full schedule so an edit shows what the campaign is actually running.
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>(
+    source?.daysOfWeek?.length
+      ? source.daysOfWeek
+      : source?.startDate && source?.endDate
+        ? dowsInRange(source.startDate, source.endDate)
+        : [],
+  );
+  const [dayparts, setDayparts] = useState<string[]>(
+    source?.dayparts?.length
+      ? source.dayparts
+      : source?.startDate && source?.endDate
+        ? DAYPARTS.map((d) => d.id)
+        : [],
+  );
   const [tagFilter, setTagFilter] = useState<Set<LocationTag>>(new Set());
   const [dimFilter, setDimFilter] = useState<Set<string>>(new Set());
 
