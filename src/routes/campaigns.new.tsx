@@ -407,8 +407,23 @@ function NewCampaign() {
     });
   };
 
+  // Only radius, screen selection or a change of creative format (image <-> video)
+  // affect what the advertiser pays. Everything else edits for free.
+  const pricingChanged = useMemo(() => {
+    if (!paidEdit || !draft) return false;
+    if ((draft.radiusKm ?? 0) !== radius) return true;
+    const before = [...(draft.screenIds ?? [])].sort().join(",");
+    const after = [...selectedScreens].sort().join(",");
+    if (before !== after) return true;
+    const beforeType = creatives.find((c) => c.id === draft.creativeId)?.type;
+    const afterType = selectedCreative?.type;
+    if (beforeType && afterType && beforeType !== afterType) return true;
+    return false;
+  }, [paidEdit, draft, radius, selectedScreens, creatives, selectedCreative]);
+
   // Difference to settle when editing a campaign that was already paid for.
-  const priceDelta = paidEdit ? totalCost - amountPaid : totalCost;
+  const priceDelta = paidEdit ? (pricingChanged ? totalCost - amountPaid : 0) : totalCost;
+
 
   const handlePaySuccess = () => {
     if (!selectedCreative) return;
@@ -803,6 +818,7 @@ function NewCampaign() {
               liveCreativeReview={liveCreativeReview}
               paidEdit={paidEdit}
               amountPaid={amountPaid}
+              pricingChanged={pricingChanged}
               onSubmitForReview={() => setReviewOpen(true)}
               onPay={() => {
                 setPayError(null);
@@ -2409,6 +2425,7 @@ function Step6({
   onPay,
   paidEdit,
   amountPaid,
+  pricingChanged,
 }: {
   name: string;
   locationLabel: string;
@@ -2423,8 +2440,9 @@ function Step6({
   onPay: () => void;
   paidEdit?: boolean;
   amountPaid?: number;
+  pricingChanged?: boolean;
 }) {
-  const delta = paidEdit ? totalCost - (amountPaid ?? 0) : totalCost;
+  const delta = paidEdit ? (pricingChanged ? totalCost - (amountPaid ?? 0) : 0) : totalCost;
   return (
     <Card className="p-6">
       <h2 className="text-lg font-semibold">
