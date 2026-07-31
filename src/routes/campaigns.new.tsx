@@ -2394,7 +2394,27 @@ function Step6({
         </div>
       )}
 
-      {deferPayment && !paidEdit ? (
+      {liveCreativeReview ? (
+        <>
+          <div className="mt-6 rounded-lg border border-dashed bg-secondary/40 p-5 text-center">
+            <Clock className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
+            <p className="text-sm font-medium">
+              Your new creative goes for approval — this takes 24–48 hours.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Your campaign keeps running on the current creative until the new one is approved. If
+              it's rejected, the current creative simply carries on.
+            </p>
+          </div>
+          <Button onClick={onSubmitForReview} className="mt-4 w-full" size="lg">
+            {delta > 0
+              ? `Pay ₹${delta.toLocaleString("en-IN")} & send creative for approval`
+              : delta < 0
+                ? `Save changes, get ₹${(-delta).toLocaleString("en-IN")} back & send creative for approval`
+                : "Save changes & send creative for approval"}
+          </Button>
+        </>
+      ) : deferPayment && !paidEdit ? (
         <>
           <div className="mt-6 rounded-lg border border-dashed bg-secondary/40 p-5 text-center">
             <Clock className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
