@@ -351,7 +351,10 @@ function NewCampaign() {
   // approval) updates it in place instead of spawning a duplicate.
   const editing = draft;
 
-  const buildCampaign = (status: Campaign["status"]): Campaign => ({
+  const buildCampaign = (
+    status: Campaign["status"],
+    creativeIdOverride?: string,
+  ): Campaign => ({
     id: editing?.id ?? `cmp_${Date.now()}`,
     name: name.trim() || "Untitled campaign",
     status,
@@ -361,7 +364,7 @@ function NewCampaign() {
     centerLng,
     locationLabel,
     screenIds: selectedScreens,
-    creativeId: selectedCreative?.id ?? source?.creativeId ?? "",
+    creativeId: creativeIdOverride ?? selectedCreative?.id ?? source?.creativeId ?? "",
     startDate: startDate ?? "",
     endDate: endDate ?? "",
     totalBudget: totalCost,
