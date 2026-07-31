@@ -133,6 +133,7 @@ function NewCampaign() {
     chargeWallet,
     refundToWallet,
     simulateCreativeReviewForCampaign,
+    simulateReplaceCreativeReview,
     pauseCampaign,
     resumeCampaign,
     stopCampaign,
@@ -350,7 +351,10 @@ function NewCampaign() {
   // approval) updates it in place instead of spawning a duplicate.
   const editing = draft;
 
-  const buildCampaign = (status: Campaign["status"]): Campaign => ({
+  const buildCampaign = (
+    status: Campaign["status"],
+    creativeIdOverride?: string,
+  ): Campaign => ({
     id: editing?.id ?? `cmp_${Date.now()}`,
     name: name.trim() || "Untitled campaign",
     status,
@@ -360,7 +364,7 @@ function NewCampaign() {
     centerLng,
     locationLabel,
     screenIds: selectedScreens,
-    creativeId: selectedCreative?.id ?? source?.creativeId ?? "",
+    creativeId: creativeIdOverride ?? selectedCreative?.id ?? source?.creativeId ?? "",
     startDate: startDate ?? "",
     endDate: endDate ?? "",
     totalBudget: totalCost,
@@ -456,6 +460,31 @@ function NewCampaign() {
     navigate({ to: "/campaigns/$id", params: { id: campaignId } });
   };
 
+  // Live campaign + a brand-new creative → the live creative keeps running
+  // while the new one goes through the 24–48h review.
+  const liveCreativeReview =
+    isLiveEdit && !!selectedCreative && isNewCreative && selectedCreative.id !== editing?.creativeId;
+
+  const handleLiveReplaceSubmit = (outcome: "approve" | "reject") => {
+    if (!editing || !selectedCreative) return;
+    if (priceDelta > 0) {
+      if (!chargeWallet(priceDelta)) {
+        toast.error("Insufficient wallet balance. Please top up and try again.");
+        return;
+      }
+    } else if (priceDelta < 0) {
+      refundToWallet(-priceDelta);
+    }
+    // Keep the currently live creative on the campaign; the new one is pending.
+    const built = buildCampaign(editing.status, editing.creativeId);
+    updateCampaign(editing.id, built);
+    simulateReplaceCreativeReview(editing.id, selectedCreative.id, outcome);
+    setReviewOpen(false);
+    toast.success("New creative sent for approval", {
+      description: "Your campaign keeps running on the current creative until it's approved.",
+    });
+    navigate({ to: "/campaigns/$id", params: { id: editing.id } });
+  };
 
 
   return (
@@ -525,9 +554,21 @@ function NewCampaign() {
           <p className="text-sm text-muted-foreground">
             Step {step} of 6 · {STEP_LABELS[step - 1]}
           </p>
-          <Button variant="outline" onClick={handleSaveDraft} className="gap-1.5">
-            <Save className="h-4 w-4" /> Save as Draft
-          </Button>
+          {isLiveEdit ? (
+            <Button
+              variant="outline"
+              className="gap-1.5"
+              onClick={() =>
+                navigate({ to: "/campaigns/$id", params: { id: editing!.id } })
+              }
+            >
+              Cancel
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={handleSaveDraft} className="gap-1.5">
+              <Save className="h-4 w-4" /> Save as Draft
+            </Button>
+          )}
         </div>
         <Stepper current={step} canReach={canReachStep} onJump={goStep} />
       </div>
@@ -701,6 +742,7 @@ function NewCampaign() {
               totalCost={totalCost}
               creative={selectedCreative}
               deferPayment={isNewCreative}
+              liveCreativeReview={liveCreativeReview}
               paidEdit={paidEdit}
               amountPaid={amountPaid}
               onSubmitForReview={() => setReviewOpen(true)}
@@ -717,9 +759,21 @@ function NewCampaign() {
               <ArrowLeft className="mr-1 h-4 w-4" /> Back
             </Button>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleSaveDraft} className="gap-1.5">
-                <Save className="h-4 w-4" /> Save as Draft
-              </Button>
+              {isLiveEdit ? (
+                <Button
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() =>
+                    navigate({ to: "/campaigns/$id", params: { id: editing!.id } })
+                  }
+                >
+                  Cancel
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={handleSaveDraft} className="gap-1.5">
+                  <Save className="h-4 w-4" /> Save as Draft
+                </Button>
+              )}
               {step < 6 && (
                 <Button onClick={goNext} disabled={!stepValid(step)}>
                   Next <ArrowRight className="ml-1 h-4 w-4" />
@@ -780,26 +834,56 @@ function NewCampaign() {
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Submit for approval</DialogTitle>
+            <DialogTitle>
+              {liveCreativeReview ? "Send new creative for approval" : "Submit for approval"}
+            </DialogTitle>
             <DialogDescription>
-              Your campaign will be saved as Pending approval. No money is charged now — payment
-              opens up once your creative clears review.
+              {liveCreativeReview
+                ? "Your campaign stays live on the current creative. The new one takes 24–48 hours to review, and only goes on screen once approved."
+                : "Your campaign will be saved as Pending approval. No money is charged now — payment opens up once your creative clears review."}
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-md bg-secondary/50 p-4 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Amount payable later</span>
-              <span className="font-semibold">₹{totalCost.toLocaleString("en-IN")}</span>
+              <span className="text-muted-foreground">
+                {liveCreativeReview
+                  ? priceDelta < 0
+                    ? "Amount to refund"
+                    : "Amount to charge"
+                  : "Amount payable later"}
+              </span>
+              <span className="font-semibold">
+                ₹
+                {(liveCreativeReview
+                  ? Math.abs(priceDelta)
+                  : totalCost
+                ).toLocaleString("en-IN")}
+              </span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
             Demo only: choose how the review should turn out.
           </p>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => handleSubmitForReview("reject")}>
+            <Button
+              variant="outline"
+              onClick={() =>
+                liveCreativeReview
+                  ? handleLiveReplaceSubmit("reject")
+                  : handleSubmitForReview("reject")
+              }
+            >
               Simulate rejection
             </Button>
-            <Button onClick={() => handleSubmitForReview("approve")}>Simulate approval</Button>
+            <Button
+              onClick={() =>
+                liveCreativeReview
+                  ? handleLiveReplaceSubmit("approve")
+                  : handleSubmitForReview("approve")
+              }
+            >
+              Simulate approval
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2262,6 +2346,7 @@ function Step6({
   totalCost,
   creative,
   deferPayment,
+  liveCreativeReview,
   onSubmitForReview,
   onPay,
   paidEdit,
@@ -2275,6 +2360,7 @@ function Step6({
   totalCost: number;
   creative: Creative;
   deferPayment?: boolean;
+  liveCreativeReview?: boolean;
   onSubmitForReview?: () => void;
   onPay: () => void;
   paidEdit?: boolean;
@@ -2338,7 +2424,27 @@ function Step6({
         </div>
       )}
 
-      {deferPayment && !paidEdit ? (
+      {liveCreativeReview ? (
+        <>
+          <div className="mt-6 rounded-lg border border-dashed bg-secondary/40 p-5 text-center">
+            <Clock className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
+            <p className="text-sm font-medium">
+              Your new creative goes for approval — this takes 24–48 hours.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Your campaign keeps running on the current creative until the new one is approved. If
+              it's rejected, the current creative simply carries on.
+            </p>
+          </div>
+          <Button onClick={onSubmitForReview} className="mt-4 w-full" size="lg">
+            {delta > 0
+              ? `Pay ₹${delta.toLocaleString("en-IN")} & send creative for approval`
+              : delta < 0
+                ? `Save changes, get ₹${(-delta).toLocaleString("en-IN")} back & send creative for approval`
+                : "Save changes & send creative for approval"}
+          </Button>
+        </>
+      ) : deferPayment && !paidEdit ? (
         <>
           <div className="mt-6 rounded-lg border border-dashed bg-secondary/40 p-5 text-center">
             <Clock className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />

@@ -186,6 +186,9 @@ export interface Campaign {
   screenIds: string[];
   creativeId: string;
   pendingCreativeId?: string;
+  /** A replacement creative that was rejected — the live creative keeps running. */
+  rejectedCreativeId?: string;
+  rejectedCreativeReason?: string;
   startDate: string;
   endDate: string;
   daypartStart?: string;
