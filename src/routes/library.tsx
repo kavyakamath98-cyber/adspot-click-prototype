@@ -1,13 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Search, Trash2, Plus, ImageIcon, Film } from "lucide-react";
-import { AppShell, InUseBadge, StatusBadge, VideoPlayOverlay } from "@/components/AppShell";
+import { Search, Trash2, Plus, ImageIcon, Film, Info } from "lucide-react";
+import { AppShell, StatusBadge, VideoPlayOverlay } from "@/components/AppShell";
 import { AddCreativeDialog } from "@/components/AddCreativeDialog";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useApp } from "@/lib/app-context";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/library")({
   head: () => ({
