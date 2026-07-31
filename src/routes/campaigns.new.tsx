@@ -2316,6 +2316,7 @@ function Step6({
   totalCost,
   creative,
   deferPayment,
+  liveCreativeReview,
   onSubmitForReview,
   onPay,
   paidEdit,
@@ -2329,6 +2330,7 @@ function Step6({
   totalCost: number;
   creative: Creative;
   deferPayment?: boolean;
+  liveCreativeReview?: boolean;
   onSubmitForReview?: () => void;
   onPay: () => void;
   paidEdit?: boolean;
