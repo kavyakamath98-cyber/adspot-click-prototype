@@ -150,7 +150,11 @@ function NewCampaign() {
   const source = resubmit ?? draft;
   // A campaign that was already paid for (live / scheduled) — edits are
   // allowed but the price difference is settled on the last step.
-  const paidEdit = !!draft && (draft.status === "live" || draft.status === "approved_scheduled");
+  const paidEdit =
+    !!draft &&
+    (draft.status === "live" ||
+      draft.status === "paused" ||
+      draft.status === "approved_scheduled");
   const isLiveEdit = draft?.status === "live";
   const amountPaid = paidEdit ? (draft?.totalBudget ?? 0) : 0;
   // A fully-filled campaign should reopen with every step unlocked so the user
