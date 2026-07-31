@@ -1310,9 +1310,10 @@ function StepScreens({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm" onClick={selectAllAvailable}>
-            Select All Available
+          <Button variant="secondary" size="sm" onClick={toggleSelectAll}>
+            {allSelected ? "Unselect All" : "Select All Available"}
           </Button>
+
           <div className="text-sm">
             <span className="text-muted-foreground">Per day:</span>{" "}
             <span className="font-semibold">₹{perDay.toLocaleString("en-IN")}</span>
