@@ -553,6 +553,8 @@ function NewCampaign() {
               totalCost={totalCost}
               creative={selectedCreative}
               deferPayment={isNewCreative}
+              paidEdit={paidEdit}
+              amountPaid={amountPaid}
               onSubmitForReview={() => setReviewOpen(true)}
               onPay={() => {
                 setPayError(null);
