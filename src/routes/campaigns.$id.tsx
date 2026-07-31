@@ -394,7 +394,33 @@ function CampaignDetail() {
                   <MiniStat label="Elapsed" value={`${elapsedDays} days`} />
                   <MiniStat label="Remaining" value={`${remainingDays} days`} />
                 </div>
+                <div className="mt-3 space-y-1.5 border-t pt-3 text-xs">
+                  <p>
+                    <span className="text-muted-foreground">Runs on: </span>
+                    <span className="font-medium text-foreground">
+                      {campaign.daysOfWeek?.length
+                        ? campaign.daysOfWeek.length === 7
+                          ? "Every day"
+                          : [...campaign.daysOfWeek]
+                              .sort((a, b) => a - b)
+                              .map((d) => DOW_LABELS[d])
+                              .join(", ")
+                        : "Every day"}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Time slots: </span>
+                    <span className="font-medium text-foreground">
+                      {campaign.dayparts?.length
+                        ? DAYPARTS.filter((d) => campaign.dayparts!.includes(d.id))
+                            .map((d) => d.label)
+                            .join(" · ")
+                        : "All day"}
+                    </span>
+                  </p>
+                </div>
               </>
+
             ) : (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
