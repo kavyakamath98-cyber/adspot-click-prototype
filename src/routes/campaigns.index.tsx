@@ -210,7 +210,7 @@ function CampaignsList() {
                           Created {new Date(c.createdAt).toLocaleDateString("en-IN")}
                         </p>
                       </div>
-                      <StatusBadge status={c.status} />
+                      <StatusBadge status={displayStatus(c)} />
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <Info icon={MapPin} label={`${c.locationLabel ?? p?.label ?? c.pincode} · ${c.radiusKm} km`} />
