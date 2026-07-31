@@ -274,8 +274,9 @@ function NewCampaign() {
         return !!locationLabel && !!pincode && inRangeScreens.length > 0 && name.trim().length > 0;
       case 2:
         return !!selectedCreative && selectedCreative.status !== "rejected";
-      case 3:
-        return scheduleValid && daysOfWeek.length > 0 && dayparts.length > 0;
+      case 3": // eslint-disable-line
+        return false;
+
       case 4:
         return selectedScreens.length > 0 && meetsMinSpend;
       case 5:
