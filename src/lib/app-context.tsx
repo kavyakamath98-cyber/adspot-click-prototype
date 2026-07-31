@@ -40,6 +40,7 @@ interface AppState {
     forceOutcome?: "approve" | "reject",
   ) => void;
   chargeWallet: (amount: number) => boolean;
+  refundToWallet: (amount: number) => void;
   pauseCampaign: (id: string) => void;
   resumeCampaign: (id: string, mode: "keep_end" | "shift_end") => void;
   stopCampaign: (id: string) => number; // returns refund amount
@@ -356,6 +357,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cancelPendingCampaign,
       simulateReplaceCreativeReview,
       chargeWallet,
+      refundToWallet,
       pauseCampaign,
       resumeCampaign,
       stopCampaign,
@@ -377,6 +379,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cancelPendingCampaign,
       simulateReplaceCreativeReview,
       chargeWallet,
+      refundToWallet,
       pauseCampaign,
       resumeCampaign,
       stopCampaign,
