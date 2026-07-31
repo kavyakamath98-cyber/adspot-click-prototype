@@ -242,8 +242,9 @@ function CampaignDetail() {
   };
 
   // Price the campaign purely on run-length × the daily cost of its screens, so a
-  // longer end date costs more and a shorter one gives money back.
-  const dailyRate = screens.reduce((sum, s) => sum + s.pricePerDay, 0);
+  // longer end date costs more and a shorter one gives money back. Derive the
+  // day rate from what the advertiser actually paid so a shortened campaign
+  // refunds against the original budget, not today's list prices.
   const daysBetween = (a: string, b: string) => {
     const t1 = new Date(a).getTime();
     const t2 = new Date(b).getTime();
@@ -251,9 +252,14 @@ function CampaignDetail() {
     return Math.max(0, Math.round((t2 - t1) / 86400000) + 1);
   };
   const currentDays = daysBetween(campaign.startDate, campaign.endDate);
+  const listRate = screens.reduce((sum, s) => sum + s.pricePerDay, 0);
+  const dailyRate =
+    currentDays > 0 ? Math.round(campaign.totalBudget / currentDays) : listRate;
   const newDays = editStart && editEnd ? daysBetween(editStart, editEnd) : 0;
-  const newBudget = dailyRate > 0 ? newDays * dailyRate : campaign.totalBudget;
-  const budgetDelta = newBudget - campaign.totalBudget;
+  const newBudget = newDays > 0 && dailyRate > 0 ? newDays * dailyRate : campaign.totalBudget;
+  // Never refund below what has already been delivered.
+  const budgetDelta = Math.max(newBudget, campaign.spendToDate) - campaign.totalBudget;
+
 
   const doSaveSchedule = () => {
     if (budgetDelta > 0 && !chargeWallet(budgetDelta)) {
