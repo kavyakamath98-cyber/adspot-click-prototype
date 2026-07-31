@@ -818,6 +818,7 @@ function NewCampaign() {
               liveCreativeReview={liveCreativeReview}
               paidEdit={paidEdit}
               amountPaid={amountPaid}
+              pricingChanged={pricingChanged}
               onSubmitForReview={() => setReviewOpen(true)}
               onPay={() => {
                 setPayError(null);
@@ -2424,6 +2425,7 @@ function Step6({
   onPay,
   paidEdit,
   amountPaid,
+  pricingChanged,
 }: {
   name: string;
   locationLabel: string;
@@ -2438,8 +2440,9 @@ function Step6({
   onPay: () => void;
   paidEdit?: boolean;
   amountPaid?: number;
+  pricingChanged?: boolean;
 }) {
-  const delta = paidEdit ? totalCost - (amountPaid ?? 0) : totalCost;
+  const delta = paidEdit ? (pricingChanged ? totalCost - (amountPaid ?? 0) : 0) : totalCost;
   return (
     <Card className="p-6">
       <h2 className="text-lg font-semibold">
