@@ -1777,6 +1777,16 @@ function StepSchedule({
   // Only weekdays that actually occur inside the chosen range can be picked.
   const allowedDows = scheduleValid && startDate && endDate ? dowsInRange(startDate, endDate) : [];
   const dayOutOfRange = (d: number) => allowedDows.length > 0 && !allowedDows.includes(d);
+
+  // Dates changed? Silently drop weekdays that no longer occur in the range so a
+  // stale pick can't keep a validation message on screen.
+  useEffect(() => {
+    if (allowedDows.length === 0) return;
+    const kept = daysOfWeek.filter((d) => allowedDows.includes(d));
+    if (kept.length !== daysOfWeek.length) setDaysOfWeek(kept);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, scheduleValid]);
+
   const staleDays = daysOfWeek.filter(dayOutOfRange);
 
   const slotAvailable = (id: string) =>
@@ -1784,10 +1794,13 @@ function StepSchedule({
     !endDate ||
     candidateScreens.some((s) => slotFreeSomewhere(s, id, startDate, endDate, daysOfWeek));
 
-  const toggleDay = (d: number) =>
+  const toggleDay = (d: number) => {
+    if (dayOutOfRange(d)) return;
     setDaysOfWeek(daysOfWeek.includes(d) ? daysOfWeek.filter((x) => x !== d) : [...daysOfWeek, d]);
+  };
   const toggleSlot = (id: string) =>
     setDayparts(dayparts.includes(id) ? dayparts.filter((x) => x !== id) : [...dayparts, id]);
+
 
 
   return (
