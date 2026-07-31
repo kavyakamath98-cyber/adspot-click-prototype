@@ -305,8 +305,12 @@ function NewCampaign() {
     if (step > 1) goStep(((step as number) - 1) as Step);
   };
 
+  // Editing an existing campaign (a draft, or one that is still awaiting
+  // approval) updates it in place instead of spawning a duplicate.
+  const editing = draft;
+
   const buildCampaign = (status: Campaign["status"]): Campaign => ({
-    id: source?.id && status === "draft" ? source.id : `cmp_${Date.now()}`,
+    id: editing?.id ?? `cmp_${Date.now()}`,
     name: name.trim() || "Untitled campaign",
     status,
     pincode,
@@ -330,13 +334,20 @@ function NewCampaign() {
   });
 
   const handleSaveDraft = () => {
-    const c = buildCampaign("draft");
-    if (draft) {
-      updateCampaign(draft.id, c);
+    // Keep an in-review campaign in its pending state while it is edited.
+    const keepStatus =
+      editing && editing.status === "pending_approval" ? "pending_approval" : "draft";
+    const c = buildCampaign(keepStatus);
+    if (editing) {
+      updateCampaign(editing.id, {
+        ...c,
+        awaitingPayment: editing.awaitingPayment,
+        paymentUnlocked: editing.paymentUnlocked,
+      });
     } else {
       addCampaign(c);
     }
-    toast.success("Saved as draft", {
+    toast.success(keepStatus === "draft" ? "Saved as draft" : "Changes saved", {
       description: "You can keep editing, or leave and come back later.",
     });
   };
@@ -347,35 +358,43 @@ function NewCampaign() {
       setPayError("Insufficient wallet balance. Please top up and try again.");
       return;
     }
-    const newCampaign = buildCampaign("pending_approval");
-    addCampaign(newCampaign);
-    simulateApproval(newCampaign.id, selectedCreative.id);
+    const built = buildCampaign("pending_approval");
+    const campaignId = built.id;
+    if (editing) {
+      updateCampaign(editing.id, { ...built, awaitingPayment: false, paymentUnlocked: false });
+    } else {
+      addCampaign(built);
+    }
+    simulateApproval(campaignId, selectedCreative.id);
     if (resubmit) updateCampaign(resubmit.id, { status: "completed" });
-    if (draft) updateCampaign(draft.id, { status: "completed" });
     setPayOpen(false);
     toast.success("Payment successful — campaign submitted for review");
-    navigate({ to: "/campaigns/$id", params: { id: newCampaign.id } });
+    navigate({ to: "/campaigns/$id", params: { id: campaignId } });
   };
 
   // New creative → submit for review first, pay only after it clears review.
   const handleSubmitForReview = (outcome: "approve" | "reject") => {
     if (!selectedCreative) return;
-    const newCampaign: Campaign = {
+    const built: Campaign = {
       ...buildCampaign("pending_approval"),
-      id: `cmp_${Date.now()}`,
       awaitingPayment: true,
       paymentUnlocked: false,
     };
-    addCampaign(newCampaign);
-    simulateCreativeReviewForCampaign(newCampaign.id, selectedCreative.id, outcome);
+    const campaignId = built.id;
+    if (editing) {
+      updateCampaign(editing.id, built);
+    } else {
+      addCampaign(built);
+    }
+    simulateCreativeReviewForCampaign(campaignId, selectedCreative.id, outcome);
     if (resubmit) updateCampaign(resubmit.id, { status: "completed" });
-    if (draft) updateCampaign(draft.id, { status: "completed" });
     setReviewOpen(false);
     toast.success("Campaign submitted — your creative is now in review", {
       description: "Payment details unlock once the creative is approved.",
     });
-    navigate({ to: "/campaigns/$id", params: { id: newCampaign.id } });
+    navigate({ to: "/campaigns/$id", params: { id: campaignId } });
   };
+
 
 
   return (
