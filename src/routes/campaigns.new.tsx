@@ -140,6 +140,10 @@ function NewCampaign() {
     campaigns,
   } = useApp();
 
+  const [resumeOpen, setResumeOpen] = useState(false);
+  const [resumeMode, setResumeMode] = useState<"keep_end" | "shift_end">("shift_end");
+  const [stopOpen, setStopOpen] = useState(false);
+
 
   const resubmit = resubmitId ? campaigns.find((c) => c.id === resubmitId) : undefined;
   const draft = draftId ? campaigns.find((c) => c.id === draftId) : undefined;
