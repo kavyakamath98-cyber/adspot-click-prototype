@@ -1616,88 +1616,119 @@ function StepPreview({
   setFitMode,
 }: {
   creative: Creative;
-  screens: { width: number; height: number }[];
+  screens: typeof SCREENS;
   fitMode: FitMode;
   setFitMode: (v: FitMode) => void;
 }) {
-  const dims = Array.from(new Set(screens.map((s) => `${s.width}x${s.height}`))).map((d) => {
-    const [w, h] = d.split("x").map(Number);
-    return { w, h };
-  });
+  // One row per distinct screen size, listing the screen types that use it.
+  const rows = useMemo(() => {
+    const map = new Map<
+      string,
+      { w: number; h: number; types: Set<string>; count: number }
+    >();
+    for (const s of screens) {
+      const key = `${s.width}x${s.height}`;
+      const row = map.get(key) ?? { w: s.width, h: s.height, types: new Set<string>(), count: 0 };
+      row.types.add(s.venueType);
+      row.count += 1;
+      map.set(key, row);
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count);
+  }, [screens]);
 
   return (
     <Card className="p-6">
       <h2 className="text-lg font-semibold">Preview on your selected screens</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        We only show previews for the dimensions actually in use — {screens.length} selected screen{screens.length === 1 ? "" : "s"}, {dims.length} unique size{dims.length === 1 ? "" : "s"}.
+        This is how your ad will look on each screen size you booked — {screens.length} screen
+        {screens.length === 1 ? "" : "s"}, {rows.length} size{rows.length === 1 ? "" : "s"}.
       </p>
 
       <div className="mt-4 flex items-center gap-2">
-        {(["contain", "cover", "fill"] as FitMode[]).map((m) => (
+        {(["contain", "cover"] as FitMode[]).map((m) => (
           <button
             key={m}
             onClick={() => setFitMode(m)}
             className={cn(
-              "rounded-md border px-3 py-1.5 text-sm capitalize transition-colors",
+              "rounded-md border px-3 py-1.5 text-sm transition-colors",
               fitMode === m
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border hover:bg-secondary",
             )}
           >
-            {m === "contain" ? "Fit" : m === "cover" ? "Fill" : "Stretch"}
+            {m === "contain" ? "Fit" : "Fill"}
           </button>
         ))}
+        <span className="text-xs text-muted-foreground">
+          {fitMode === "contain"
+            ? "Fit shows your whole creative, with blank edges if the shapes differ."
+            : "Fill covers the screen fully, cropping the edges of your creative."}
+        </span>
       </div>
 
-      {fitMode === "fill" && (
-        <Alert variant="destructive" className="mt-4">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Distortion warning</AlertTitle>
-          <AlertDescription>Stretch mode may visibly distort your creative. Fit or Fill are recommended.</AlertDescription>
-        </Alert>
-      )}
-
-      {dims.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="mt-6 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
           Select screens in the previous step to see previews here.
         </div>
       ) : (
-        <div className="mt-6 flex flex-wrap gap-6">
-          {dims.map(({ w, h }) => {
-            const isLandscape = w > h;
-            const displayW = isLandscape ? 320 : 180;
-            const displayH = (displayW * h) / w;
-            return (
-              <div key={`${w}x${h}`} className="text-center">
-                <div
-                  className="overflow-hidden rounded-md border-4 border-neutral-800 bg-black shadow-lg"
-                  style={{ width: displayW, height: displayH }}
-                >
-                  {creative.type === "image" ? (
-                    <img src={creative.url} alt="" className="h-full w-full" style={{ objectFit: fitMode }} />
-                  ) : (
-                    <video
-                      src={creative.url}
-                      className="h-full w-full"
-                      style={{ objectFit: fitMode }}
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                    />
-                  )}
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {w}×{h} · {isLandscape ? "Landscape" : "Portrait"}
-                </p>
-              </div>
-            );
-          })}
+        <div className="mt-6 overflow-hidden rounded-lg border">
+          <table className="w-full table-fixed text-sm">
+            <thead className="bg-secondary/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="w-[40%] px-4 py-2 font-medium">Screen type</th>
+                <th className="px-4 py-2 font-medium">How your ad will look</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {rows.map(({ w, h, types, count }) => {
+                const isLandscape = w > h;
+                const displayW = isLandscape ? 300 : 150;
+                const displayH = Math.round((displayW * h) / w);
+                return (
+                  <tr key={`${w}x${h}`} className="align-middle">
+                    <td className="px-4 py-4">
+                      <div className="font-medium">{[...types].join(", ")}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {w}×{h} · {isLandscape ? "Landscape" : "Portrait"} · {count} screen
+                        {count === 1 ? "" : "s"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div
+                        className="overflow-hidden rounded-md border-4 border-neutral-800 bg-black shadow-md"
+                        style={{ width: displayW, height: displayH }}
+                      >
+                        {creative.type === "image" ? (
+                          <img
+                            src={creative.url}
+                            alt=""
+                            className="h-full w-full"
+                            style={{ objectFit: fitMode }}
+                          />
+                        ) : (
+                          <video
+                            src={creative.url}
+                            className="h-full w-full"
+                            style={{ objectFit: fitMode }}
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                          />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </Card>
   );
 }
+
 
 /* ---------- Schedule step ---------- */
 
