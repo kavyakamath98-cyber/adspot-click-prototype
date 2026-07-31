@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 
 import { useApp } from "@/lib/app-context";
-import { PINCODES, type CampaignStatus } from "@/lib/mockData";
+import { PINCODES, displayStatus, type CampaignStatus } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/campaigns/")({
@@ -54,13 +54,6 @@ const time = (d?: string) => {
   const t = d ? new Date(d).getTime() : NaN;
   return Number.isNaN(t) ? 0 : t;
 };
-
-/** Campaigns whose creative cleared review but still need payment get their own state. */
-export function displayStatus(c: { status: string; awaitingPayment?: boolean; paymentUnlocked?: boolean }) {
-  return c.awaitingPayment && c.paymentUnlocked && c.status === "pending_approval"
-    ? "payment_pending"
-    : c.status;
-}
 
 function CampaignsList() {
   const { campaigns } = useApp();

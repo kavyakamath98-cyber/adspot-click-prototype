@@ -199,6 +199,17 @@ export interface Campaign {
 }
 
 
+/** Campaigns whose creative cleared review but still need payment get their own state. */
+export function displayStatus(c: {
+  status: string;
+  awaitingPayment?: boolean;
+  paymentUnlocked?: boolean;
+}) {
+  return c.awaitingPayment && c.paymentUnlocked && c.status === "pending_approval"
+    ? "payment_pending"
+    : c.status;
+}
+
 export const REJECTION_REASONS = [
   "Alcohol or tobacco promotion",
   "Explicit or inappropriate content",
