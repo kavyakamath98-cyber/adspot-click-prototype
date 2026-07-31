@@ -415,27 +415,26 @@ function CampaignDetail() {
                   <p>
                     <span className="text-muted-foreground">Runs on: </span>
                     <span className="font-medium text-foreground">
-                      {campaign.daysOfWeek?.length
-                        ? campaign.daysOfWeek.length === 7
-                          ? "Every day"
-                          : [...campaign.daysOfWeek]
-                              .sort((a, b) => a - b)
-                              .map((d) => DOW_LABELS[d])
-                              .join(", ")
-                        : "Every day"}
+                      {(campaign.daysOfWeek?.length
+                        ? [...campaign.daysOfWeek].sort((a, b) => a - b)
+                        : [0, 1, 2, 3, 4, 5, 6]
+                      )
+                        .map((d) => DOW_LABELS[d])
+                        .join(", ")}
                     </span>
                   </p>
                   <p>
                     <span className="text-muted-foreground">Time slots: </span>
                     <span className="font-medium text-foreground">
-                      {campaign.dayparts?.length
-                        ? DAYPARTS.filter((d) => campaign.dayparts!.includes(d.id))
-                            .map((d) => d.label)
-                            .join(" · ")
-                        : "All day"}
+                      {DAYPARTS.filter(
+                        (d) => !campaign.dayparts?.length || campaign.dayparts.includes(d.id),
+                      )
+                        .map((d) => d.label)
+                        .join(" · ")}
                     </span>
                   </p>
                 </div>
+
               </>
 
             ) : (
