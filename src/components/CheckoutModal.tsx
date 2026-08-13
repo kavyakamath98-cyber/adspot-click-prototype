@@ -853,8 +853,11 @@ export function CheckoutModal({
                         />
                         Save this card for faster checkout
                       </label>
+                      </>
+                      )}
                     </div>
                   )}
+
 
                   {method === "netbanking" && (
                     <div className="space-y-2">
