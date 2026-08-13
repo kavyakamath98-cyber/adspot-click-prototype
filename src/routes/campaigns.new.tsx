@@ -64,6 +64,7 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PauseCampaignDialog, pauseLabel } from "@/components/PauseCampaignDialog";
 import { useApp } from "@/lib/app-context";
 import {
   DIMENSION_PRESETS,
@@ -148,6 +149,7 @@ function NewCampaign() {
   const [resumeOpen, setResumeOpen] = useState(false);
   const [resumeMode, setResumeMode] = useState<"keep_end" | "shift_end">("shift_end");
   const [stopOpen, setStopOpen] = useState(false);
+  const [pauseOpen, setPauseOpen] = useState(false);
 
 
   const resubmit = resubmitId ? campaigns.find((c) => c.id === resubmitId) : undefined;
@@ -561,10 +563,7 @@ function NewCampaign() {
                 <Button
                   variant="outline"
                   className="gap-1.5"
-                  onClick={() => {
-                    pauseCampaign(managed.id);
-                    toast.success("Campaign paused");
-                  }}
+                  onClick={() => setPauseOpen(true)}
                 >
                   <Pause className="h-4 w-4" /> Pause
                 </Button>
@@ -621,6 +620,22 @@ function NewCampaign() {
         </div>
         <Stepper current={step} canReach={canReachStep} onJump={goStep} />
       </div>
+
+      {/* Pause options */}
+      <PauseCampaignDialog
+        open={pauseOpen}
+        onOpenChange={setPauseOpen}
+        onConfirm={(duration, reason) => {
+          if (!managed) return;
+          pauseCampaign(managed.id, { duration, reason });
+          setPauseOpen(false);
+          toast.success(
+            duration.unit === "indefinite"
+              ? "Campaign paused indefinitely"
+              : `Campaign paused for ${duration.value} ${duration.unit}`,
+          );
+        }}
+      />
 
       {/* Resume options */}
       <Dialog open={resumeOpen} onOpenChange={setResumeOpen}>
