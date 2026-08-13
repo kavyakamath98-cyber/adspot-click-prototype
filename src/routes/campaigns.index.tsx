@@ -30,16 +30,20 @@ export const Route = createFileRoute("/campaigns/")({
   component: CampaignsList,
 });
 
-const STATUS_FILTERS: { key: CampaignStatus | "all"; label: string }[] = [
+type FilterKey = CampaignStatus | "all" | "payment_pending";
+
+const STATUS_FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All" },
   { key: "live", label: "Live" },
   { key: "pending_approval", label: "Pending" },
+  { key: "payment_pending", label: "Approved — Payment Pending" },
   { key: "approved_scheduled", label: "Scheduled" },
   { key: "paused", label: "Paused" },
   { key: "draft", label: "Draft" },
   { key: "rejected", label: "Rejected" },
   { key: "completed", label: "Completed" },
 ];
+
 
 const PAGE = 8;
 
