@@ -650,9 +650,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       transactions,
       recordTransaction,
       creditWallet,
+      savedCards,
+      addSavedCard,
+      removeSavedCard,
+      makeCardDefault,
+      promoCredits,
+      consumePromoCredit,
+      addPromoCredit,
       otherCreatives,
       reviewCreative,
     ],
+
   );
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
