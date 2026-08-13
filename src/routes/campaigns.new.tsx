@@ -67,7 +67,6 @@ import { toast } from "sonner";
 import { useApp } from "@/lib/app-context";
 import {
   DIMENSION_PRESETS,
-  INDUSTRIES,
   LOCATION_SUGGESTIONS,
   LOCATION_TAGS,
   PINCODES,
@@ -87,9 +86,10 @@ import {
   toISO,
   type Campaign,
   type Creative,
-  type Industry,
   type LocationTag,
 } from "@/lib/mockData";
+import { TagSelect } from "@/components/TagSelect";
+import { INDUSTRIES, subIndustriesFor, type Industry } from "@/data/industryTaxonomy";
 
 
 const searchSchema = z.object({
@@ -1217,7 +1217,8 @@ function Step2({
       (c) => (c.creativeId === creativeId || c.pendingCreativeId === creativeId) && c.status === "live",
     );
 
-  const [industryFilter, setIndustryFilter] = useState<Set<Industry>>(new Set());
+  const [industryFilter, setIndustryFilter] = useState<Industry | "">("");
+  const [subFilter, setSubFilter] = useState("");
   const [usageFilter, setUsageFilter] = useState<"all" | "in_use" | "unused">("all");
   const [q, setQ] = useState("");
   const [visible, setVisible] = useState(12);
@@ -1228,24 +1229,23 @@ function Step2({
     const s = q.trim().toLowerCase();
     return creatives.filter((c) => {
       if (c.status === "rejected") return false;
-      if (industryFilter.size > 0 && (!c.industry || !industryFilter.has(c.industry as Industry))) {
-        return false;
-      }
+      if (industryFilter && c.industry !== industryFilter) return false;
+      if (subFilter && c.subIndustry !== subFilter) return false;
       if (usageFilter !== "all") {
         const used = inUseByLive(c.id);
         if (usageFilter === "in_use" && !used) return false;
         if (usageFilter === "unused" && used) return false;
       }
       if (s) {
-        const hay = `${c.name} ${c.industry ?? ""} ${c.tags.join(" ")}`.toLowerCase();
+        const hay = `${c.name} ${c.industry ?? ""} ${c.subIndustry ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [creatives, campaigns, industryFilter, usageFilter, q]);
+  }, [creatives, campaigns, industryFilter, subFilter, usageFilter, q]);
 
-  useEffect(() => setVisible(12), [q, usageFilter, industryFilter]);
+  useEffect(() => setVisible(12), [q, usageFilter, industryFilter, subFilter]);
 
   useEffect(() => {
     if (visible >= available.length) return;
@@ -1266,15 +1266,6 @@ function Step2({
   const imageOptions = [3, 5, 7, 10];
   const videoOptions = [10, 15, 20, 25, 30];
   const playOptions = selected?.type === "video" ? videoOptions : imageOptions;
-
-  const toggleIndustry = (i: Industry) => {
-    setIndustryFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(i)) next.delete(i);
-      else next.add(i);
-      return next;
-    });
-  };
 
   return (
     <Card className="p-6">
@@ -1326,21 +1317,33 @@ function Step2({
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Name, industry"
+              placeholder="Name, industry, sub-industry"
               className="pl-9"
             />
           </div>
         </div>
 
         <div className="flex flex-wrap items-end gap-3 md:justify-end">
-          <div className="min-w-0">
+          <div className="w-44 min-w-0">
             <Label className="mb-1.5 block text-xs text-muted-foreground">Industry</Label>
-            <MultiSelectPopover
-              label="Any industry"
-              options={INDUSTRIES as readonly string[]}
-              selected={industryFilter as Set<string>}
-              onToggle={(v) => toggleIndustry(v as Industry)}
-              onClear={() => setIndustryFilter(new Set())}
+            <TagSelect
+              value={industryFilter}
+              onChange={(v) => {
+                setIndustryFilter(v as Industry);
+                setSubFilter("");
+              }}
+              options={INDUSTRIES}
+              placeholder="Any industry"
+            />
+          </div>
+          <div className="w-48 min-w-0">
+            <Label className="mb-1.5 block text-xs text-muted-foreground">Sub-Industry</Label>
+            <TagSelect
+              value={subFilter}
+              onChange={setSubFilter}
+              options={subIndustriesFor(industryFilter)}
+              disabled={!industryFilter}
+              placeholder={industryFilter ? "Any sub-industry" : "Pick an industry"}
             />
           </div>
           <div className="min-w-0">
@@ -1425,7 +1428,7 @@ function Step2({
                 <div className="truncate font-medium">{c.name}</div>
                 <div className="text-muted-foreground">
                   {c.type.toUpperCase()} · {c.width}×{c.height}
-                  {c.industry ? ` · ${c.industry}` : ""}
+                  {` · ${c.industry ?? "Other"} · ${c.subIndustry ?? "Other"}`}
                 </div>
               </div>
             </button>
