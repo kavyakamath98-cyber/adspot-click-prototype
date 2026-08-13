@@ -46,7 +46,9 @@ import {
   DEMO_SUCCESS_CARD,
   DEMO_SUCCESS_UPI,
   PAY_WALLETS,
+  UPI_APPS,
   applyCoupon,
+
   cvvLength,
   detectCardType,
   expiryError,
