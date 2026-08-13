@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useRouter } from "@tanstack/react-router";
 import {
   Home,
   Images,
@@ -35,7 +35,6 @@ import {
 } from "@/components/ui/collapsible";
 import { useApp } from "@/lib/app-context";
 import { useAuth } from "@/lib/auth-context";
-import { toast } from "sonner";
 
 const CAMPAIGN_ITEMS = [
   { to: "/campaigns/new", label: "Create Campaign", icon: Plus, exact: false },
@@ -53,7 +52,8 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { advertiser } = useApp();
-  const { isAdmin, hasTeam } = useAuth();
+  const { isAdmin, hasTeam, logout, member } = useAuth();
+  const router = useRouter();
   const showTeam = isAdmin && hasTeam;
 
   const isActive = (to: string, exact?: boolean) =>
@@ -216,14 +216,13 @@ export function AppSidebar() {
           </div>
           <div className="min-w-0 flex-1 text-xs leading-tight">
             <div className="truncate font-semibold">{advertiser.name}</div>
-            <div className="truncate text-muted-foreground">{advertiser.email}</div>
+            <div className="truncate text-muted-foreground">{member?.email ?? advertiser.email}</div>
           </div>
           <button
-            onClick={() =>
-              toast.info(
-                "Sign out is disabled in this prototype. You are always signed in as Ramesh's Kitchen.",
-              )
-            }
+            onClick={() => {
+              logout();
+              router.navigate({ to: "/login", replace: true });
+            }}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-destructive"
             aria-label="Sign out"
             title="Sign out"
