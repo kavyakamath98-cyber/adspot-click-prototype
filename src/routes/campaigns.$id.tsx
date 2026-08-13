@@ -246,7 +246,7 @@ function CampaignDetail() {
     const refund = stopCampaign(campaign.id);
     setStopOpen(false);
     toast.success(
-      `Campaign stopped. ₹${refund.toLocaleString("en-IN")} refunded to wallet (mock).`,
+      `Campaign stopped. ₹${refund.toLocaleString("en-IN")} is available to refund — request it below.`,
     );
   };
 

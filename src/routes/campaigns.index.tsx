@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { pauseLabel } from "@/components/PauseCampaignDialog";
 import { useApp } from "@/lib/app-context";
 import { PINCODES, displayStatus, type CampaignStatus } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
@@ -204,6 +205,11 @@ function CampaignsList() {
                         </p>
                       </div>
                       <StatusBadge status={displayStatus(c)} />
+                  {pauseLabel(c) && (
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {pauseLabel(c)}
+                    </span>
+                  )}
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <Info icon={MapPin} label={`${c.locationLabel ?? p?.label ?? c.pincode} · ${c.radiusKm} km`} />
