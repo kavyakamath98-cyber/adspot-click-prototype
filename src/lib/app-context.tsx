@@ -522,6 +522,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       resumeCampaign,
       stopCampaign,
       requestRefund,
+      allCreatives: [...creatives, ...otherCreatives],
+      reviewCreative,
     }),
     [
       wallet,
@@ -545,6 +547,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       resumeCampaign,
       stopCampaign,
       requestRefund,
+      otherCreatives,
+      reviewCreative,
     ],
   );
 
