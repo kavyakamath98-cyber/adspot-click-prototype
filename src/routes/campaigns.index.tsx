@@ -204,12 +204,15 @@ function CampaignsList() {
                           Created {new Date(c.createdAt).toLocaleDateString("en-IN")}
                         </p>
                       </div>
-                      <StatusBadge status={displayStatus(c)} />
-                  {pauseLabel(c) && (
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {pauseLabel(c)}
-                    </span>
-                  )}
+                      <div className="flex flex-col items-end gap-1">
+                        <StatusBadge status={displayStatus(c)} />
+                        {pauseLabel(c) && (
+                          <span className="text-right text-[11px] font-medium text-muted-foreground">
+                            {pauseLabel(c)}
+                          </span>
+                        )}
+                      </div>
+
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <Info icon={MapPin} label={`${c.locationLabel ?? p?.label ?? c.pincode} · ${c.radiusKm} km`} />
