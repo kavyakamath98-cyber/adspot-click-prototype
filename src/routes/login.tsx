@@ -1,3 +1,4 @@
+import { SYSTEM_ADMIN_HOME, isSystemAdminEmail } from "@/config/systemAdmin";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { AuthShell, FieldError, PasswordInput } from "@/components/AuthShell";
@@ -43,7 +44,7 @@ function LoginPage() {
       setError("Incorrect email or password.");
       return;
     }
-    navigate({ to: "/" });
+    navigate({ to: isSystemAdminEmail(email) ? SYSTEM_ADMIN_HOME : "/" });
   };
 
   return (

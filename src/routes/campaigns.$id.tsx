@@ -541,7 +541,8 @@ function CampaignDetail() {
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Campaign rejected</AlertTitle>
           <AlertDescription>
-            Reason: {campaign.rejectionReason}. Update your creative and resubmit — targeting, screens, and schedule are preserved.
+            Reason for rejection: {campaign.rejectionReason}
+            {currentCreative?.rejectionNote ? ` — ${currentCreative.rejectionNote}` : ""}. Update your creative and resubmit — targeting, screens, and schedule are preserved.
           </AlertDescription>
         </Alert>
       )}
@@ -573,7 +574,9 @@ function CampaignDetail() {
             New creative "{rejectedCreative.name}" was rejected
           </AlertTitle>
           <AlertDescription>
-            Reason: {campaign.rejectedCreativeReason ?? rejectedCreative.rejectionReason}. Your
+            Reason for rejection:{" "}
+            {campaign.rejectedCreativeReason ?? rejectedCreative.rejectionReason}
+            {rejectedCreative.rejectionNote ? ` — ${rejectedCreative.rejectionNote}` : ""}. Your
             campaign keeps running as usual on the current creative
             {currentCreative ? ` "${currentCreative.name}"` : ""}. Upload a compliant creative and
             try the swap again whenever you're ready.

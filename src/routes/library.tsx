@@ -151,9 +151,20 @@ function LibraryPage() {
                   </span>
                 </div>
                 {c.status === "rejected" && c.rejectionReason && (
-                  <p className="mt-2 rounded-md bg-red-50 px-2 py-1.5 text-xs text-red-700 dark:bg-red-500/10 dark:text-red-300">
-                    {c.rejectionReason}
-                  </p>
+                  <div className="mt-2 rounded-md bg-red-50 px-2 py-1.5 text-xs text-red-700 dark:bg-red-500/10 dark:text-red-300">
+                    <p className="font-medium">Reason for rejection: {c.rejectionReason}</p>
+                    {c.rejectionNote && <p className="mt-0.5">{c.rejectionNote}</p>}
+                    {c.reviewedAt && (
+                      <p className="mt-0.5 opacity-80">
+                        Reviewed on{" "}
+                        {new Date(c.reviewedAt).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                    )}
+                  </div>
                 )}
                 <div className="mt-3 flex items-center justify-between gap-2">
                   <span className="text-xs text-muted-foreground">

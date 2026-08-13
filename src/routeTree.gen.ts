@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SystemAdminRouteImport } from './routes/system-admin'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
@@ -23,6 +24,11 @@ import { Route as PaymentsMethodsRouteImport } from './routes/payments.methods'
 import { Route as CampaignsNewRouteImport } from './routes/campaigns.new'
 import { Route as CampaignsIdRouteImport } from './routes/campaigns.$id'
 
+const SystemAdminRoute = SystemAdminRouteImport.update({
+  id: '/system-admin',
+  path: '/system-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/system-admin': typeof SystemAdminRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/campaigns/new': typeof CampaignsNewRoute
   '/payments/methods': typeof PaymentsMethodsRoute
@@ -111,6 +118,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/system-admin': typeof SystemAdminRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/campaigns/new': typeof CampaignsNewRoute
   '/payments/methods': typeof PaymentsMethodsRoute
@@ -127,6 +135,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/system-admin': typeof SystemAdminRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/campaigns/new': typeof CampaignsNewRoute
   '/payments/methods': typeof PaymentsMethodsRoute
@@ -144,6 +153,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/signup'
+    | '/system-admin'
     | '/campaigns/$id'
     | '/campaigns/new'
     | '/payments/methods'
@@ -159,6 +169,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/signup'
+    | '/system-admin'
     | '/campaigns/$id'
     | '/campaigns/new'
     | '/payments/methods'
@@ -174,6 +185,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/signup'
+    | '/system-admin'
     | '/campaigns/$id'
     | '/campaigns/new'
     | '/payments/methods'
@@ -190,6 +202,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  SystemAdminRoute: typeof SystemAdminRoute
   CampaignsIdRoute: typeof CampaignsIdRoute
   CampaignsNewRoute: typeof CampaignsNewRoute
   PaymentsMethodsRoute: typeof PaymentsMethodsRoute
@@ -201,6 +214,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/system-admin': {
+      id: '/system-admin'
+      path: '/system-admin'
+      fullPath: '/system-admin'
+      preLoaderRoute: typeof SystemAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
@@ -302,6 +322,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  SystemAdminRoute: SystemAdminRoute,
   CampaignsIdRoute: CampaignsIdRoute,
   CampaignsNewRoute: CampaignsNewRoute,
   PaymentsMethodsRoute: PaymentsMethodsRoute,
