@@ -118,6 +118,27 @@ export type Recurrence =
   | "weekly"
   | "monthly";
 
+export type PauseUnit = "days" | "weeks" | "months" | "indefinite";
+
+export interface PauseDuration {
+  value: number | null;
+  unit: PauseUnit;
+}
+
+export interface CampaignRefund {
+  amount: number;
+  destination: "wallet" | "bank";
+  status: "Completed" | "Processing";
+  referenceId: string;
+  date: string;
+  bank?: {
+    accountHolder: string;
+    accountNumberMasked: string;
+    ifsc: string;
+    bankName: string;
+  };
+}
+
 export interface Campaign {
   id: string;
   name: string;
