@@ -1,7 +1,8 @@
-import { Wallet, PlayCircle, ArrowLeft, Check } from "lucide-react";
+import { Wallet, PlayCircle, ArrowLeft, Check, LogOut, Users } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { useApp } from "@/lib/app-context";
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
@@ -65,6 +66,7 @@ export function AppShell({
   back?: BackProp;
 }) {
   const { wallet, advertiser, demoMode, setDemoMode } = useApp();
+  const { isAdmin, hasTeam, logout } = useAuth();
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
