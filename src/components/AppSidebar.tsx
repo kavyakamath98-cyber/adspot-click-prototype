@@ -10,7 +10,9 @@ import {
   LayoutGrid,
   CreditCard,
   Wallet,
-  Receipt,, Settings } from "lucide-react";
+  Receipt,
+  Settings,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
