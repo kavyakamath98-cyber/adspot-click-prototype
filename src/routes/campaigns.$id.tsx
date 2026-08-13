@@ -360,10 +360,11 @@ function CampaignDetail() {
       setCheckout({ kind: "campaign", amount: campaign.totalBudget });
       return;
     }
-    if (!chargeWallet(campaign.totalBudget)) {
+    if (payment.method === "additv" && !chargeWallet(campaign.totalBudget)) {
       toast.error("Insufficient wallet balance. Please top up and try again.");
       return;
     }
+
     const status =
       new Date(campaign.startDate) <= new Date() ? "live" : "approved_scheduled";
     updateCampaign(campaign.id, {
