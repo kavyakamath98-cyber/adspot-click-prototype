@@ -10,8 +10,7 @@ import {
   LayoutGrid,
   CreditCard,
   Wallet,
-  Receipt,
-} from "lucide-react";
+  Receipt,, Settings } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -33,6 +32,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useApp } from "@/lib/app-context";
+import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
 const CAMPAIGN_ITEMS = [
@@ -51,6 +51,8 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { advertiser } = useApp();
+  const { isAdmin, hasTeam } = useAuth();
+  const showTeam = isAdmin && hasTeam;
 
   const isActive = (to: string, exact?: boolean) =>
     exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
@@ -64,6 +66,9 @@ export function AppSidebar() {
       ...CAMPAIGN_ITEMS,
       { to: "/library", label: "Content Library", icon: Images, exact: false },
       ...PAYMENT_ITEMS,
+      ...(showTeam
+        ? [{ to: "/settings/team", label: "Team Management", icon: Settings, exact: false }]
+        : []),
     ];
     return (
       <Sidebar collapsible="icon">
@@ -186,6 +191,18 @@ export function AppSidebar() {
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </Collapsible>
+
+              {/* Settings — admins on team accounts */}
+              {showTeam && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={isActive("/settings/team")}>
+                    <Link to="/settings/team" className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      <span>Team Management</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
