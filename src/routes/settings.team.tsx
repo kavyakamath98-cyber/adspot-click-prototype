@@ -244,9 +244,8 @@ function TeamManagementPage() {
             </Button>
           </CardContent>
         </Card>
-      ) : null}
-
-      <Card className={cn(others.length === 0 && "mt-6")}>
+      ) : (
+      <Card>
         <CardContent className="overflow-x-auto py-4">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
@@ -353,6 +352,7 @@ function TeamManagementPage() {
           </table>
         </CardContent>
       </Card>
+      )}
 
       {/* Invite modal */}
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
