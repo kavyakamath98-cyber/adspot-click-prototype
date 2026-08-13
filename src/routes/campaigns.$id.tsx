@@ -312,12 +312,13 @@ function CampaignDetail() {
       setCheckout({ kind: "extend", amount: budgetDelta });
       return;
     }
-    if (budgetDelta > 0 && !chargeWallet(budgetDelta)) {
+    if (budgetDelta > 0 && payment?.method === "additv" && !chargeWallet(budgetDelta)) {
       toast.error(
         `Insufficient wallet balance. You need ₹${budgetDelta.toLocaleString("en-IN")} to extend this campaign.`,
       );
       return;
     }
+
     if (budgetDelta < 0) refundToWallet(-budgetDelta);
 
 
@@ -359,10 +360,11 @@ function CampaignDetail() {
       setCheckout({ kind: "campaign", amount: campaign.totalBudget });
       return;
     }
-    if (!chargeWallet(campaign.totalBudget)) {
+    if (payment.method === "additv" && !chargeWallet(campaign.totalBudget)) {
       toast.error("Insufficient wallet balance. Please top up and try again.");
       return;
     }
+
     const status =
       new Date(campaign.startDate) <= new Date() ? "live" : "approved_scheduled";
     updateCampaign(campaign.id, {
