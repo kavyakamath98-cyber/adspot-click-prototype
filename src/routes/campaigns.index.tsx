@@ -63,7 +63,7 @@ const time = (d?: string) => {
 function CampaignsList() {
   const { campaigns } = useApp();
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<CampaignStatus | "all">("all");
+  const [status, setStatus] = useState<FilterKey>("all");
   const [sort, setSort] = useState<SortKey>("created_desc");
   const [visible, setVisible] = useState(PAGE);
   const sentinel = useRef<HTMLDivElement | null>(null);
@@ -71,10 +71,11 @@ function CampaignsList() {
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     const list = campaigns.filter((c) => {
-      if (status !== "all" && c.status !== status) return false;
+      if (status !== "all" && displayStatus(c) !== status) return false;
       if (s && !c.name.toLowerCase().includes(s)) return false;
       return true;
     });
+
     return [...list].sort((a, b) => {
       switch (sort) {
         case "created_asc":
