@@ -538,7 +538,7 @@ function NewCampaign() {
                 {managed.status === "live"
                   ? "This campaign is running"
                   : managed.status === "paused"
-                    ? "This campaign is paused"
+                    ? `This campaign is paused — ${pauseLabel(managed)?.toLowerCase()}`
                     : managed.status === "approved_scheduled"
                       ? "This campaign is approved and scheduled"
                       : managed.status === "rejected"
