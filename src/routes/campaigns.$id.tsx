@@ -286,8 +286,28 @@ function CampaignDetail() {
   const budgetDelta = Math.max(newBudget, campaign.spendToDate) - campaign.totalBudget;
 
 
+  // While the creative is still under review the campaign hasn't been paid for
+  // (or is running the old creative) — a schedule change only re-estimates the
+  // total; payment stays locked until moderation clears the creative.
+  const paymentLocked =
+    (campaign.awaitingPayment && !campaign.paymentUnlocked) || !!pendingCreative;
+
   // Extending costs money → run it through the mock gateway first.
   const doSaveSchedule = (payment?: CheckoutSuccess) => {
+    if (budgetDelta > 0 && paymentLocked) {
+      updateCampaign(campaign.id, {
+        startDate: editStart,
+        endDate: editEnd,
+        daysOfWeek: editDays,
+        dayparts: editSlots,
+        totalBudget: newBudget,
+      });
+      setScheduleOpen(false);
+      toast.info(
+        `Schedule updated. Updated estimated total: ₹${newBudget.toLocaleString("en-IN")}. You can pay once your creative is approved.`,
+      );
+      return;
+    }
     if (budgetDelta > 0 && !payment) {
       setCheckout({ kind: "extend", amount: budgetDelta });
       return;
@@ -299,6 +319,7 @@ function CampaignDetail() {
       return;
     }
     if (budgetDelta < 0) refundToWallet(-budgetDelta);
+
 
     updateCampaign(campaign.id, {
       startDate: editStart,
@@ -1153,7 +1174,9 @@ function CampaignDetail() {
                     <div className="mt-2 flex justify-between border-t pt-2 font-medium">
                       <span>
                         {budgetDelta > 0
-                          ? "To pay now"
+                          ? paymentLocked
+                            ? "Updated estimated total"
+                            : "To pay now"
                           : budgetDelta < 0
                             ? "Refund to wallet"
                             : "No change"}
@@ -1161,18 +1184,26 @@ function CampaignDetail() {
                       <span
                         className={
                           budgetDelta > 0
-                            ? "text-destructive"
+                            ? paymentLocked
+                              ? ""
+                              : "text-destructive"
                             : budgetDelta < 0
                               ? "text-emerald-600 dark:text-emerald-400"
                               : ""
                         }
                       >
-                        ₹{Math.abs(budgetDelta).toLocaleString("en-IN")}
+                        ₹
+                        {(budgetDelta > 0 && paymentLocked
+                          ? newBudget
+                          : Math.abs(budgetDelta)
+                        ).toLocaleString("en-IN")}
                       </span>
                     </div>
                     <p className="mt-1.5 text-xs text-muted-foreground">
                       {budgetDelta > 0
-                        ? "Extra days are charged from your wallet when you save. The extension only takes effect once paid."
+                        ? paymentLocked
+                          ? "Your creative is still under review. You can save this schedule now — payment unlocks once the creative is approved."
+                          : "Extra days are charged from your wallet when you save. The extension only takes effect once paid."
                         : budgetDelta < 0
                           ? "The unused days are refunded to your wallet when you save."
                           : "Your dates change with no cost impact."}
@@ -1191,7 +1222,9 @@ function CampaignDetail() {
                     }
                   >
                     {budgetDelta > 0
-                      ? `Pay ₹${budgetDelta.toLocaleString("en-IN")} & extend`
+                      ? paymentLocked
+                        ? "Save schedule"
+                        : `Pay ₹${budgetDelta.toLocaleString("en-IN")} & extend`
                       : budgetDelta < 0
                         ? `Save & refund ₹${(-budgetDelta).toLocaleString("en-IN")}`
                         : "Save schedule"}

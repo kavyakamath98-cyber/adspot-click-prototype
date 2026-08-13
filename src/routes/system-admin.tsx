@@ -36,8 +36,12 @@ import { useApp } from "@/lib/app-context";
 import { useAuth } from "@/lib/auth-context";
 import {
   MODERATION_REJECTION_REASONS,
+  PINCODES,
+  SCREENS,
+  type Campaign,
   type Creative,
 } from "@/lib/mockData";
+
 
 export const Route = createFileRoute("/system-admin")({
   head: () => ({
@@ -107,8 +111,29 @@ function Thumb({ c, className = "" }: { c: Creative; className?: string }) {
   );
 }
 
+type CampaignContext = NonNullable<Creative["campaignContext"]>;
+
+/** Build run context from an in-account campaign linked to this creative. */
+function contextFromCampaign(c: Campaign): CampaignContext {
+  const screens = c.screenIds
+    .map((id) => SCREENS.find((s) => s.id === id))
+    .filter(Boolean) as typeof SCREENS;
+  const pin = PINCODES[c.pincode];
+  return {
+    name: c.name,
+    cities: Array.from(new Set([pin?.city, ...screens.map((s) => s.city)].filter(Boolean) as string[])),
+    pincodes: Array.from(new Set([c.pincode, ...screens.map((s) => s.pincode)])),
+    locationTags: Array.from(new Set(screens.map((s) => s.locationTag))),
+    screenTypes: Array.from(new Set(screens.map((s) => s.venueType))),
+    screenCount: screens.length,
+    startDate: c.startDate,
+    endDate: c.endDate,
+  };
+}
+
+
 function SystemAdminPage() {
-  const { allCreatives, reviewCreative } = useApp();
+  const { allCreatives, reviewCreative, campaigns } = useApp();
   const { member, logout } = useAuth();
   const reviewer = member?.email ?? "admin@adittv.com";
 
@@ -410,6 +435,59 @@ function SystemAdminPage() {
                   <dd>{fmtDate(detail.uploadedAt)}</dd>
                 </div>
               </dl>
+
+              {(() => {
+                const linked = campaigns.find(
+                  (c) => c.creativeId === detail.id || c.pendingCreativeId === detail.id,
+                );
+                const ctx = linked ? contextFromCampaign(linked) : detail.campaignContext;
+                if (!ctx) return null;
+                return (
+                  <div className="rounded-lg border p-3">
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">
+                      Campaign this creative runs in
+                    </p>
+                    <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Campaign</dt>
+                        <dd className="truncate">{ctx.name}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Account</dt>
+                        <dd className="truncate">{detail.advertiser ?? "Ramesh's Kitchen"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Cities</dt>
+                        <dd>
+                          {ctx.cities.join(", ") || "—"}
+                          {ctx.pincodes.length > 0 && (
+                            <span className="text-muted-foreground"> · {ctx.pincodes.join(", ")}</span>
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Location tags</dt>
+                        <dd>{ctx.locationTags.join(", ") || "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Screen types</dt>
+                        <dd>
+                          {ctx.screenTypes.join(", ") || "—"}
+                          <span className="text-muted-foreground"> · {ctx.screenCount} screens</span>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Campaign dates</dt>
+                        <dd>
+                          {fmtDate(ctx.startDate)} – {fmtDate(ctx.endDate)}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                );
+              })()}
+
+
 
               {detail.status === "rejected" && (
                 <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">

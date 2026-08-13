@@ -118,7 +118,23 @@ export interface Creative {
   // true if this creative has ever cleared review — enables it to reuse without
   // the 48-hour review buffer on start date.
   previouslyApproved?: boolean;
+  /**
+   * Campaign this creative was submitted with. Only used for creatives that
+   * belong to OTHER advertiser accounts (the moderation console can't read
+   * their campaign lists), so the reviewer still sees run context.
+   */
+  campaignContext?: {
+    name: string;
+    cities: string[];
+    pincodes: string[];
+    locationTags: string[];
+    screenTypes: string[];
+    screenCount: number;
+    startDate: string;
+    endDate: string;
+  };
 }
+
 
 
 export type CampaignStatus =
@@ -1101,6 +1117,16 @@ export const PLATFORM_CREATIVES: Creative[] = [
     status: "pending",
     advertiser: "Priya's Boutique",
     uploadedBy: "priya@priyasboutique.in",
+    campaignContext: {
+      name: "Monsoon Sale · Bandra",
+      cities: ["Mumbai"],
+      pincodes: ["400050"],
+      locationTags: ["Mall", "Retail Store"],
+      screenTypes: ["Mall Atrium", "Retail Store"],
+      screenCount: 6,
+      startDate: "2026-08-20",
+      endDate: "2026-09-05",
+    },
   },
   {
     id: "pcre_2",
@@ -1117,6 +1143,16 @@ export const PLATFORM_CREATIVES: Creative[] = [
     status: "pending",
     advertiser: "SmileWell Dental",
     uploadedBy: "clinic@smilewell.in",
+    campaignContext: {
+      name: "Dental Camp · HSR",
+      cities: ["Bangalore"],
+      pincodes: ["560095"],
+      locationTags: ["Clinic", "Residential"],
+      screenTypes: ["Clinic Waiting Area", "Residential Lobby"],
+      screenCount: 4,
+      startDate: "2026-08-22",
+      endDate: "2026-09-10",
+    },
   },
   {
     id: "pcre_3",
@@ -1133,6 +1169,16 @@ export const PLATFORM_CREATIVES: Creative[] = [
     status: "pending",
     advertiser: "Highland Spirits",
     uploadedBy: "media@highlandspirits.in",
+    campaignContext: {
+      name: "Whisky Launch · Indiranagar",
+      cities: ["Bangalore"],
+      pincodes: ["560038"],
+      locationTags: ["Cafe", "Mall"],
+      screenTypes: ["Cafe", "Mall Atrium"],
+      screenCount: 8,
+      startDate: "2026-08-25",
+      endDate: "2026-09-15",
+    },
   },
   {
     id: "pcre_4",
@@ -1151,6 +1197,16 @@ export const PLATFORM_CREATIVES: Creative[] = [
     status: "pending",
     advertiser: "Volt Motors",
     uploadedBy: "ads@voltmotors.in",
+    campaignContext: {
+      name: "EV Test Ride Drive · Powai",
+      cities: ["Mumbai"],
+      pincodes: ["400076"],
+      locationTags: ["Office", "Mall"],
+      screenTypes: ["Office Lobby", "Mall Atrium"],
+      screenCount: 7,
+      startDate: "2026-08-24",
+      endDate: "2026-09-20",
+    },
   },
   {
     id: "pcre_5",
@@ -1168,6 +1224,16 @@ export const PLATFORM_CREATIVES: Creative[] = [
     previouslyApproved: true,
     advertiser: "IronPeak Fitness",
     uploadedBy: "hello@ironpeak.in",
+    campaignContext: {
+      name: "Weekend Gym Offer · Koramangala",
+      cities: ["Bangalore"],
+      pincodes: ["560034"],
+      locationTags: ["Gym", "Residential"],
+      screenTypes: ["Gym", "Residential Lobby"],
+      screenCount: 5,
+      startDate: "2026-08-15",
+      endDate: "2026-08-31",
+    },
     reviewedBy: "admin@adittv.com",
     reviewedAt: "2026-08-07T09:12:00.000Z",
   },
@@ -1188,6 +1254,16 @@ export const PLATFORM_CREATIVES: Creative[] = [
     rejectionNote: null,
     advertiser: "Nagar Events",
     uploadedBy: "team@nagarevents.in",
+    campaignContext: {
+      name: "Rally Promo · MG Road",
+      cities: ["Bangalore"],
+      pincodes: ["560001"],
+      locationTags: ["Retail Store", "Mall"],
+      screenTypes: ["Retail Store", "Mall Atrium"],
+      screenCount: 3,
+      startDate: "2026-08-10",
+      endDate: "2026-08-18",
+    },
     reviewedBy: "admin@adittv.com",
     reviewedAt: "2026-08-05T11:40:00.000Z",
   },
@@ -1209,6 +1285,16 @@ export const PLATFORM_CREATIVES: Creative[] = [
       "Imagery implies alcohol consumption near a school-zone screen cluster. Please resubmit a daytime cut without glassware.",
     advertiser: "Neon Lounge",
     uploadedBy: "promo@neonlounge.in",
+    campaignContext: {
+      name: "Late Night Lounge · Andheri",
+      cities: ["Mumbai"],
+      pincodes: ["400053"],
+      locationTags: ["Cafe", "Mall"],
+      screenTypes: ["Cafe", "Mall Atrium"],
+      screenCount: 4,
+      startDate: "2026-08-12",
+      endDate: "2026-08-30",
+    },
     reviewedBy: "admin@adittv.com",
     reviewedAt: "2026-08-04T16:05:00.000Z",
   },
@@ -1227,6 +1313,16 @@ export const PLATFORM_CREATIVES: Creative[] = [
     status: "pending",
     advertiser: "Sahaj Finserv",
     uploadedBy: "marketing@sahajfinserv.in",
+    campaignContext: {
+      name: "Festive Home Loan · Bandra",
+      cities: ["Mumbai"],
+      pincodes: ["400050"],
+      locationTags: ["Office", "Mall"],
+      screenTypes: ["Office Lobby", "Mall Atrium"],
+      screenCount: 9,
+      startDate: "2026-08-26",
+      endDate: "2026-09-25",
+    },
   },
 ];
 
