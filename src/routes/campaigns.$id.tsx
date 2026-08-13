@@ -542,7 +542,7 @@ function CampaignDetail() {
           <AlertTitle>Campaign rejected</AlertTitle>
           <AlertDescription>
             Reason for rejection: {campaign.rejectionReason}
-            {creative?.rejectionNote ? ` — ${creative.rejectionNote}` : ""}. Update your creative and resubmit — targeting, screens, and schedule are preserved.
+            {currentCreative?.rejectionNote ? ` — ${currentCreative.rejectionNote}` : ""}. Update your creative and resubmit — targeting, screens, and schedule are preserved.
           </AlertDescription>
         </Alert>
       )}
