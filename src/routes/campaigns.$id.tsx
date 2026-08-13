@@ -312,12 +312,13 @@ function CampaignDetail() {
       setCheckout({ kind: "extend", amount: budgetDelta });
       return;
     }
-    if (budgetDelta > 0 && !chargeWallet(budgetDelta)) {
+    if (budgetDelta > 0 && payment?.method === "additv" && !chargeWallet(budgetDelta)) {
       toast.error(
         `Insufficient wallet balance. You need ₹${budgetDelta.toLocaleString("en-IN")} to extend this campaign.`,
       );
       return;
     }
+
     if (budgetDelta < 0) refundToWallet(-budgetDelta);
 
 
