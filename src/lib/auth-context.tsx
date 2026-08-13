@@ -2,6 +2,7 @@
  * Mock authentication + role model for the prototype.
  * Everything is persisted in localStorage — no backend, no auth library.
  */
+import { isSystemAdminEmail } from "@/config/systemAdmin";
 import {
   createContext,
   useCallback,
