@@ -107,15 +107,36 @@ const mmss = (s: number) =>
   `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
 
-export function CheckoutModal({ open, onOpenChange, amount, description, onSuccess }: Props) {
-  const gst = gstOn(amount);
-  const total = amount + gst;
+export function CheckoutModal({
+  open,
+  onOpenChange,
+  amount,
+  description,
+  onSuccess,
+  context = "campaign",
+}: Props) {
+  const {
+    wallet,
+    chargeWallet,
+    savedCards,
+    addSavedCard,
+    promoCreditBalance,
+    consumePromoCredit,
+  } = useApp();
 
   const [orderId, setOrderId] = useState(newOrderId);
   const [phase, setPhase] = useState<Phase>("form");
-  const [method, setMethod] = useState<PayMethod>("upi");
+  const [method, setMethod] = useState<PayMethod>(context === "topup" ? "upi" : "additv");
   const [seconds, setSeconds] = useState(SESSION_SECONDS);
   const [confirmClose, setConfirmClose] = useState(false);
+
+  // Coupons & promotional credits
+  const [couponInput, setCouponInput] = useState("");
+  const [couponCode, setCouponCode] = useState<string | null>(null);
+  const [discount, setDiscount] = useState(0);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponListOpen, setCouponListOpen] = useState(false);
+  const [usePromoCredit, setUsePromoCredit] = useState(false);
 
   // Method fields
   const [upiId, setUpiId] = useState("");
@@ -125,6 +146,8 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
   const [cvv, setCvv] = useState("");
   const [cardName, setCardName] = useState("");
   const [saveCard, setSaveCard] = useState(false);
+  const [savedCardId, setSavedCardId] = useState<string | null>(null);
+  const [savedCvv, setSavedCvv] = useState("");
   const [bankQuery, setBankQuery] = useState("");
   const [bank, setBank] = useState<string | null>(null);
   const [bankOpen, setBankOpen] = useState(false);
@@ -138,6 +161,19 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
   const [failReason, setFailReason] = useState<FailureReason | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const walletAllowed = context !== "topup";
+
+  // Money math: coupon discounts the base, GST applies on the discounted base,
+  // promotional credit then comes off the payable total.
+  const netBase = Math.max(0, amount - discount);
+  const gst = gstOn(netBase);
+  const grossTotal = netBase + gst;
+  const creditApplied = usePromoCredit ? Math.min(promoCreditBalance, grossTotal) : 0;
+  const total = Math.max(0, grossTotal - creditApplied);
+
+  const selectedCard: SavedCard | null =
+    savedCards.find((c) => c.id === savedCardId) ?? null;
+
   // A fresh order id per checkout session; retries reuse it (never double-charge).
   useEffect(() => {
     if (!open) return;
@@ -149,6 +185,15 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
     setConfirmClose(false);
     setForced(null);
     setUpiTouched(false);
+    setCouponInput("");
+    setCouponCode(null);
+    setDiscount(0);
+    setCouponError(null);
+    setUsePromoCredit(false);
+    setSavedCvv("");
+    setSavedCardId(savedCards.find((c) => c.isDefault)?.id ?? savedCards[0]?.id ?? null);
+    setMethod(context === "topup" ? "upi" : "additv");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
@@ -171,24 +216,68 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
   const cardDigits = cardNumber.replace(/\D/g, "");
   const cardExpiryErr = expiry ? expiryError(expiry) : null;
 
+  const walletShort = walletAllowed && wallet < total;
+
   const valid = useMemo(() => {
+    if (method === "additv") return walletAllowed && wallet >= total;
     if (method === "upi") return isValidUpi(upiId);
-    if (method === "card")
+    if (method === "card") {
+      if (selectedCard) return savedCvv.length === cvvLength(selectedCard.type);
       return (
         luhnValid(cardDigits) &&
         !expiryError(expiry) &&
         cvv.length === cvvLength(cardType) &&
         cardName.trim().length >= 3
       );
+    }
     if (method === "netbanking") return !!bank;
     return !!payWallet;
-  }, [method, upiId, cardDigits, expiry, cvv, cardType, cardName, bank, payWallet]);
+  }, [
+    method,
+    walletAllowed,
+    wallet,
+    total,
+    upiId,
+    selectedCard,
+    savedCvv,
+    cardDigits,
+    expiry,
+    cvv,
+    cardType,
+    cardName,
+    bank,
+    payWallet,
+  ]);
 
   const methodDetail = () => {
+    if (method === "additv") return "Additv wallet";
     if (method === "upi") return upiId.trim();
-    if (method === "card") return `${cardType} •••• ${cardDigits.slice(-4)}`;
+    if (method === "card")
+      return selectedCard
+        ? `${selectedCard.type} •••• ${selectedCard.last4}`
+        : `${cardType} •••• ${cardDigits.slice(-4)}`;
     if (method === "netbanking") return bank ?? "Bank";
     return payWallet ?? "Wallet";
+  };
+
+  const onApplyCoupon = () => {
+    const res = applyCoupon(couponInput, amount, context);
+    if (!res.ok) {
+      setCouponError(res.error);
+      setCouponCode(null);
+      setDiscount(0);
+      return;
+    }
+    setCouponError(null);
+    setCouponCode(res.coupon.code);
+    setDiscount(res.discount);
+  };
+
+  const clearCoupon = () => {
+    setCouponCode(null);
+    setDiscount(0);
+    setCouponInput("");
+    setCouponError(null);
   };
 
   const pay = () => {
@@ -199,7 +288,7 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
       const { outcome, reason } = resolveOutcome({
         method,
         upiId,
-        cardNumber: cardDigits,
+        cardNumber: selectedCard ? "" : cardDigits,
         forced,
       });
       setForced(null);
@@ -208,12 +297,30 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
         setPhase("failure");
         return;
       }
+      if (method === "additv" && !chargeWallet(total)) {
+        setFailReason("Insufficient funds");
+        setPhase("failure");
+        return;
+      }
+      if (creditApplied > 0) consumePromoCredit(creditApplied);
+      if (method === "card" && !selectedCard && saveCard) {
+        addSavedCard({
+          id: newCardId(),
+          last4: cardDigits.slice(-4),
+          type: cardType,
+          holder: cardName.trim(),
+          expiry,
+        });
+      }
       const res: CheckoutSuccess = {
         paymentId: newPaymentId(),
         orderId,
-        amount,
+        amount: netBase,
         gst,
         total,
+        couponCode: couponCode ?? undefined,
+        discount: discount || undefined,
+        promoCreditUsed: creditApplied || undefined,
         method,
         methodDetail: methodDetail(),
         timestamp: new Date().toISOString(),
@@ -223,6 +330,7 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
       onSuccess(res);
     }, delay);
   };
+
 
   const requestClose = () => {
     if (phase === "processing") return;
