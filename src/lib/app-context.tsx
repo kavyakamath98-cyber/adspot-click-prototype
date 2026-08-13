@@ -7,6 +7,7 @@ import {
   type CampaignStatus,
   type Creative,
 } from "./mockData";
+import { restrictionFor } from "@/data/industryTaxonomy";
 
 export type DemoMode = "returning" | "new";
 
@@ -123,12 +124,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // see a stale campaign list and silently skip the creative update.
       const creativeId = creativeIdArg ?? campaigns.find((c) => c.id === id)?.creativeId;
       const creative = creatives.find((c) => c.id === creativeId);
-      const forcedTag =
-        creative?.contentTag === "Alcohol"
-          ? "Alcohol or tobacco promotion"
-          : creative?.contentTag === "Adult"
-            ? "Explicit or inappropriate content"
-            : undefined;
+      const forcedTag = restrictionFor(creative?.subIndustry);
       const outcome: "approve" | "reject" = forcedTag
         ? "reject"
         : (forceOutcome ?? (Math.random() < 0.8 ? "approve" : "reject"));
@@ -176,12 +172,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const simulateCreativeReviewForCampaign = useCallback(
     (campaignId: string, creativeId: string, forceOutcome?: "approve" | "reject") => {
       const creative = creatives.find((c) => c.id === creativeId);
-      const forcedTag =
-        creative?.contentTag === "Alcohol"
-          ? "Alcohol or tobacco promotion"
-          : creative?.contentTag === "Adult"
-            ? "Explicit or inappropriate content"
-            : undefined;
+      const forcedTag = restrictionFor(creative?.subIndustry);
       const outcome: "approve" | "reject" = forcedTag
         ? "reject"
         : (forceOutcome ?? (Math.random() < 0.8 ? "approve" : "reject"));
@@ -257,12 +248,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         prev.map((cr) => (cr.id === newCreativeId ? { ...cr, status: "pending" } : cr)),
       );
       const cr = creatives.find((c) => c.id === newCreativeId);
-      const forcedTag =
-        cr?.contentTag === "Alcohol"
-          ? "Alcohol or tobacco promotion"
-          : cr?.contentTag === "Adult"
-            ? "Explicit or inappropriate content"
-            : undefined;
+      const forcedTag = restrictionFor(cr?.subIndustry);
       setTimeout(() => {
         const outcome = forcedTag
           ? "reject"
