@@ -16,6 +16,7 @@ import { Route as LibraryRouteImport } from './routes/library'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CampaignsIndexRouteImport } from './routes/campaigns.index'
+import { Route as SettingsTeamRouteImport } from './routes/settings.team'
 import { Route as ReportsPerformanceRouteImport } from './routes/reports.performance'
 import { Route as PaymentsTransactionsRouteImport } from './routes/payments.transactions'
 import { Route as PaymentsMethodsRouteImport } from './routes/payments.methods'
@@ -57,6 +58,11 @@ const CampaignsIndexRoute = CampaignsIndexRouteImport.update({
   path: '/campaigns/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsTeamRoute = SettingsTeamRouteImport.update({
+  id: '/settings/team',
+  path: '/settings/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsPerformanceRoute = ReportsPerformanceRouteImport.update({
   id: '/reports/performance',
   path: '/reports/performance',
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/payments/methods': typeof PaymentsMethodsRoute
   '/payments/transactions': typeof PaymentsTransactionsRoute
   '/reports/performance': typeof ReportsPerformanceRoute
+  '/settings/team': typeof SettingsTeamRoute
   '/campaigns/': typeof CampaignsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/payments/methods': typeof PaymentsMethodsRoute
   '/payments/transactions': typeof PaymentsTransactionsRoute
   '/reports/performance': typeof ReportsPerformanceRoute
+  '/settings/team': typeof SettingsTeamRoute
   '/campaigns': typeof CampaignsIndexRoute
 }
 export interface FileRoutesById {
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/payments/methods': typeof PaymentsMethodsRoute
   '/payments/transactions': typeof PaymentsTransactionsRoute
   '/reports/performance': typeof ReportsPerformanceRoute
+  '/settings/team': typeof SettingsTeamRoute
   '/campaigns/': typeof CampaignsIndexRoute
 }
 export interface FileRouteTypes {
@@ -140,6 +149,7 @@ export interface FileRouteTypes {
     | '/payments/methods'
     | '/payments/transactions'
     | '/reports/performance'
+    | '/settings/team'
     | '/campaigns/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -154,6 +164,7 @@ export interface FileRouteTypes {
     | '/payments/methods'
     | '/payments/transactions'
     | '/reports/performance'
+    | '/settings/team'
     | '/campaigns'
   id:
     | '__root__'
@@ -168,6 +179,7 @@ export interface FileRouteTypes {
     | '/payments/methods'
     | '/payments/transactions'
     | '/reports/performance'
+    | '/settings/team'
     | '/campaigns/'
   fileRoutesById: FileRoutesById
 }
@@ -183,6 +195,7 @@ export interface RootRouteChildren {
   PaymentsMethodsRoute: typeof PaymentsMethodsRoute
   PaymentsTransactionsRoute: typeof PaymentsTransactionsRoute
   ReportsPerformanceRoute: typeof ReportsPerformanceRoute
+  SettingsTeamRoute: typeof SettingsTeamRoute
   CampaignsIndexRoute: typeof CampaignsIndexRoute
 }
 
@@ -237,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CampaignsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/team': {
+      id: '/settings/team'
+      path: '/settings/team'
+      fullPath: '/settings/team'
+      preLoaderRoute: typeof SettingsTeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reports/performance': {
       id: '/reports/performance'
       path: '/reports/performance'
@@ -287,6 +307,7 @@ const rootRouteChildren: RootRouteChildren = {
   PaymentsMethodsRoute: PaymentsMethodsRoute,
   PaymentsTransactionsRoute: PaymentsTransactionsRoute,
   ReportsPerformanceRoute: ReportsPerformanceRoute,
+  SettingsTeamRoute: SettingsTeamRoute,
   CampaignsIndexRoute: CampaignsIndexRoute,
 }
 export const routeTree = rootRouteImport
