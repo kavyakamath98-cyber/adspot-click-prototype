@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useRouter } from "@tanstack/react-router";
 import {
   Home,
   Images,
@@ -11,6 +11,7 @@ import {
   CreditCard,
   Wallet,
   Receipt,
+  Settings,
 } from "lucide-react";
 import {
   Sidebar,
@@ -33,7 +34,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useApp } from "@/lib/app-context";
-import { toast } from "sonner";
+import { useAuth } from "@/lib/auth-context";
 
 const CAMPAIGN_ITEMS = [
   { to: "/campaigns/new", label: "Create Campaign", icon: Plus, exact: false },
@@ -51,6 +52,9 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { advertiser } = useApp();
+  const { isAdmin, hasTeam, logout, member } = useAuth();
+  const router = useRouter();
+  const showTeam = isAdmin && hasTeam;
 
   const isActive = (to: string, exact?: boolean) =>
     exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
@@ -64,6 +68,9 @@ export function AppSidebar() {
       ...CAMPAIGN_ITEMS,
       { to: "/library", label: "Content Library", icon: Images, exact: false },
       ...PAYMENT_ITEMS,
+      ...(showTeam
+        ? [{ to: "/settings/team", label: "Team Management", icon: Settings, exact: false }]
+        : []),
     ];
     return (
       <Sidebar collapsible="icon">
@@ -186,6 +193,18 @@ export function AppSidebar() {
                   </CollapsibleContent>
                 </SidebarMenuItem>
               </Collapsible>
+
+              {/* Settings — admins on team accounts */}
+              {showTeam && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={isActive("/settings/team")}>
+                    <Link to="/settings/team" className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      <span>Team Management</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -197,14 +216,13 @@ export function AppSidebar() {
           </div>
           <div className="min-w-0 flex-1 text-xs leading-tight">
             <div className="truncate font-semibold">{advertiser.name}</div>
-            <div className="truncate text-muted-foreground">{advertiser.email}</div>
+            <div className="truncate text-muted-foreground">{member?.email ?? advertiser.email}</div>
           </div>
           <button
-            onClick={() =>
-              toast.info(
-                "Sign out is disabled in this prototype. You are always signed in as Ramesh's Kitchen.",
-              )
-            }
+            onClick={() => {
+              logout();
+              router.navigate({ to: "/login", replace: true });
+            }}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-destructive"
             aria-label="Sign out"
             title="Sign out"

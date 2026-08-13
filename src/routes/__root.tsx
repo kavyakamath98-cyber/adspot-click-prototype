@@ -4,6 +4,8 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
+  useNavigate,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -12,7 +14,9 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppProvider } from "../lib/app-context";
+import { AuthProvider, useAuth } from "../lib/auth-context";
 import { Toaster } from "../components/ui/sonner";
+
 
 
 function NotFoundComponent() {
@@ -121,16 +125,42 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password"];
+
+/** Redirects unauthenticated visitors to /login and signed-in users away from auth pages. */
+function AuthGate({ children }: { children: ReactNode }) {
+  const { ready, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isPublic = PUBLIC_ROUTES.includes(pathname);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (!isAuthenticated && !isPublic) navigate({ to: "/login", replace: true });
+    if (isAuthenticated && isPublic) navigate({ to: "/", replace: true });
+  }, [ready, isAuthenticated, isPublic, navigate]);
+
+  if (!ready) return null;
+  if (!isAuthenticated && !isPublic) return null;
+  if (isAuthenticated && isPublic) return null;
+  return <>{children}</>;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppProvider>
-        <Outlet />
-        <Toaster richColors position="top-right" />
-      </AppProvider>
+      <AuthProvider>
+        <AppProvider>
+          <AuthGate>
+            <Outlet />
+          </AuthGate>
+          <Toaster richColors position="top-right" />
+        </AppProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
+
 

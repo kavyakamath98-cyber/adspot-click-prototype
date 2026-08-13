@@ -49,6 +49,8 @@ import {
   Tooltip,
 } from "recharts";
 import { useApp } from "@/lib/app-context";
+import { useAuth } from "@/lib/auth-context";
+import { ReadOnlyAction } from "@/components/ReadOnlyAction";
 import {
   SCREENS,
   PINCODES,
@@ -84,6 +86,7 @@ function CampaignDetail() {
     stopCampaign,
     requestRefund,
   } = useApp();
+  const { canWrite } = useAuth();
 
   const campaign = campaigns.find((c) => c.id === id);
   const currentCreative = creatives.find((c) => c.id === campaign?.creativeId);
@@ -357,19 +360,26 @@ function CampaignDetail() {
                 </Button>
               </Link>
             )}
-            {campaign.status === "draft" && (
-              <Link to="/campaigns/new" search={{ draftId: campaign.id }}>
-                <Button className="gap-1.5">Continue draft</Button>
-              </Link>
-            )}
+            {campaign.status === "draft" &&
+              (canWrite(campaign.id) ? (
+                <Link to="/campaigns/new" search={{ draftId: campaign.id }}>
+                  <Button className="gap-1.5">Continue draft</Button>
+                </Link>
+              ) : (
+                <ReadOnlyAction label="Continue draft" />
+              ))}
             {(campaign.status === "pending_approval" ||
               campaign.status === "live" ||
               campaign.status === "paused" ||
-              campaign.status === "approved_scheduled") && (
-              <Link to="/campaigns/new" search={{ draftId: campaign.id }}>
-                <Button className="gap-1.5">Edit campaign</Button>
-              </Link>
-            )}
+              campaign.status === "approved_scheduled") &&
+              (canWrite(campaign.id) ? (
+                <Link to="/campaigns/new" search={{ draftId: campaign.id }}>
+                  <Button className="gap-1.5">Edit campaign</Button>
+                </Link>
+              ) : (
+                <ReadOnlyAction label="Edit campaign" />
+              ))}
+
 
 
           </div>
