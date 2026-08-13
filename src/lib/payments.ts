@@ -5,17 +5,23 @@
 
 export const GST_RATE = 0.18;
 
-export type PayMethod = "upi" | "card" | "netbanking" | "wallet";
+export type PayMethod = "additv" | "upi" | "card" | "netbanking" | "wallet";
 
 export type PaymentOutcome = "success" | "failure" | "timeout";
 
 export interface PaymentTransaction {
   paymentId: string;
   orderId: string;
-  /** Base amount before GST. */
+  /** Base amount before GST (after any coupon discount). */
   amount: number;
   gst: number;
   total: number;
+  /** Coupon code applied at checkout, if any. */
+  couponCode?: string;
+  /** Discount taken off the base amount by the coupon. */
+  discount?: number;
+  /** Promotional credit consumed at checkout, if any. */
+  promoCreditUsed?: number;
   method: PayMethod;
   /** Human-readable detail: "•••• 1111", "success@demo", "HDFC Bank", "Paytm". */
   methodDetail: string;
@@ -26,6 +32,7 @@ export interface PaymentTransaction {
   purposeType: "campaign" | "topup";
   campaignId?: string;
 }
+
 
 const ALNUM = "abcdefghijklmnopqrstuvwxyz0123456789";
 
