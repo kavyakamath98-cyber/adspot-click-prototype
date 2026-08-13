@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as IndexRouteImport } from './routes/index'
@@ -19,6 +20,11 @@ import { Route as PaymentsMethodsRouteImport } from './routes/payments.methods'
 import { Route as CampaignsNewRouteImport } from './routes/campaigns.new'
 import { Route as CampaignsIdRouteImport } from './routes/campaigns.$id'
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/campaigns/new': typeof CampaignsNewRoute
   '/payments/methods': typeof PaymentsMethodsRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/campaigns/new': typeof CampaignsNewRoute
   '/payments/methods': typeof PaymentsMethodsRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/campaigns/$id': typeof CampaignsIdRoute
   '/campaigns/new': typeof CampaignsNewRoute
   '/payments/methods': typeof PaymentsMethodsRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/'
     | '/library'
     | '/login'
+    | '/signup'
     | '/campaigns/$id'
     | '/campaigns/new'
     | '/payments/methods'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/'
     | '/library'
     | '/login'
+    | '/signup'
     | '/campaigns/$id'
     | '/campaigns/new'
     | '/payments/methods'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/library'
     | '/login'
+    | '/signup'
     | '/campaigns/$id'
     | '/campaigns/new'
     | '/payments/methods'
@@ -139,6 +151,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LibraryRoute: typeof LibraryRoute
   LoginRoute: typeof LoginRoute
+  SignupRoute: typeof SignupRoute
   CampaignsIdRoute: typeof CampaignsIdRoute
   CampaignsNewRoute: typeof CampaignsNewRoute
   PaymentsMethodsRoute: typeof PaymentsMethodsRoute
@@ -149,6 +162,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -219,6 +239,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LibraryRoute: LibraryRoute,
   LoginRoute: LoginRoute,
+  SignupRoute: SignupRoute,
   CampaignsIdRoute: CampaignsIdRoute,
   CampaignsNewRoute: CampaignsNewRoute,
   PaymentsMethodsRoute: PaymentsMethodsRoute,
