@@ -129,20 +129,27 @@ const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password
 
 /** Redirects unauthenticated visitors to /login and signed-in users away from auth pages. */
 function AuthGate({ children }: { children: ReactNode }) {
-  const { ready, isAuthenticated } = useAuth();
+  const { ready, isAuthenticated, isSystemAdmin } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isPublic = PUBLIC_ROUTES.includes(pathname);
+  const isAdminArea = pathname.startsWith(SYSTEM_ADMIN_HOME);
+  // System admins live in the moderation console only; advertisers never see it.
+  const misplaced =
+    isAuthenticated && !isPublic && (isSystemAdmin ? !isAdminArea : isAdminArea);
 
   useEffect(() => {
     if (!ready) return;
     if (!isAuthenticated && !isPublic) navigate({ to: "/login", replace: true });
-    if (isAuthenticated && isPublic) navigate({ to: "/", replace: true });
-  }, [ready, isAuthenticated, isPublic, navigate]);
+    if (isAuthenticated && isPublic)
+      navigate({ to: isSystemAdmin ? SYSTEM_ADMIN_HOME : "/", replace: true });
+    if (misplaced) navigate({ to: isSystemAdmin ? SYSTEM_ADMIN_HOME : "/", replace: true });
+  }, [ready, isAuthenticated, isPublic, isSystemAdmin, misplaced, navigate]);
 
   if (!ready) return null;
   if (!isAuthenticated && !isPublic) return null;
   if (isAuthenticated && isPublic) return null;
+  if (misplaced) return null;
   return <>{children}</>;
 }
 
