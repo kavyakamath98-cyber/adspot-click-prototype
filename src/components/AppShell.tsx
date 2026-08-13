@@ -174,7 +174,29 @@ export function AppShell({
                       />
                       New advertiser (empty account)
                     </DropdownMenuItem>
+                    {isAdmin && hasTeam && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <Link to="/settings/team">
+                            <Users className="mr-2 h-4 w-4" />
+                            Team Management
+                          </Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        logout();
+                        router.navigate({ to: "/login", replace: true });
+                      }}
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Log out
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
+
                 </DropdownMenu>
 
               </div>
