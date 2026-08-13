@@ -80,6 +80,14 @@ export interface Screen {
   bookings: ScreenBooking[];
 }
 
+export interface ReviewLogEntry {
+  action: "approved" | "rejected" | "submitted";
+  reason?: string;
+  note?: string | null;
+  by: string;
+  at: string;
+}
+
 export interface Creative {
   id: string;
   name: string;
@@ -96,6 +104,16 @@ export interface Creative {
   subIndustry: string;
   status: "approved" | "rejected" | "pending";
   rejectionReason?: string;
+  /** Reviewer's free-text note — only set when the reason was "Other". */
+  rejectionNote?: string | null;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  /** Every moderation decision, newest last. */
+  reviewLog?: ReviewLogEntry[];
+  /** Advertiser account this creative belongs to. */
+  advertiser?: string;
+  /** Team member who uploaded it. */
+  uploadedBy?: string;
   // true if this creative has ever cleared review — enables it to reuse without
   // the 48-hour review buffer on start date.
   previouslyApproved?: boolean;
@@ -205,6 +223,17 @@ export function displayStatus(c: {
     ? "payment_pending"
     : c.status;
 }
+
+/** Fixed reason list used by the platform moderation console. */
+export const MODERATION_REJECTION_REASONS = [
+  "Alcohol Promotion",
+  "Sensitive Content",
+  "Adult Content",
+  "Brand Safety",
+  "Other",
+] as const;
+
+export type ModerationRejectionReason = (typeof MODERATION_REJECTION_REASONS)[number];
 
 export const REJECTION_REASONS = [
   "Alcohol or tobacco promotion",
