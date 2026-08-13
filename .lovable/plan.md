@@ -1,52 +1,42 @@
-# Schedule-driven screen availability
+# MVP Scope Document — AdSpot / Additv
 
-Today the wizard treats each screen's availability as a fixed label (`available` / `partial` / `booked`) baked into mock data, and the schedule is picked in Step 5 — after screens are chosen. So availability has nothing to do with the dates the user wants. This plan makes dates the driver.
+Produce a locked, single-source-of-truth scope document derived from the current prototype: every capability that exists today, every capability explicitly out of scope, plus testable acceptance criteria per feature.
 
-## New step order
+## Deliverables
 
-```text
-1. Campaign name + location & radius
-2. Pick a creative + playtime
-3. Schedule  <- dates, recurrence, location-type filter, dimension filter
-4. Screens   <- only screens with availability in those dates
-5. Preview
-6. Review & pay
-```
+1. `docs/MVP-SCOPE.md` — versioned in the repo, full document in Markdown.
+2. A downloadable formatted copy (DOCX) written to the documents area, generated from the same content so both stay identical.
 
-Schedule moves ahead of screen selection. The location-type and screen-dimension filters move onto the schedule step, so by the time the user reaches screens they have already told us where, what size, and when — and the screen list is simply "here is what is free".
+No application code, routes, components or mock data change.
 
-## Availability becomes date-based
+## Document structure
 
-Each mock screen gets a small set of existing bookings (date ranges). Against the user's chosen start/end date a screen resolves to:
+1. **Purpose and status** — what the document locks, version, date, how changes are handled (change-request only after lock).
+2. **Product summary** — self-serve hyperlocal DOOH booking for small businesses in India; prototype is client-side with mock data.
+3. **Personas and roles** — Advertiser Admin, Advertiser User (per-campaign read/write), Platform Moderator (system admin).
+4. **Module-by-module scope.** Each module has three blocks: *Supported*, *Not supported (MVP)*, *Acceptance criteria* (numbered, testable, in Given/When/Then-style plain sentences).
 
-- **Available** — no overlap with existing bookings.
-- **Partially available** — free on some of the chosen days only. Selectable, with a note that the ad runs on the free days.
-- **Fully booked** — no free days in the window. Shown greyed out and not selectable.
+   Modules to cover, matching what exists in the prototype:
+   - Authentication and accounts — signup (single vs separate structure), login, forgot/reset password, seeded demo accounts, session persistence, route guards, moderator routing.
+   - Team and permissions — member invite with campaign permission matrix, role change, remove, resend invite, ownership transfer, read-only enforcement on write actions.
+   - Home / dashboard — KPI summary, search, status filters, list paging.
+   - Campaign creation wizard — Details, Creative, Schedule, Screens, Preview, Payment; draft save/resume; earliest start date rules.
+   - Creative management and content library — upload, import from URL, format/size/duration checks, industry/sub-industry taxonomy, restricted sub-industry handling, statuses and reviewer feedback.
+   - Scheduling and availability — date range, days of week, five day-part slots, per-screen availability (available / partially / fully booked), free-slot popover.
+   - Screen inventory and targeting — pincode + radius, location tag / venue type / dimension filters, multi-select with live totals.
+   - Pricing, wallet and payments — budget computation, GST at 18%, simulated checkout (UPI, card, netbanking, wallet), deterministic demo inputs, demo controls, session countdown, transaction history, receipts.
+   - Campaign lifecycle — pending approval, deferred payment unlock, live, pause (duration + reason), resume modes, extend, stop, cancel.
+   - Refunds — refund estimate, wallet vs bank destination, bank details capture, refund IDs, linkage to original payment ID.
+   - Moderation console — queue and filters, review detail with campaign/account context, approve/reject with standard reasons and notes, bulk actions, review history, advertiser-side visibility of decisions.
+   - Reporting — KPI row with deltas, trends, impressions by day of week and by slot, 7x6 heatmap with drag selection, creative breakdown, CSV export.
 
-The screen step shows a summary line such as "28 of 41 screens are free for 12–20 Aug".
-
-## Info icon on booked / partly booked screens
-
-Every screen that is not fully free gets a small info icon next to its status. Clicking it opens a popover listing that screen's free slots inside a sensible window (the chosen dates plus the following few weeks), e.g.
-
-```text
-Free 12–14 Aug
-Booked 15–18 Aug
-Free 19–31 Aug
-```
-
-so the user can adjust their dates rather than hitting a dead end.
-
-## Other adjustments that follow
-
-- Changing dates after screens are selected re-checks the selection and drops any screen that is now fully booked, with a toast explaining it.
-- Cost still uses days x screens x price/day; partially available screens are priced on their free days only.
-- The 48-hour review buffer for brand-new creatives still applies to the earliest start date, now enforced one step earlier.
-- Draft save/resume keeps working with the new step numbering.
+5. **Cross-cutting scope** — supported browsers/viewports, responsive behaviour, accessibility level, copy language (English), currency and locale (INR, en-IN).
+6. **Explicitly out of scope for MVP** — consolidated list: real backend/database, real payment gateway and settlement, real screen/player integration and proof-of-play, actual media transcoding, email/SMS delivery, invoicing/tax filing, GST-compliant statutory documents, third-party auth/SSO, audit log persistence, multi-currency, multi-language, mobile apps, real-time inventory sync, programmatic/RTB, AI creative generation.
+7. **Known prototype-only simulations** — table mapping each simulated behaviour (approval timer, availability seeding, payment outcomes, analytics data) to what production would need.
+8. **Assumptions and dependencies** — inventory data source, moderation SLA (24–48 hours), pricing model, refund policy inputs required from business.
+9. **Sign-off block** — role, name, date columns.
 
 ## Technical notes
 
-- `src/lib/mockData.ts`: add `bookings: { start: string; end: string }[]` to `Screen` (deterministic, seeded per screen); add helpers `availabilityIn(screen, start, end)` and `freeSlots(screen, from, to)`. The static `availability` field is derived from these instead of hardcoded.
-- `src/routes/campaigns.new.tsx`: swap `Step3` (screens) and `Step5` (schedule) in the step map and `STEP_LABELS`; move the location-tag and dimension filter controls from the screen step into the schedule step and lift that filter state into the wizard; pass `startDate`/`endDate` into the screen step; gate `canReachStep` so screens require valid dates.
-- Screen rows use a shadcn `Popover` with an info trigger for the slot breakdown; fully booked rows stay disabled.
-- No backend, no schema, no new dependencies — mock data and presentation only.
+- Content is derived by reading the current source (routes, `src/lib/mockData.ts`, `src/lib/app-context.tsx`, `src/lib/auth-context.tsx`, `src/lib/payments.ts`, `src/data/industryTaxonomy.ts`) so every "Supported" line reflects real behaviour, and concrete constants (slot times, GST rate, refund destinations, rejection reasons, demo credentials) are quoted exactly.
+- DOCX generated with the `docx` library, US Letter, Arial, styled headings, and tables for the supported/not-supported matrices; rendered to images and visually checked before delivery.
