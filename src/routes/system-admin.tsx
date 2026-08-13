@@ -17,7 +17,6 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -236,14 +235,22 @@ function SystemAdminPage() {
         </div>
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
-            <TabsList>
-              <TabsTrigger value="pending">Pending</TabsTrigger>
-              <TabsTrigger value="approved">Approved</TabsTrigger>
-              <TabsTrigger value="rejected">Rejected</TabsTrigger>
-              <TabsTrigger value="all">All</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="inline-flex rounded-lg border bg-muted/40 p-1">
+            {(["pending", "approved", "rejected", "all"] as Filter[]).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize transition ${
+                  filter === f
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
           <Select value={industry} onValueChange={setIndustry}>
             <SelectTrigger className="w-[210px]">
               <SelectValue placeholder="All industries" />
