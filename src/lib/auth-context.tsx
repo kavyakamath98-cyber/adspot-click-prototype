@@ -120,6 +120,8 @@ interface AuthApi {
   isAdmin: boolean;
   /** Only meaningful for accounts with separate roles. */
   hasTeam: boolean;
+  /** Platform moderator — sees the approval console instead of advertiser screens. */
+  isSystemAdmin: boolean;
   signup: (input: {
     email: string;
     password: string;
@@ -341,6 +343,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!member,
     isAdmin: member?.role === "admin",
     hasTeam: account?.structure === "separate",
+    isSystemAdmin: isSystemAdminEmail(member?.email),
     signup,
     login,
     logout,
