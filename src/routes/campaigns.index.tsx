@@ -155,7 +155,10 @@ function CampaignsList() {
         {STATUS_FILTERS.map((f) => {
           const active = status === f.key;
           const count =
-            f.key === "all" ? campaigns.length : campaigns.filter((c) => c.status === f.key).length;
+            f.key === "all"
+              ? campaigns.length
+              : campaigns.filter((c) => displayStatus(c) === f.key).length;
+
           return (
             <button
               key={f.key}
