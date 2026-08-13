@@ -713,6 +713,30 @@ function daysAhead(n: number) {
 
 const RAW_CAMPAIGNS: Campaign[] = [
   {
+    id: "cmp_pp",
+    name: "Indiranagar Festive Countdown",
+    status: "pending_approval",
+    awaitingPayment: true,
+    paymentUnlocked: true,
+    pincode: "560038",
+    radiusKm: 2,
+    centerLat: PINCODES["560038"].lat,
+    centerLng: PINCODES["560038"].lng,
+    locationLabel: PINCODES["560038"].label,
+    screenIds: ["scr_3", "scr_7"],
+    creativeId: "cre_2",
+    startDate: daysAhead(5),
+    endDate: daysAhead(15),
+    totalBudget: 8600,
+    spendToDate: 0,
+    estimatedImpressions: 0,
+    createdAt: daysAgo(1),
+    fitMode: "cover",
+    playSec: 5,
+    recurrence: "none",
+  },
+  {
+
     id: "cmp_1",
     name: "Koramangala Weekend Push",
     status: "live",

@@ -5,17 +5,23 @@
 
 export const GST_RATE = 0.18;
 
-export type PayMethod = "upi" | "card" | "netbanking" | "wallet";
+export type PayMethod = "additv" | "upi" | "card" | "netbanking" | "wallet";
 
 export type PaymentOutcome = "success" | "failure" | "timeout";
 
 export interface PaymentTransaction {
   paymentId: string;
   orderId: string;
-  /** Base amount before GST. */
+  /** Base amount before GST (after any coupon discount). */
   amount: number;
   gst: number;
   total: number;
+  /** Coupon code applied at checkout, if any. */
+  couponCode?: string;
+  /** Discount taken off the base amount by the coupon. */
+  discount?: number;
+  /** Promotional credit consumed at checkout, if any. */
+  promoCreditUsed?: number;
   method: PayMethod;
   /** Human-readable detail: "•••• 1111", "success@demo", "HDFC Bank", "Paytm". */
   methodDetail: string;
@@ -26,6 +32,7 @@ export interface PaymentTransaction {
   purposeType: "campaign" | "topup";
   campaignId?: string;
 }
+
 
 const ALNUM = "abcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -189,11 +196,149 @@ function failureReasonFor(method: PayMethod): FailureReason {
 }
 
 export const methodLabel: Record<PayMethod, string> = {
+  additv: "Additv Wallet",
   upi: "UPI",
   card: "Card",
   netbanking: "Netbanking",
   wallet: "Wallet",
 };
+
+// ---------- Saved cards ----------
+
+export interface SavedCard {
+  id: string;
+  /** Last 4 digits only — prototype never stores a full PAN. */
+  last4: string;
+  type: CardType;
+  holder: string;
+  /** MM/YY */
+  expiry: string;
+  isDefault?: boolean;
+}
+
+export const SEED_SAVED_CARDS: SavedCard[] = [
+  {
+    id: "sc_visa_4242",
+    last4: "4242",
+    type: "Visa",
+    holder: "Ramesh Kumar",
+    expiry: "08/28",
+    isDefault: true,
+  },
+  {
+    id: "sc_mc_1881",
+    last4: "1881",
+    type: "Mastercard",
+    holder: "Ramesh Kumar",
+    expiry: "02/27",
+  },
+];
+
+export const newCardId = () => `sc_${randomId(10)}`;
+
+// ---------- Coupons, discounts & promotional credits ----------
+
+export interface Coupon {
+  code: string;
+  label: string;
+  /** Percentage off the base amount (0-100) — mutually exclusive with flatOff. */
+  percentOff?: number;
+  /** Flat rupees off the base amount. */
+  flatOff?: number;
+  /** Cap on the discount for percentage coupons. */
+  maxDiscount?: number;
+  /** Minimum base amount required. */
+  minAmount?: number;
+  /** Where the coupon can be used. */
+  appliesTo: "all" | "campaign" | "topup";
+}
+
+export const COUPONS: Coupon[] = [
+  {
+    code: "ADDITV10",
+    label: "10% off your campaign budget",
+    percentOff: 10,
+    maxDiscount: 2000,
+    minAmount: 2000,
+    appliesTo: "campaign",
+  },
+  {
+    code: "FLAT500",
+    label: "₹500 off orders above ₹5,000",
+    flatOff: 500,
+    minAmount: 5000,
+    appliesTo: "all",
+  },
+  {
+    code: "TOPUP15",
+    label: "15% extra value on wallet top-ups",
+    percentOff: 15,
+    maxDiscount: 3000,
+    minAmount: 1000,
+    appliesTo: "topup",
+  },
+  {
+    code: "WELCOME25",
+    label: "25% off your first campaign",
+    percentOff: 25,
+    maxDiscount: 2500,
+    minAmount: 1000,
+    appliesTo: "campaign",
+  },
+];
+
+export type CouponContext = "campaign" | "topup";
+
+export type CouponResult =
+  | { ok: true; coupon: Coupon; discount: number }
+  | { ok: false; error: string };
+
+export function applyCoupon(
+  code: string,
+  baseAmount: number,
+  context: CouponContext,
+): CouponResult {
+  const c = COUPONS.find((x) => x.code === code.trim().toUpperCase());
+  if (!c) return { ok: false, error: "This coupon code isn't valid." };
+  if (c.appliesTo !== "all" && c.appliesTo !== context)
+    return {
+      ok: false,
+      error:
+        c.appliesTo === "topup"
+          ? "This coupon works only on wallet top-ups."
+          : "This coupon works only on campaign payments.",
+    };
+  if (c.minAmount && baseAmount < c.minAmount)
+    return { ok: false, error: `Valid on orders of ${inr(c.minAmount)} or more.` };
+  let discount = c.flatOff ?? Math.round((baseAmount * (c.percentOff ?? 0)) / 100);
+  if (c.maxDiscount) discount = Math.min(discount, c.maxDiscount);
+  discount = Math.min(discount, baseAmount);
+  return { ok: true, coupon: c, discount };
+}
+
+/** Referral / promotional credits granted to the advertiser (prototype seed). */
+export interface PromoCredit {
+  id: string;
+  label: string;
+  amount: number;
+  expiresOn: string;
+}
+
+export const SEED_PROMO_CREDITS: PromoCredit[] = [
+  {
+    id: "pc_referral_1",
+    label: "Referral reward — Anita's Cafe joined Additv",
+    amount: 1000,
+    expiresOn: "2026-12-31",
+  },
+  {
+    id: "pc_welcome",
+    label: "Welcome promotional credit",
+    amount: 500,
+    expiresOn: "2026-10-31",
+  },
+];
+
 
 /** Seed history so the transactions list isn't empty in the prototype. */
 export const SEED_TRANSACTIONS: PaymentTransaction[] = [

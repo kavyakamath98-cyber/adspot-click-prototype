@@ -6,10 +6,12 @@ import {
   ChevronDown,
   CreditCard,
   Download,
+  Gift,
   Loader2,
   QrCode,
   ShieldCheck,
   Smartphone,
+  Tag,
   Wallet as WalletIcon,
   XCircle,
 } from "lucide-react";
@@ -35,14 +37,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { useApp } from "@/lib/app-context";
 import {
   BANKS,
+  COUPONS,
   DEMO_FAILURE_CARD,
   DEMO_FAILURE_UPI,
   DEMO_SUCCESS_CARD,
   DEMO_SUCCESS_UPI,
   PAY_WALLETS,
   UPI_APPS,
+  applyCoupon,
+
   cvvLength,
   detectCardType,
   expiryError,
@@ -53,20 +59,27 @@ import {
   isValidUpi,
   luhnValid,
   methodLabel,
+  newCardId,
   newOrderId,
   newPaymentId,
   resolveOutcome,
+  type CouponContext,
   type FailureReason,
   type PayMethod,
   type PaymentOutcome,
+  type SavedCard,
 } from "@/lib/payments";
 
 export interface CheckoutSuccess {
   paymentId: string;
   orderId: string;
+  /** Base amount after any coupon discount. */
   amount: number;
   gst: number;
   total: number;
+  couponCode?: string;
+  discount?: number;
+  promoCreditUsed?: number;
   method: PayMethod;
   methodDetail: string;
   timestamp: string;
@@ -81,6 +94,8 @@ interface Props {
   description: string;
   /** Called only after a simulated successful payment. */
   onSuccess: (result: CheckoutSuccess) => void;
+  /** What the payment is for — drives coupon eligibility and wallet availability. */
+  context?: CouponContext;
 }
 
 const MERCHANT = "AdSpot Click";
@@ -91,15 +106,37 @@ type Phase = "form" | "processing" | "success" | "failure" | "expired";
 const mmss = (s: number) =>
   `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-export function CheckoutModal({ open, onOpenChange, amount, description, onSuccess }: Props) {
-  const gst = gstOn(amount);
-  const total = amount + gst;
+
+export function CheckoutModal({
+  open,
+  onOpenChange,
+  amount,
+  description,
+  onSuccess,
+  context = "campaign",
+}: Props) {
+  const {
+    wallet,
+    chargeWallet,
+    savedCards,
+    addSavedCard,
+    promoCreditBalance,
+    consumePromoCredit,
+  } = useApp();
 
   const [orderId, setOrderId] = useState(newOrderId);
   const [phase, setPhase] = useState<Phase>("form");
-  const [method, setMethod] = useState<PayMethod>("upi");
+  const [method, setMethod] = useState<PayMethod>(context === "topup" ? "upi" : "additv");
   const [seconds, setSeconds] = useState(SESSION_SECONDS);
   const [confirmClose, setConfirmClose] = useState(false);
+
+  // Coupons & promotional credits
+  const [couponInput, setCouponInput] = useState("");
+  const [couponCode, setCouponCode] = useState<string | null>(null);
+  const [discount, setDiscount] = useState(0);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponListOpen, setCouponListOpen] = useState(false);
+  const [usePromoCredit, setUsePromoCredit] = useState(false);
 
   // Method fields
   const [upiId, setUpiId] = useState("");
@@ -109,6 +146,8 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
   const [cvv, setCvv] = useState("");
   const [cardName, setCardName] = useState("");
   const [saveCard, setSaveCard] = useState(false);
+  const [savedCardId, setSavedCardId] = useState<string | null>(null);
+  const [savedCvv, setSavedCvv] = useState("");
   const [bankQuery, setBankQuery] = useState("");
   const [bank, setBank] = useState<string | null>(null);
   const [bankOpen, setBankOpen] = useState(false);
@@ -122,6 +161,19 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
   const [failReason, setFailReason] = useState<FailureReason | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const walletAllowed = context !== "topup";
+
+  // Money math: coupon discounts the base, GST applies on the discounted base,
+  // promotional credit then comes off the payable total.
+  const netBase = Math.max(0, amount - discount);
+  const gst = gstOn(netBase);
+  const grossTotal = netBase + gst;
+  const creditApplied = usePromoCredit ? Math.min(promoCreditBalance, grossTotal) : 0;
+  const total = Math.max(0, grossTotal - creditApplied);
+
+  const selectedCard: SavedCard | null =
+    savedCards.find((c) => c.id === savedCardId) ?? null;
+
   // A fresh order id per checkout session; retries reuse it (never double-charge).
   useEffect(() => {
     if (!open) return;
@@ -133,6 +185,15 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
     setConfirmClose(false);
     setForced(null);
     setUpiTouched(false);
+    setCouponInput("");
+    setCouponCode(null);
+    setDiscount(0);
+    setCouponError(null);
+    setUsePromoCredit(false);
+    setSavedCvv("");
+    setSavedCardId(savedCards.find((c) => c.isDefault)?.id ?? savedCards[0]?.id ?? null);
+    setMethod(context === "topup" ? "upi" : "additv");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
@@ -155,24 +216,68 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
   const cardDigits = cardNumber.replace(/\D/g, "");
   const cardExpiryErr = expiry ? expiryError(expiry) : null;
 
+  const walletShort = walletAllowed && wallet < total;
+
   const valid = useMemo(() => {
+    if (method === "additv") return walletAllowed && wallet >= total;
     if (method === "upi") return isValidUpi(upiId);
-    if (method === "card")
+    if (method === "card") {
+      if (selectedCard) return savedCvv.length === cvvLength(selectedCard.type);
       return (
         luhnValid(cardDigits) &&
         !expiryError(expiry) &&
         cvv.length === cvvLength(cardType) &&
         cardName.trim().length >= 3
       );
+    }
     if (method === "netbanking") return !!bank;
     return !!payWallet;
-  }, [method, upiId, cardDigits, expiry, cvv, cardType, cardName, bank, payWallet]);
+  }, [
+    method,
+    walletAllowed,
+    wallet,
+    total,
+    upiId,
+    selectedCard,
+    savedCvv,
+    cardDigits,
+    expiry,
+    cvv,
+    cardType,
+    cardName,
+    bank,
+    payWallet,
+  ]);
 
   const methodDetail = () => {
+    if (method === "additv") return "Additv wallet";
     if (method === "upi") return upiId.trim();
-    if (method === "card") return `${cardType} •••• ${cardDigits.slice(-4)}`;
+    if (method === "card")
+      return selectedCard
+        ? `${selectedCard.type} •••• ${selectedCard.last4}`
+        : `${cardType} •••• ${cardDigits.slice(-4)}`;
     if (method === "netbanking") return bank ?? "Bank";
     return payWallet ?? "Wallet";
+  };
+
+  const onApplyCoupon = () => {
+    const res = applyCoupon(couponInput, amount, context);
+    if (!res.ok) {
+      setCouponError(res.error);
+      setCouponCode(null);
+      setDiscount(0);
+      return;
+    }
+    setCouponError(null);
+    setCouponCode(res.coupon.code);
+    setDiscount(res.discount);
+  };
+
+  const clearCoupon = () => {
+    setCouponCode(null);
+    setDiscount(0);
+    setCouponInput("");
+    setCouponError(null);
   };
 
   const pay = () => {
@@ -183,7 +288,7 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
       const { outcome, reason } = resolveOutcome({
         method,
         upiId,
-        cardNumber: cardDigits,
+        cardNumber: selectedCard ? "" : cardDigits,
         forced,
       });
       setForced(null);
@@ -192,12 +297,30 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
         setPhase("failure");
         return;
       }
+      if (method === "additv" && !chargeWallet(total)) {
+        setFailReason("Insufficient funds");
+        setPhase("failure");
+        return;
+      }
+      if (creditApplied > 0) consumePromoCredit(creditApplied);
+      if (method === "card" && !selectedCard && saveCard) {
+        addSavedCard({
+          id: newCardId(),
+          last4: cardDigits.slice(-4),
+          type: cardType,
+          holder: cardName.trim(),
+          expiry,
+        });
+      }
       const res: CheckoutSuccess = {
         paymentId: newPaymentId(),
         orderId,
-        amount,
+        amount: netBase,
         gst,
         total,
+        couponCode: couponCode ?? undefined,
+        discount: discount || undefined,
+        promoCreditUsed: creditApplied || undefined,
         method,
         methodDetail: methodDetail(),
         timestamp: new Date().toISOString(),
@@ -207,6 +330,7 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
       onSuccess(res);
     }, delay);
   };
+
 
   const requestClose = () => {
     if (phase === "processing") return;
@@ -266,14 +390,27 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
                   <dt className="text-muted-foreground">Base amount</dt>
                   <dd className="tabular-nums">{inr(amount)}</dd>
                 </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-primary">
+                    <dt>Coupon {couponCode}</dt>
+                    <dd className="tabular-nums">−{inr(discount)}</dd>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">GST @ 18%</dt>
                   <dd className="tabular-nums">{inr(gst)}</dd>
                 </div>
+                {creditApplied > 0 && (
+                  <div className="flex justify-between text-primary">
+                    <dt>Promotional credit</dt>
+                    <dd className="tabular-nums">−{inr(creditApplied)}</dd>
+                  </div>
+                )}
                 <div className="flex justify-between border-t pt-1.5 text-base font-semibold">
                   <dt>Total payable</dt>
                   <dd className="tabular-nums">{inr(total)}</dd>
                 </div>
+
               </dl>
               <div className="rounded-md bg-background/70 px-3 py-2">
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Order ID</p>
@@ -364,9 +501,112 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
 
               {phase === "form" && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {/* Coupons & promotional credits */}
+                  <div className="rounded-lg border p-3">
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-primary" />
+                      <p className="text-sm font-medium">Coupons & offers</p>
+                      <button
+                        type="button"
+                        className="ml-auto text-xs font-medium text-primary hover:underline"
+                        onClick={() => setCouponListOpen((o) => !o)}
+                      >
+                        {couponListOpen ? "Hide offers" : "View offers"}
+                      </button>
+                    </div>
+                    {couponCode ? (
+                      <div className="mt-2 flex items-center justify-between rounded-md bg-primary/10 px-3 py-2 text-sm">
+                        <span className="font-medium text-primary">
+                          {couponCode} applied · you save {inr(discount)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={clearCoupon}
+                          className="text-xs font-medium text-muted-foreground hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex gap-2">
+                        <Input
+                          value={couponInput}
+                          onChange={(e) => {
+                            setCouponInput(e.target.value.toUpperCase());
+                            setCouponError(null);
+                          }}
+                          placeholder="Enter coupon code"
+                          className="h-9"
+                        />
+                        <Button
+                          variant="outline"
+                          className="h-9"
+                          disabled={!couponInput.trim()}
+                          onClick={onApplyCoupon}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    )}
+                    {couponError && (
+                      <p className="mt-1.5 text-xs text-destructive">{couponError}</p>
+                    )}
+                    {couponListOpen && (
+                      <ul className="mt-2 space-y-1.5">
+                        {COUPONS.filter(
+                          (c) => c.appliesTo === "all" || c.appliesTo === context,
+                        ).map((c) => (
+                          <li
+                            key={c.code}
+                            className="flex items-center justify-between gap-3 rounded-md border border-dashed px-3 py-2 text-xs"
+                          >
+                            <span>
+                              <span className="font-mono font-semibold">{c.code}</span> ·{" "}
+                              <span className="text-muted-foreground">{c.label}</span>
+                            </span>
+                            <button
+                              type="button"
+                              className="font-medium text-primary hover:underline"
+                              onClick={() => {
+                                setCouponInput(c.code);
+                                const res = applyCoupon(c.code, amount, context);
+                                if (res.ok) {
+                                  setCouponCode(res.coupon.code);
+                                  setDiscount(res.discount);
+                                  setCouponError(null);
+                                } else {
+                                  setCouponError(res.error);
+                                }
+                              }}
+                            >
+                              Apply
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {promoCreditBalance > 0 && (
+                      <label className="mt-3 flex items-center gap-2 border-t pt-3 text-sm">
+                        <Checkbox
+                          checked={usePromoCredit}
+                          onCheckedChange={(v) => setUsePromoCredit(v === true)}
+                        />
+                        <Gift className="h-4 w-4 text-primary" />
+                        Use promotional credit ({inr(promoCreditBalance)} available)
+                      </label>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                     {(
                       [
+                        ...(walletAllowed
+                          ? ([["additv", "Additv Wallet", WalletIcon]] as [
+                              PayMethod,
+                              string,
+                              typeof Smartphone,
+                            ][])
+                          : []),
                         ["upi", "UPI", Smartphone],
                         ["card", "Cards", CreditCard],
                         ["netbanking", "Netbanking", Banknote],
@@ -388,6 +628,39 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
                       </button>
                     ))}
                   </div>
+
+                  {method === "additv" && (
+                    <div className="space-y-3 rounded-lg border p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
+                            <WalletIcon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">Additv wallet</p>
+                            <p className="text-xs text-muted-foreground">
+                              Balance {inr(wallet)}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-sm tabular-nums text-muted-foreground">
+                          Paying {inr(total)}
+                        </p>
+                      </div>
+                      {walletShort ? (
+                        <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                          Your wallet is short by {inr(total - wallet)}. Top up your wallet or pick
+                          another payment method.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Balance after this payment: {inr(wallet - total)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+
 
                   {method === "upi" && (
                     <div className="space-y-3">
@@ -438,7 +711,82 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
 
                   {method === "card" && (
                     <div className="space-y-3">
+                      {savedCards.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Saved cards</Label>
+                          {savedCards.map((c) => (
+                            <div
+                              key={c.id}
+                              className={cn(
+                                "rounded-lg border p-3 transition",
+                                savedCardId === c.id
+                                  ? "border-primary bg-primary/5"
+                                  : "border-border",
+                              )}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSavedCardId(c.id);
+                                  setSavedCvv("");
+                                }}
+                                className="flex w-full items-center gap-3 text-left"
+                              >
+                                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm font-medium">
+                                  {c.type} •••• {c.last4}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  Expires {c.expiry}
+                                </span>
+                                {c.isDefault && (
+                                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                    Default
+                                  </span>
+                                )}
+                              </button>
+                              {savedCardId === c.id && (
+                                <div className="mt-2 flex items-center gap-2">
+                                  <Input
+                                    type="password"
+                                    inputMode="numeric"
+                                    className="h-9 w-28"
+                                    value={savedCvv}
+                                    onChange={(e) =>
+                                      setSavedCvv(
+                                        e.target.value
+                                          .replace(/\D/g, "")
+                                          .slice(0, cvvLength(c.type)),
+                                      )
+                                    }
+                                    placeholder={`CVV (${cvvLength(c.type)})`}
+                                  />
+                                  <span className="text-xs text-muted-foreground">
+                                    Enter the CVV to authorise this payment
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSavedCardId(null);
+                              setSavedCvv("");
+                            }}
+                            className={cn(
+                              "text-xs font-medium hover:underline",
+                              savedCardId === null ? "text-primary" : "text-muted-foreground",
+                            )}
+                          >
+                            + Use a new card
+                          </button>
+                        </div>
+                      )}
+                      {!selectedCard && (
+                      <>
                       <div className="space-y-1.5">
+
                         <Label htmlFor="cardno">Card number</Label>
                         <div className="relative">
                           <Input
@@ -505,8 +853,11 @@ export function CheckoutModal({ open, onOpenChange, amount, description, onSucce
                         />
                         Save this card for faster checkout
                       </label>
+                      </>
+                      )}
                     </div>
                   )}
+
 
                   {method === "netbanking" && (
                     <div className="space-y-2">

@@ -30,16 +30,20 @@ export const Route = createFileRoute("/campaigns/")({
   component: CampaignsList,
 });
 
-const STATUS_FILTERS: { key: CampaignStatus | "all"; label: string }[] = [
+type FilterKey = CampaignStatus | "all" | "payment_pending";
+
+const STATUS_FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All" },
   { key: "live", label: "Live" },
   { key: "pending_approval", label: "Pending" },
+  { key: "payment_pending", label: "Approved — Payment Pending" },
   { key: "approved_scheduled", label: "Scheduled" },
   { key: "paused", label: "Paused" },
   { key: "draft", label: "Draft" },
   { key: "rejected", label: "Rejected" },
   { key: "completed", label: "Completed" },
 ];
+
 
 const PAGE = 8;
 
@@ -59,7 +63,7 @@ const time = (d?: string) => {
 function CampaignsList() {
   const { campaigns } = useApp();
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<CampaignStatus | "all">("all");
+  const [status, setStatus] = useState<FilterKey>("all");
   const [sort, setSort] = useState<SortKey>("created_desc");
   const [visible, setVisible] = useState(PAGE);
   const sentinel = useRef<HTMLDivElement | null>(null);
@@ -67,10 +71,11 @@ function CampaignsList() {
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     const list = campaigns.filter((c) => {
-      if (status !== "all" && c.status !== status) return false;
+      if (status !== "all" && displayStatus(c) !== status) return false;
       if (s && !c.name.toLowerCase().includes(s)) return false;
       return true;
     });
+
     return [...list].sort((a, b) => {
       switch (sort) {
         case "created_asc":
@@ -150,7 +155,10 @@ function CampaignsList() {
         {STATUS_FILTERS.map((f) => {
           const active = status === f.key;
           const count =
-            f.key === "all" ? campaigns.length : campaigns.filter((c) => c.status === f.key).length;
+            f.key === "all"
+              ? campaigns.length
+              : campaigns.filter((c) => displayStatus(c) === f.key).length;
+
           return (
             <button
               key={f.key}

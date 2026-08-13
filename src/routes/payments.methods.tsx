@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CreditCard, Plus, Wallet } from "lucide-react";
+import { Copy, CreditCard, Gift, Plus, Star, Trash2, Wallet } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { COUPONS, inr } from "@/lib/payments";
 
 const TOPUP_PRESETS = [5000, 10000, 25000];
 
@@ -31,14 +32,20 @@ export const Route = createFileRoute("/payments/methods")({
   component: PaymentMethods,
 });
 
-const SAVED_METHODS = [
-  { id: "pm1", brand: "Visa", last4: "4242", exp: "08/28", default: true },
-  { id: "pm2", brand: "Mastercard", last4: "1881", exp: "02/27", default: false },
-  { id: "pm3", brand: "UPI", last4: "rameshkitchen@okhdfc", exp: "", default: false },
-];
+const SAVED_UPI = [{ id: "pm3", brand: "UPI", handle: "rameshkitchen@okhdfc" }];
 
 function PaymentMethods() {
-  const { wallet, creditWallet, recordTransaction } = useApp();
+  const {
+    wallet,
+    creditWallet,
+    recordTransaction,
+    savedCards,
+    removeSavedCard,
+    makeCardDefault,
+    promoCredits,
+    promoCreditBalance,
+    referralCode,
+  } = useApp();
   const [amountOpen, setAmountOpen] = useState(false);
   const [amount, setAmount] = useState<number>(10000);
   const [custom, setCustom] = useState("");
@@ -63,28 +70,100 @@ function PaymentMethods() {
             <p className="text-3xl font-semibold">₹{wallet.toLocaleString("en-IN")}</p>
           </div>
         </div>
-        <Button
-          className="gap-2"
-          onClick={() => setAmountOpen(true)}
-        >
+        <Button className="gap-2" onClick={() => setAmountOpen(true)}>
           <Plus className="h-4 w-4" /> Top up wallet
         </Button>
       </Card>
 
+      {/* Promotional credits */}
+      <Card className="mb-6 p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <Gift className="h-4 w-4 text-primary" />
+          <h2 className="text-lg font-semibold">Promotional credits</h2>
+          <span className="ml-auto text-sm font-semibold tabular-nums">
+            {inr(promoCreditBalance)} available
+          </span>
+        </div>
+        {promoCredits.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            You have no promotional credits right now. Refer another business to earn credit.
+          </p>
+        ) : (
+          <ul className="grid gap-2">
+            {promoCredits.map((c) => (
+              <li
+                key={c.id}
+                className="flex items-center justify-between gap-4 rounded-lg border px-4 py-3 text-sm"
+              >
+                <div>
+                  <p className="font-medium">{c.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Expires {new Date(c.expiresOn).toLocaleDateString("en-IN")}
+                  </p>
+                </div>
+                <span className="font-semibold tabular-nums text-primary">{inr(c.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-secondary/50 px-4 py-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Your referral code
+            </p>
+            <p className="font-mono text-sm font-semibold">{referralCode}</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto gap-2"
+            onClick={() => {
+              void navigator.clipboard?.writeText(referralCode);
+              toast.success("Referral code copied");
+            }}
+          >
+            <Copy className="h-4 w-4" /> Copy
+          </Button>
+        </div>
+      </Card>
+
+      {/* Coupons */}
+      <Card className="mb-6 p-5">
+        <h2 className="mb-3 text-lg font-semibold">Available coupons</h2>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {COUPONS.map((c) => (
+            <li key={c.code} className="rounded-lg border border-dashed px-4 py-3">
+              <p className="font-mono text-sm font-semibold">{c.code}</p>
+              <p className="text-xs text-muted-foreground">{c.label}</p>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Apply a coupon on the checkout screen when paying for a campaign or topping up.
+        </p>
+      </Card>
+
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Saved methods</h2>
+        <h2 className="text-lg font-semibold">Saved cards</h2>
         <Button
           variant="outline"
           size="sm"
           className="gap-2"
-          onClick={() => toast.info("Adding new payment methods is disabled in this prototype.")}
+          onClick={() =>
+            toast.info("Save a card by ticking 'Save this card' during checkout.")
+          }
         >
           <Plus className="h-4 w-4" /> Add new
         </Button>
       </div>
 
       <div className="grid gap-3">
-        {SAVED_METHODS.map((m) => (
+        {savedCards.length === 0 && (
+          <Card className="p-4 text-sm text-muted-foreground">
+            No saved cards yet. Tick “Save this card for faster checkout” while paying.
+          </Card>
+        )}
+        {savedCards.map((m) => (
           <Card key={m.id} className="flex items-center justify-between gap-4 p-4">
             <div className="flex items-center gap-4">
               <div className="grid h-10 w-10 place-items-center rounded-md bg-secondary text-muted-foreground">
@@ -92,21 +171,59 @@ function PaymentMethods() {
               </div>
               <div>
                 <p className="font-medium">
-                  {m.brand} {m.brand === "UPI" ? "" : `•••• ${m.last4}`}
+                  {m.type} •••• {m.last4}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {m.brand === "UPI" ? m.last4 : `Expires ${m.exp}`}
+                  {m.holder} · Expires {m.expiry}
                 </p>
               </div>
             </div>
-            {m.default && (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                Default
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {m.isDefault ? (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                  Default
+                </span>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => {
+                    makeCardDefault(m.id);
+                    toast.success("Default card updated");
+                  }}
+                >
+                  <Star className="h-4 w-4" /> Make default
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  removeSavedCard(m.id);
+                  toast.success("Card removed");
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </Card>
+        ))}
+        {SAVED_UPI.map((m) => (
+          <Card key={m.id} className="flex items-center justify-between gap-4 p-4">
+            <div className="flex items-center gap-4">
+              <div className="grid h-10 w-10 place-items-center rounded-md bg-secondary text-muted-foreground">
+                <CreditCard className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-medium">UPI</p>
+                <p className="text-xs text-muted-foreground">{m.handle}</p>
+              </div>
+            </div>
           </Card>
         ))}
       </div>
+
       <Dialog open={amountOpen} onOpenChange={setAmountOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -161,6 +278,7 @@ function PaymentMethods() {
         onOpenChange={setCheckoutOpen}
         amount={amount}
         description="Wallet top-up"
+        context="topup"
         onSuccess={(r) => {
           creditWallet(r.amount);
           recordTransaction({
