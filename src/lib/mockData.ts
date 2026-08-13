@@ -118,7 +118,23 @@ export interface Creative {
   // true if this creative has ever cleared review — enables it to reuse without
   // the 48-hour review buffer on start date.
   previouslyApproved?: boolean;
+  /**
+   * Campaign this creative was submitted with. Only used for creatives that
+   * belong to OTHER advertiser accounts (the moderation console can't read
+   * their campaign lists), so the reviewer still sees run context.
+   */
+  campaignContext?: {
+    name: string;
+    cities: string[];
+    pincodes: string[];
+    locationTags: string[];
+    screenTypes: string[];
+    screenCount: number;
+    startDate: string;
+    endDate: string;
+  };
 }
+
 
 
 export type CampaignStatus =
