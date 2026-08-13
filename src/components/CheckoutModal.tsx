@@ -297,11 +297,13 @@ export function CheckoutModal({
         setPhase("failure");
         return;
       }
-      if (method === "additv" && !chargeWallet(total)) {
+      // Wallet debiting is owned by the caller (it knows what the money buys).
+      if (method === "additv" && wallet < total) {
         setFailReason("Insufficient funds");
         setPhase("failure");
         return;
       }
+
       if (creditApplied > 0) consumePromoCredit(creditApplied);
       if (method === "card" && !selectedCard && saveCard) {
         addSavedCard({
