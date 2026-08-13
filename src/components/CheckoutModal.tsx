@@ -6,10 +6,12 @@ import {
   ChevronDown,
   CreditCard,
   Download,
+  Gift,
   Loader2,
   QrCode,
   ShieldCheck,
   Smartphone,
+  Tag,
   Wallet as WalletIcon,
   XCircle,
 } from "lucide-react";
@@ -35,14 +37,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { useApp } from "@/lib/app-context";
 import {
   BANKS,
+  COUPONS,
   DEMO_FAILURE_CARD,
   DEMO_FAILURE_UPI,
   DEMO_SUCCESS_CARD,
   DEMO_SUCCESS_UPI,
   PAY_WALLETS,
-  UPI_APPS,
+  applyCoupon,
   cvvLength,
   detectCardType,
   expiryError,
@@ -53,20 +57,27 @@ import {
   isValidUpi,
   luhnValid,
   methodLabel,
+  newCardId,
   newOrderId,
   newPaymentId,
   resolveOutcome,
+  type CouponContext,
   type FailureReason,
   type PayMethod,
   type PaymentOutcome,
+  type SavedCard,
 } from "@/lib/payments";
 
 export interface CheckoutSuccess {
   paymentId: string;
   orderId: string;
+  /** Base amount after any coupon discount. */
   amount: number;
   gst: number;
   total: number;
+  couponCode?: string;
+  discount?: number;
+  promoCreditUsed?: number;
   method: PayMethod;
   methodDetail: string;
   timestamp: string;
@@ -81,6 +92,8 @@ interface Props {
   description: string;
   /** Called only after a simulated successful payment. */
   onSuccess: (result: CheckoutSuccess) => void;
+  /** What the payment is for — drives coupon eligibility and wallet availability. */
+  context?: CouponContext;
 }
 
 const MERCHANT = "AdSpot Click";
@@ -90,6 +103,7 @@ type Phase = "form" | "processing" | "success" | "failure" | "expired";
 
 const mmss = (s: number) =>
   `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
 
 export function CheckoutModal({ open, onOpenChange, amount, description, onSuccess }: Props) {
   const gst = gstOn(amount);
