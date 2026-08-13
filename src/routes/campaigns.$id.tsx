@@ -539,6 +539,12 @@ function CampaignDetail() {
             />
             <RefundCell label="Status" value={campaign.refund.status} />
             <RefundCell label="Reference ID" value={campaign.refund.referenceId} />
+            {campaign.refund.refundId && (
+              <RefundCell label="Refund ID" value={campaign.refund.refundId} />
+            )}
+            {campaign.refund.originalPaymentId && (
+              <RefundCell label="Original payment" value={campaign.refund.originalPaymentId} />
+            )}
             <RefundCell
               label="Date"
               value={new Date(campaign.refund.date).toLocaleDateString("en-IN")}

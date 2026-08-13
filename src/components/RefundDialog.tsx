@@ -121,6 +121,10 @@ export function RefundDialog({
               />
               <Row label="Status" value={result.status} />
               <Row label="Reference ID" value={result.referenceId} />
+              {result.refundId && <Row label="Refund ID" value={result.refundId} />}
+              {result.originalPaymentId && (
+                <Row label="Original payment" value={result.originalPaymentId} />
+              )}
               <Row label="Date" value={new Date(result.date).toLocaleDateString("en-IN")} />
             </div>
             <DialogFooter>
