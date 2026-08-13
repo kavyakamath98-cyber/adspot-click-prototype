@@ -18,18 +18,8 @@ export const LOCATION_TAGS: LocationTag[] = [
   "Other",
 ];
 
-export const INDUSTRIES = [
-  "Restaurant",
-  "Clinic/Healthcare",
-  "Retail",
-  "Salon/Beauty",
-  "Gym/Fitness",
-  "Education",
-  "Real Estate",
-  "Insurance",
-  "Other",
-] as const;
-export type Industry = (typeof INDUSTRIES)[number];
+export { INDUSTRIES, type Industry, type SubIndustry } from "@/data/industryTaxonomy";
+import type { Industry } from "@/data/industryTaxonomy";
 
 /** Fixed standard DOOH day-part slots. */
 export interface Daypart {
@@ -68,52 +58,6 @@ export interface ScreenBooking {
   slots: string[]; // booked daypart ids
 }
 
-export const CONTENT_TAGS = ["General/Info", "Alcohol", "Sensitive", "Adult"] as const;
-export type ContentTag = (typeof CONTENT_TAGS)[number];
-
-/** Plain-language definitions shown behind the info icon next to the content tag. */
-export const CONTENT_TAG_INFO: Record<
-  ContentTag,
-  { definition: string; examples: string[]; outcome: string }
-> = {
-  "General/Info": {
-    definition:
-      "Everyday promotional or informational content that anyone, including children, can see.",
-    examples: ["Restaurant menu offer", "Clinic timings", "Gym membership discount", "Festive sale"],
-    outcome: "Runs on all screens.",
-  },
-  Alcohol: {
-    definition: "Any promotion of alcohol, tobacco, vaping or other regulated intoxicants.",
-    examples: ["Bar happy-hour offer", "Beer brand ad", "Wine tasting event", "Cigarette brand"],
-    outcome: "Rejected at review — not permitted on our screens.",
-  },
-  Sensitive: {
-    definition:
-      "Legal, non-explicit content that some viewers may find uncomfortable in a public place. It is about tone and topic, not nudity.",
-    examples: [
-      "Medical procedures (surgery, hair transplant before/after)",
-      "Weight-loss or body-image claims",
-      "Debt, loans and money-lending offers",
-      "Politics, religion or social causes",
-      "Crime, injury or accident imagery (e.g. insurance ads)",
-    ],
-    outcome:
-      "Allowed, but reviewed more carefully and kept off family-heavy screens such as school and clinic waiting areas.",
-  },
-  Adult: {
-    definition:
-      "Sexual or explicit content, or content legally restricted to viewers over 18. This is about explicitness, not just discomfort.",
-    examples: [
-      "Nudity or sexually suggestive imagery",
-      "Dating or escort services",
-      "Adult stores and products",
-      "Gambling and betting",
-    ],
-    outcome: "Rejected at review — never permitted on public screens.",
-  },
-};
-
-
 export interface Screen {
   id: string;
   venue: string;
@@ -148,8 +92,8 @@ export interface Creative {
   durationSec?: number;
   uploadedAt: string;
   tags: string[];
-  industry?: Industry;
-  contentTag?: ContentTag;
+  industry: Industry;
+  subIndustry: string;
   status: "approved" | "rejected" | "pending";
   rejectionReason?: string;
   // true if this creative has ever cleared review — enables it to reuse without
@@ -597,8 +541,8 @@ export const INITIAL_CREATIVES: Creative[] = [
     sizeKB: 420,
     uploadedAt: "2026-06-10",
     tags: ["festival", "food"],
-    industry: "Restaurant",
-    contentTag: "General/Info",
+    industry: "Food & Beverage (F&B)",
+    subIndustry: "Restaurants & QSR",
     status: "approved",
     previouslyApproved: true,
   },
@@ -612,8 +556,8 @@ export const INITIAL_CREATIVES: Creative[] = [
     sizeKB: 380,
     uploadedAt: "2026-06-18",
     tags: ["weekend", "food"],
-    industry: "Restaurant",
-    contentTag: "General/Info",
+    industry: "Food & Beverage (F&B)",
+    subIndustry: "Restaurants & QSR",
     status: "approved",
     previouslyApproved: true,
   },
@@ -629,8 +573,8 @@ export const INITIAL_CREATIVES: Creative[] = [
     durationSec: 12,
     uploadedAt: "2026-07-01",
     tags: ["video", "menu"],
-    industry: "Restaurant",
-    contentTag: "General/Info",
+    industry: "Food & Beverage (F&B)",
+    subIndustry: "Restaurants & QSR",
     status: "approved",
     previouslyApproved: true,
   },
@@ -644,8 +588,8 @@ export const INITIAL_CREATIVES: Creative[] = [
     sizeKB: 500,
     uploadedAt: "2026-05-20",
     tags: ["drinks", "night"],
-    industry: "Restaurant",
-    contentTag: "Alcohol",
+    industry: "Food & Beverage (F&B)",
+    subIndustry: "Alcoholic Beverages",
     status: "rejected",
     rejectionReason: "Alcohol or tobacco promotion",
   },
@@ -661,8 +605,8 @@ export const INITIAL_CREATIVES: Creative[] = [
     durationSec: 15,
     uploadedAt: "2026-07-05",
     tags: ["video", "grand-opening"],
-    industry: "Restaurant",
-    contentTag: "General/Info",
+    industry: "Food & Beverage (F&B)",
+    subIndustry: "Restaurants & QSR",
     status: "approved",
     previouslyApproved: true,
   },

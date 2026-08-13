@@ -7,6 +7,13 @@ import {
   type CampaignStatus,
   type Creative,
 } from "./mockData";
+import { migrateTag, restrictionFor } from "@/data/industryTaxonomy";
+
+/** Ensure every seeded creative carries a valid Industry / Sub-Industry pair. */
+const MIGRATED_CREATIVES: Creative[] = INITIAL_CREATIVES.map((c) => ({
+  ...c,
+  ...migrateTag(c.industry, c.subIndustry),
+}));
 
 export type DemoMode = "returning" | "new";
 
@@ -55,7 +62,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [demoMode, setDemoModeState] = useState<DemoMode>("returning");
   const [wallet, setWallet] = useState(25000);
   const [campaigns, setCampaigns] = useState<Campaign[]>(INITIAL_CAMPAIGNS);
-  const [creatives, setCreatives] = useState<Creative[]>(INITIAL_CREATIVES);
+  const [creatives, setCreatives] = useState<Creative[]>(MIGRATED_CREATIVES);
 
   const setDemoMode = useCallback((m: DemoMode) => {
     setDemoModeState(m);
@@ -65,7 +72,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setWallet(25000);
     } else {
       setCampaigns(INITIAL_CAMPAIGNS);
-      setCreatives(INITIAL_CREATIVES);
+      setCreatives(MIGRATED_CREATIVES);
       setWallet(25000);
     }
   }, []);
@@ -123,12 +130,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // see a stale campaign list and silently skip the creative update.
       const creativeId = creativeIdArg ?? campaigns.find((c) => c.id === id)?.creativeId;
       const creative = creatives.find((c) => c.id === creativeId);
-      const forcedTag =
-        creative?.contentTag === "Alcohol"
-          ? "Alcohol or tobacco promotion"
-          : creative?.contentTag === "Adult"
-            ? "Explicit or inappropriate content"
-            : undefined;
+      const forcedTag = restrictionFor(creative?.subIndustry);
       const outcome: "approve" | "reject" = forcedTag
         ? "reject"
         : (forceOutcome ?? (Math.random() < 0.8 ? "approve" : "reject"));
@@ -176,12 +178,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const simulateCreativeReviewForCampaign = useCallback(
     (campaignId: string, creativeId: string, forceOutcome?: "approve" | "reject") => {
       const creative = creatives.find((c) => c.id === creativeId);
-      const forcedTag =
-        creative?.contentTag === "Alcohol"
-          ? "Alcohol or tobacco promotion"
-          : creative?.contentTag === "Adult"
-            ? "Explicit or inappropriate content"
-            : undefined;
+      const forcedTag = restrictionFor(creative?.subIndustry);
       const outcome: "approve" | "reject" = forcedTag
         ? "reject"
         : (forceOutcome ?? (Math.random() < 0.8 ? "approve" : "reject"));
@@ -257,12 +254,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         prev.map((cr) => (cr.id === newCreativeId ? { ...cr, status: "pending" } : cr)),
       );
       const cr = creatives.find((c) => c.id === newCreativeId);
-      const forcedTag =
-        cr?.contentTag === "Alcohol"
-          ? "Alcohol or tobacco promotion"
-          : cr?.contentTag === "Adult"
-            ? "Explicit or inappropriate content"
-            : undefined;
+      const forcedTag = restrictionFor(cr?.subIndustry);
       setTimeout(() => {
         const outcome = forcedTag
           ? "reject"

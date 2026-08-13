@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useApp } from "@/lib/app-context";
+import { TagSelect } from "@/components/TagSelect";
+import { INDUSTRIES, subIndustriesFor, type Industry } from "@/data/industryTaxonomy";
 import { toast } from "sonner";
 
 
@@ -25,17 +27,22 @@ function LibraryPage() {
   const { creatives, campaigns, deleteCreative } = useApp();
   const [q, setQ] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [industryFilter, setIndustryFilter] = useState<Industry | "">("");
+  const [subFilter, setSubFilter] = useState("");
 
   const results = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return creatives;
-    return creatives.filter(
-      (c) =>
+    return creatives.filter((c) => {
+      if (industryFilter && c.industry !== industryFilter) return false;
+      if (subFilter && c.subIndustry !== subFilter) return false;
+      if (!s) return true;
+      return (
         c.name.toLowerCase().includes(s) ||
-        c.tags.some((t) => t.toLowerCase().includes(s)) ||
-        c.industry?.toLowerCase().includes(s),
-    );
-  }, [creatives, q]);
+        c.industry?.toLowerCase().includes(s) ||
+        c.subIndustry?.toLowerCase().includes(s)
+      );
+    });
+  }, [creatives, q, industryFilter, subFilter]);
 
   const usageFor = (creativeId: string) =>
     campaigns.filter(
@@ -58,8 +65,28 @@ function LibraryPage() {
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search by name, tag, industry"
+              placeholder="Search by name, industry, sub-industry"
               className="pl-9"
+            />
+          </div>
+          <div className="w-44">
+            <TagSelect
+              value={industryFilter}
+              onChange={(v) => {
+                setIndustryFilter(v as Industry);
+                setSubFilter("");
+              }}
+              options={INDUSTRIES}
+              placeholder="Any industry"
+            />
+          </div>
+          <div className="w-48">
+            <TagSelect
+              value={subFilter}
+              onChange={setSubFilter}
+              options={subIndustriesFor(industryFilter)}
+              disabled={!industryFilter}
+              placeholder={industryFilter ? "Any sub-industry" : "Pick an industry"}
             />
           </div>
           <Button onClick={() => setUploadOpen(true)} className="gap-1.5">
@@ -80,7 +107,7 @@ function LibraryPage() {
           <div>
             <p className="font-medium">Add New Creative</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Tag with an industry, then upload image or video
+              Tag with an Industry and Sub-Industry, then upload image or video
             </p>
           </div>
         </button>
@@ -116,16 +143,12 @@ function LibraryPage() {
                   {c.durationSec ? ` · ${c.durationSec}s` : ""}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {c.industry && (
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                      {c.industry}
-                    </span>
-                  )}
-                  {c.tags.map((t) => (
-                    <span key={t} className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
-                      {t}
-                    </span>
-                  ))}
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                    {c.industry ?? "Other"}
+                  </span>
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+                    {c.subIndustry ?? "Other"}
+                  </span>
                 </div>
                 {c.status === "rejected" && c.rejectionReason && (
                   <p className="mt-2 rounded-md bg-red-50 px-2 py-1.5 text-xs text-red-700 dark:bg-red-500/10 dark:text-red-300">

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Info, Loader2, Upload } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,24 +11,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TagChip, TagSelect } from "@/components/TagSelect";
 import { toast } from "sonner";
 import { useApp } from "@/lib/app-context";
+import { type Creative } from "@/lib/mockData";
 import {
-  CONTENT_TAGS,
-  CONTENT_TAG_INFO,
   INDUSTRIES,
-  type ContentTag,
-  type Creative,
+  subIndustriesFor,
   type Industry,
-} from "@/lib/mockData";
+} from "@/data/industryTaxonomy";
 
 
 export function AddCreativeDialog({
@@ -42,8 +33,8 @@ export function AddCreativeDialog({
   onCreated?: (created: Creative) => void;
 }) {
   const { addCreative } = useApp();
-  const [industry, setIndustry] = useState<Industry>("Restaurant");
-  const [contentTag, setContentTag] = useState<ContentTag>("General/Info");
+  const [industry, setIndustry] = useState<Industry | "">("");
+  const [subIndustry, setSubIndustry] = useState("");
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -54,8 +45,8 @@ export function AddCreativeDialog({
     setFile(null);
     setPreviewUrl(null);
     setName("");
-    setIndustry("Restaurant");
-    setContentTag("General/Info");
+    setIndustry("");
+    setSubIndustry("");
     setChecking(false);
   };
 
@@ -68,6 +59,10 @@ export function AddCreativeDialog({
   const submit = () => {
     if (!file) {
       toast.error("Please choose a file to upload.");
+      return;
+    }
+    if (!industry || !subIndustry) {
+      toast.error("Please pick an Industry and a Sub-Industry.");
       return;
     }
     const isVideo = file.type.startsWith("video/");
@@ -97,9 +92,9 @@ export function AddCreativeDialog({
         sizeKB: Math.round(file.size / 1024),
         durationSec: meta.d,
         uploadedAt: new Date().toISOString().slice(0, 10),
-        tags: [industry.toLowerCase().split("/")[0]],
-        industry,
-        contentTag,
+        tags: [],
+        industry: industry as Industry,
+        subIndustry,
         status: "pending",
         previouslyApproved: false,
       };
@@ -125,81 +120,47 @@ export function AddCreativeDialog({
         <DialogHeader>
           <DialogTitle>Add New Creative</DialogTitle>
           <DialogDescription>
-            Tag with an industry so we route it to the right screens, then upload your file.
+            Tag with an Industry and Sub-Industry so we route it to the right screens, then upload
+            your file.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div>
-            <Label>Industry category</Label>
-            <Select value={industry} onValueChange={(v) => setIndustry(v as Industry)}>
-              <SelectTrigger className="mt-1.5">
-                <SelectValue placeholder="Select industry" />
-              </SelectTrigger>
-              <SelectContent>
-                {INDUSTRIES.map((i) => (
-                  <SelectItem key={i} value={i}>
-                    {i}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Industry</Label>
+            <div className="mt-1.5">
+              <TagSelect
+                value={industry}
+                onChange={(v) => {
+                  setIndustry(v as Industry);
+                  setSubIndustry("");
+                }}
+                options={INDUSTRIES}
+                placeholder="Select industry"
+                searchPlaceholder="Search industries…"
+              />
+            </div>
           </div>
 
           <div>
-            <div className="flex items-center gap-1.5">
-              <Label>Content tag</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="What do these content tags mean?"
-                    className="text-muted-foreground transition-colors hover:text-primary"
-                  >
-                    <Info className="h-3.5 w-3.5" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="max-h-80 w-80 overflow-y-auto p-3">
-                  <p className="text-xs font-semibold">What each tag means</p>
-                  <div className="mt-2 space-y-3">
-                    {CONTENT_TAGS.map((t) => {
-                      const info = CONTENT_TAG_INFO[t];
-                      return (
-                        <div key={t}>
-                          <p className="text-xs font-medium">{t}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">{info.definition}</p>
-                          <ul className="mt-1 list-disc pl-4 text-[11px] text-muted-foreground">
-                            {info.examples.map((e) => (
-                              <li key={e}>{e}</li>
-                            ))}
-                          </ul>
-                          <p className="mt-1 text-[11px] font-medium text-foreground">
-                            {info.outcome}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </PopoverContent>
-              </Popover>
+            <Label>Sub-Industry</Label>
+            <div className="mt-1.5">
+              <TagSelect
+                value={subIndustry}
+                onChange={setSubIndustry}
+                options={subIndustriesFor(industry)}
+                disabled={!industry}
+                placeholder={industry ? "Select sub-industry" : "Pick an industry first"}
+                searchPlaceholder="Search sub-industries…"
+              />
             </div>
-            <Select value={contentTag} onValueChange={(v) => setContentTag(v as ContentTag)}>
-              <SelectTrigger className="mt-1.5">
-                <SelectValue placeholder="Select content type" />
-              </SelectTrigger>
-              <SelectContent>
-                {CONTENT_TAGS.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {CONTENT_TAG_INFO[contentTag].outcome}
-            </p>
+            {(industry || subIndustry) && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {industry && <TagChip>{industry}</TagChip>}
+                {subIndustry && <TagChip tone="muted">{subIndustry}</TagChip>}
+              </div>
+            )}
           </div>
-
 
           <div>
             <Label>Creative name (optional)</Label>
@@ -269,7 +230,7 @@ export function AddCreativeDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!file || checking}>
+          <Button onClick={submit} disabled={!file || !industry || !subIndustry || checking}>
             {checking && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
             Upload
           </Button>
