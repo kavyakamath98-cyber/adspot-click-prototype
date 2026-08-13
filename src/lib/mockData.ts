@@ -118,6 +118,27 @@ export type Recurrence =
   | "weekly"
   | "monthly";
 
+export type PauseUnit = "days" | "weeks" | "months" | "indefinite";
+
+export interface PauseDuration {
+  value: number | null;
+  unit: PauseUnit;
+}
+
+export interface CampaignRefund {
+  amount: number;
+  destination: "wallet" | "bank";
+  status: "Completed" | "Processing";
+  referenceId: string;
+  date: string;
+  bank?: {
+    accountHolder: string;
+    accountNumberMasked: string;
+    ifsc: string;
+    bankName: string;
+  };
+}
+
 export interface Campaign {
   id: string;
   name: string;
@@ -150,7 +171,18 @@ export interface Campaign {
   dayparts?: string[]; // daypart ids the ad runs in
 
   pausedAt?: string;
+  pauseDuration?: PauseDuration;
+  /** Computed resume date (yyyy-mm-dd); null/undefined when paused indefinitely. */
+  resumeOn?: string | null;
+  pauseReason?: string;
   totalPausedDays?: number;
+
+  /** Set when the campaign was stopped manually (yyyy-mm-dd). */
+  stoppedAt?: string;
+  /** Unspent budget available to refund after stopping. */
+  refundableAmount?: number;
+  refund?: CampaignRefund;
+
   lastStep?: number;
   /** Last time anything on the campaign changed (ISO date string). */
   updatedAt?: string;

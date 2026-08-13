@@ -5,8 +5,21 @@ import {
   REJECTION_REASONS,
   type Campaign,
   type CampaignStatus,
+  type CampaignRefund,
   type Creative,
+  type PauseDuration,
 } from "./mockData";
+
+export interface PauseDetail {
+  duration: PauseDuration;
+  reason?: string;
+}
+
+export interface RefundInput {
+  amount: number;
+  destination: "wallet" | "bank";
+  bank?: CampaignRefund["bank"];
+}
 import { migrateTag, restrictionFor } from "@/data/industryTaxonomy";
 
 /** Ensure every seeded creative carries a valid Industry / Sub-Industry pair. */
@@ -48,9 +61,10 @@ interface AppState {
   ) => void;
   chargeWallet: (amount: number) => boolean;
   refundToWallet: (amount: number) => void;
-  pauseCampaign: (id: string) => void;
+  pauseCampaign: (id: string, detail?: PauseDetail) => void;
   resumeCampaign: (id: string, mode: "keep_end" | "shift_end") => void;
-  stopCampaign: (id: string) => number; // returns refund amount
+  stopCampaign: (id: string) => number; // returns refundable amount (claim via requestRefund)
+  requestRefund: (id: string, input: RefundInput) => CampaignRefund;
 }
 
 const AppCtx = createContext<AppState | null>(null);
@@ -303,10 +317,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [creatives],
   );
 
-  const pauseCampaign = useCallback((id: string) => {
+  const pauseCampaign = useCallback((id: string, detail?: PauseDetail) => {
+    const pausedAt = new Date().toISOString().slice(0, 10);
+    const duration: PauseDuration = detail?.duration ?? { value: null, unit: "indefinite" };
+    let resumeOn: string | null = null;
+    if (duration.unit !== "indefinite" && duration.value) {
+      const d = new Date();
+      if (duration.unit === "days") d.setDate(d.getDate() + duration.value);
+      if (duration.unit === "weeks") d.setDate(d.getDate() + duration.value * 7);
+      if (duration.unit === "months") d.setMonth(d.getMonth() + duration.value);
+      resumeOn = d.toISOString().slice(0, 10);
+    }
     setCampaigns((prev) =>
       prev.map((c) =>
-        c.id === id ? { ...c, status: "paused", pausedAt: new Date().toISOString().slice(0, 10) } : c,
+        c.id === id
+          ? {
+              ...c,
+              status: "paused" as CampaignStatus,
+              pausedAt,
+              pauseDuration: duration,
+              resumeOn,
+              pauseReason: detail?.reason?.trim() ? detail.reason.trim() : undefined,
+            }
+          : c,
       ),
     );
   }, []);
@@ -329,27 +362,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
             endDate = d.toISOString().slice(0, 10);
           }
         }
-        return { ...c, status: "live", pausedAt: undefined, totalPausedDays, endDate };
+        return {
+          ...c,
+          status: "live" as CampaignStatus,
+          pausedAt: undefined,
+          pauseDuration: undefined,
+          resumeOn: undefined,
+          pauseReason: undefined,
+          totalPausedDays,
+          endDate,
+        };
       }),
     );
   }, []);
 
   const stopCampaign = useCallback(
     (id: string) => {
-      let refund = 0;
+      let refundable = 0;
       setCampaigns((prev) =>
         prev.map((c) => {
           if (c.id !== id) return c;
           const remaining = Math.max(0, c.totalBudget - c.spendToDate);
-          refund = Math.round(remaining * 0.9);
-          return { ...c, status: "completed" };
+          refundable = Math.round(remaining * 0.9);
+          return {
+            ...c,
+            status: "completed" as CampaignStatus,
+            stoppedAt: new Date().toISOString().slice(0, 10),
+            refundableAmount: refundable,
+          };
         }),
       );
-      setWallet((w) => w + refund);
+      return refundable;
+    },
+    [],
+  );
+
+  const requestRefund = useCallback(
+    (id: string, input: RefundInput) => {
+      const referenceId = `RFD-${Date.now().toString(36).toUpperCase()}`;
+      const refund: CampaignRefund = {
+        amount: input.amount,
+        destination: input.destination,
+        status: input.destination === "wallet" ? "Completed" : "Processing",
+        referenceId,
+        date: new Date().toISOString().slice(0, 10),
+        bank: input.bank,
+      };
+      setCampaigns((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, refund, refundableAmount: 0 } : c)),
+      );
+      if (input.destination === "wallet") setWallet((w) => w + input.amount);
       return refund;
     },
     [],
   );
+
 
   const value = useMemo<AppState>(
     () => ({
@@ -373,6 +440,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       pauseCampaign,
       resumeCampaign,
       stopCampaign,
+      requestRefund,
     }),
     [
       wallet,
@@ -395,6 +463,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       pauseCampaign,
       resumeCampaign,
       stopCampaign,
+      requestRefund,
     ],
   );
 

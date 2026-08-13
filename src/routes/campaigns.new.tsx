@@ -64,6 +64,7 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PauseCampaignDialog, pauseLabel } from "@/components/PauseCampaignDialog";
 import { useApp } from "@/lib/app-context";
 import {
   DIMENSION_PRESETS,
@@ -148,6 +149,7 @@ function NewCampaign() {
   const [resumeOpen, setResumeOpen] = useState(false);
   const [resumeMode, setResumeMode] = useState<"keep_end" | "shift_end">("shift_end");
   const [stopOpen, setStopOpen] = useState(false);
+  const [pauseOpen, setPauseOpen] = useState(false);
 
 
   const resubmit = resubmitId ? campaigns.find((c) => c.id === resubmitId) : undefined;
@@ -536,7 +538,7 @@ function NewCampaign() {
                 {managed.status === "live"
                   ? "This campaign is running"
                   : managed.status === "paused"
-                    ? "This campaign is paused"
+                    ? `This campaign is paused — ${pauseLabel(managed)?.toLowerCase()}`
                     : managed.status === "approved_scheduled"
                       ? "This campaign is approved and scheduled"
                       : managed.status === "rejected"
@@ -561,10 +563,7 @@ function NewCampaign() {
                 <Button
                   variant="outline"
                   className="gap-1.5"
-                  onClick={() => {
-                    pauseCampaign(managed.id);
-                    toast.success("Campaign paused");
-                  }}
+                  onClick={() => setPauseOpen(true)}
                 >
                   <Pause className="h-4 w-4" /> Pause
                 </Button>
@@ -621,6 +620,22 @@ function NewCampaign() {
         </div>
         <Stepper current={step} canReach={canReachStep} onJump={goStep} />
       </div>
+
+      {/* Pause options */}
+      <PauseCampaignDialog
+        open={pauseOpen}
+        onOpenChange={setPauseOpen}
+        onConfirm={(duration, reason) => {
+          if (!managed) return;
+          pauseCampaign(managed.id, { duration, reason });
+          setPauseOpen(false);
+          toast.success(
+            duration.unit === "indefinite"
+              ? "Campaign paused indefinitely"
+              : `Campaign paused for ${duration.value} ${duration.unit}`,
+          );
+        }}
+      />
 
       {/* Resume options */}
       <Dialog open={resumeOpen} onOpenChange={setResumeOpen}>
@@ -688,7 +703,7 @@ function NewCampaign() {
                 ? "Nothing has been paid for this campaign yet. Discarding removes it from your list — this can't be undone."
                 : managed?.status === "pending_approval"
                   ? "This campaign hasn't started yet. Cancelling withdraws it from approval and refunds anything you've paid, in full."
-                  : "This is permanent. Once stopped, the campaign cannot be resumed — different from Pause. Unused budget is refunded to your wallet."}
+                  : "This is permanent. Once stopped, the campaign cannot be resumed — different from Pause. You can then request a refund of the unused budget."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -713,7 +728,9 @@ function NewCampaign() {
                     ? cancelPendingCampaign(managed.id)
                     : stopCampaign(managed.id);
                   toast.success(
-                    `${pending ? "Campaign cancelled" : "Campaign stopped"}. ₹${refund.toLocaleString("en-IN")} refunded to wallet (mock).`,
+                    pending
+                      ? `Campaign cancelled. ₹${refund.toLocaleString("en-IN")} refunded to wallet (mock).`
+                      : `Campaign stopped. ₹${refund.toLocaleString("en-IN")} is available to refund from the campaign page.`,
                   );
                 }
                 navigate({ to: "/campaigns/$id", params: { id: managed.id } });
