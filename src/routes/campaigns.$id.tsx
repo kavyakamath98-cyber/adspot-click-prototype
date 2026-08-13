@@ -80,6 +80,7 @@ function CampaignDetail() {
     pauseCampaign,
     resumeCampaign,
     stopCampaign,
+    requestRefund,
   } = useApp();
 
   const campaign = campaigns.find((c) => c.id === id);
@@ -92,6 +93,7 @@ function CampaignDetail() {
     : undefined;
 
   const [replaceOpen, setReplaceOpen] = useState(false);
+  const [refundOpen, setRefundOpen] = useState(false);
   const [stopOpen, setStopOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
   const [resumeMode, setResumeMode] = useState<"keep_end" | "shift_end">("shift_end");
@@ -334,6 +336,11 @@ function CampaignDetail() {
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <StatusBadge status={displayStatus(campaign)} />
+              {pauseLabel(campaign) && (
+                <span className="text-sm font-medium text-muted-foreground">
+                  {pauseLabel(campaign)}
+                </span>
+              )}
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               Created {new Date(campaign.createdAt).toLocaleDateString("en-IN")}
@@ -458,6 +465,64 @@ function CampaignDetail() {
           )}
         </div>
       </Card>
+
+      {campaign.status === "paused" && campaign.pauseReason && (
+        <Alert className="mb-6">
+          <PauseIcon className="h-4 w-4" />
+          <AlertTitle>Reason for pause</AlertTitle>
+          <AlertDescription>{campaign.pauseReason}</AlertDescription>
+        </Alert>
+      )}
+
+      {campaign.refund && (
+        <Card className="mb-6 p-5">
+          <h2 className="font-semibold">Refund</h2>
+          <div className="mt-3 grid gap-3 text-sm sm:grid-cols-5">
+            <RefundCell label="Amount" value={`₹${campaign.refund.amount.toLocaleString("en-IN")}`} />
+            <RefundCell
+              label="Destination"
+              value={
+                campaign.refund.destination === "wallet"
+                  ? "Wallet"
+                  : `Bank ${campaign.refund.bank?.accountNumberMasked ?? ""}`
+              }
+            />
+            <RefundCell label="Status" value={campaign.refund.status} />
+            <RefundCell label="Reference ID" value={campaign.refund.referenceId} />
+            <RefundCell
+              label="Date"
+              value={new Date(campaign.refund.date).toLocaleDateString("en-IN")}
+            />
+          </div>
+        </Card>
+      )}
+
+      {campaign.status === "completed" &&
+        campaign.stoppedAt &&
+        !campaign.refund &&
+        (campaign.refundableAmount ?? 0) > 0 && (
+          <Card className="mb-6 border-primary/40 bg-primary/5 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="font-semibold">Refund available</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  This campaign was stopped with ₹
+                  {(campaign.refundableAmount ?? 0).toLocaleString("en-IN")} of unspent budget.
+                </p>
+              </div>
+              <Button onClick={() => setRefundOpen(true)}>
+                Request refund of ₹{(campaign.refundableAmount ?? 0).toLocaleString("en-IN")}
+              </Button>
+            </div>
+          </Card>
+        )}
+
+      <RefundDialog
+        open={refundOpen}
+        onOpenChange={setRefundOpen}
+        amount={campaign.refundableAmount ?? 0}
+        onConfirm={(input) => requestRefund(campaign.id, input)}
+      />
 
       {campaign.status === "rejected" && campaign.rejectionReason && (
         <Alert variant="destructive" className="mb-6">
@@ -1219,3 +1284,12 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 // Suppress unused warning for InUseBadge/imports kept for optional future rendering
 void InUseBadge;
+
+function RefundCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border bg-secondary/30 p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-0.5 font-medium">{value}</p>
+    </div>
+  );
+}
