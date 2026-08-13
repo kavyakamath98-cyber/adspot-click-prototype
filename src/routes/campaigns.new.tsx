@@ -435,12 +435,15 @@ function NewCampaign() {
   const handlePaySuccess = (payment?: CheckoutSuccess) => {
     if (!selectedCreative) return;
     if (priceDelta > 0) {
-      if (!chargeWallet(priceDelta)) {
+      // Only the Additv wallet method debits the wallet; card/UPI/netbanking
+      // settle outside it in this prototype.
+      if ((!payment || payment.method === "additv") && !chargeWallet(priceDelta)) {
         setPayError("Insufficient wallet balance. Please top up and try again.");
         toast.error("Insufficient wallet balance. Please top up and try again.");
         return;
       }
     } else if (priceDelta < 0) {
+
       refundToWallet(-priceDelta);
     }
     const launchStatus: Campaign["status"] =
