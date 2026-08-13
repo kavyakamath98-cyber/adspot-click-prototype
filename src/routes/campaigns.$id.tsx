@@ -1174,7 +1174,9 @@ function CampaignDetail() {
                     <div className="mt-2 flex justify-between border-t pt-2 font-medium">
                       <span>
                         {budgetDelta > 0
-                          ? "To pay now"
+                          ? paymentLocked
+                            ? "Updated estimated total"
+                            : "To pay now"
                           : budgetDelta < 0
                             ? "Refund to wallet"
                             : "No change"}
@@ -1182,18 +1184,26 @@ function CampaignDetail() {
                       <span
                         className={
                           budgetDelta > 0
-                            ? "text-destructive"
+                            ? paymentLocked
+                              ? ""
+                              : "text-destructive"
                             : budgetDelta < 0
                               ? "text-emerald-600 dark:text-emerald-400"
                               : ""
                         }
                       >
-                        ₹{Math.abs(budgetDelta).toLocaleString("en-IN")}
+                        ₹
+                        {(budgetDelta > 0 && paymentLocked
+                          ? newBudget
+                          : Math.abs(budgetDelta)
+                        ).toLocaleString("en-IN")}
                       </span>
                     </div>
                     <p className="mt-1.5 text-xs text-muted-foreground">
                       {budgetDelta > 0
-                        ? "Extra days are charged from your wallet when you save. The extension only takes effect once paid."
+                        ? paymentLocked
+                          ? "Your creative is still under review. You can save this schedule now — payment unlocks once the creative is approved."
+                          : "Extra days are charged from your wallet when you save. The extension only takes effect once paid."
                         : budgetDelta < 0
                           ? "The unused days are refunded to your wallet when you save."
                           : "Your dates change with no cost impact."}
@@ -1212,11 +1222,15 @@ function CampaignDetail() {
                     }
                   >
                     {budgetDelta > 0
-                      ? `Pay ₹${budgetDelta.toLocaleString("en-IN")} & extend`
+                      ? paymentLocked
+                        ? "Save schedule"
+                        : `Pay ₹${budgetDelta.toLocaleString("en-IN")} & extend`
                       : budgetDelta < 0
                         ? `Save & refund ₹${(-budgetDelta).toLocaleString("en-IN")}`
                         : "Save schedule"}
                   </Button>
+                </DialogFooter>
+
                 </DialogFooter>
               </>
             );
