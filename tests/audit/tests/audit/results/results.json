@@ -1,0 +1,765 @@
+{
+  "config": {
+    "argv": [
+      "/nix/store/31sh8fzcbg4sjahp3zj002j0ca8sfvvr-nodejs-22.22.0/bin/node",
+      "/dev-server/node_modules/.bin/playwright",
+      "test",
+      "--config=tests/audit/playwright.config.ts"
+    ],
+    "configFile": "/dev-server/tests/audit/playwright.config.ts",
+    "rootDir": "/dev-server/tests/audit",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/dev-server/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/dev-server/tests/audit",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "tests/audit/results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "scenarios.spec.ts",
+      "file": "scenarios.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Authentication & routing",
+          "file": "scenarios.spec.ts",
+          "line": 22,
+          "column": 6,
+          "specs": [
+            {
+              "title": "advertiser logs in and lands on dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8570,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-13T16:19:24.404Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/dev-server/test-results/scenarios-Authentication-r-9ffcb-s-in-and-lands-on-dashboard-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/dev-server/test-results/scenarios-Authentication-r-9ffcb-s-in-and-lands-on-dashboard-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "228c869e2a0e583b8177-ba57cfe28d35d96a183a",
+              "file": "scenarios.spec.ts",
+              "line": 23,
+              "column": 3
+            },
+            {
+              "title": "admin logs in and lands on system admin console",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4255,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-13T16:19:34.112Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/dev-server/test-results/scenarios-Authentication-r-2806d-nds-on-system-admin-console-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/dev-server/test-results/scenarios-Authentication-r-2806d-nds-on-system-admin-console-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "228c869e2a0e583b8177-c3d59b5347cfdc3c7116",
+              "file": "scenarios.spec.ts",
+              "line": 32,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Advertiser dashboard",
+          "file": "scenarios.spec.ts",
+          "line": 42,
+          "column": 6,
+          "specs": [
+            {
+              "title": "campaign list renders and search filters by name",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6677,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-13T16:19:38.694Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/dev-server/test-results/scenarios-Advertiser-dashb-81d7f--and-search-filters-by-name-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/dev-server/test-results/scenarios-Advertiser-dashb-81d7f--and-search-filters-by-name-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "228c869e2a0e583b8177-70a0724629c489afd4c0",
+              "file": "scenarios.spec.ts",
+              "line": 51,
+              "column": 3
+            },
+            {
+              "title": "payment-pending campaign card is visible",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5525,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-13T16:19:45.596Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/dev-server/test-results/scenarios-Advertiser-dashb-08ee9-ng-campaign-card-is-visible-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/dev-server/test-results/scenarios-Advertiser-dashb-08ee9-ng-campaign-card-is-visible-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "228c869e2a0e583b8177-3e57146ea02e1cffa18f",
+              "file": "scenarios.spec.ts",
+              "line": 67,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Create campaign wizard",
+          "file": "scenarios.spec.ts",
+          "line": 81,
+          "column": 6,
+          "specs": [
+            {
+              "title": "navigate through all 6 steps without errors",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 31073,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/dev-server/tests/audit/scenarios.spec.ts",
+                            "column": 16,
+                            "line": 104
+                          },
+                          "message": "Error: page.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('button:has(.aspect-video):first-of-type')\u001b[22m\n\n\n  102 |     await page.waitForLoadState(\"networkidle\");\n  103 |     // Select the first creative card in the grid.\n> 104 |     await page.click('button:has(.aspect-video):first-of-type');\n      |                ^\n  105 |     await screenshot(page, \"07-wizard-step2\");\n  106 |\n  107 |     // Step 3: Schedule\n    at /dev-server/tests/audit/scenarios.spec.ts:104:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-13T16:19:51.387Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/dev-server/test-results/scenarios-Create-campaign--1d97d--all-6-steps-without-errors-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/dev-server/test-results/scenarios-Create-campaign--1d97d--all-6-steps-without-errors-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/dev-server/test-results/scenarios-Create-campaign--1d97d--all-6-steps-without-errors-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "228c869e2a0e583b8177-d352bc11b1eebccdd5f9",
+              "file": "scenarios.spec.ts",
+              "line": 90,
+              "column": 3
+            },
+            {
+              "title": "empty content library shows upload CTA for new users",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6399,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-13T16:20:24.513Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/dev-server/test-results/scenarios-Create-campaign--74ecb-ws-upload-CTA-for-new-users-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/dev-server/test-results/scenarios-Create-campaign--74ecb-ws-upload-CTA-for-new-users-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "228c869e2a0e583b8177-cef2361e67eb16520144",
+              "file": "scenarios.spec.ts",
+              "line": 131,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Campaign management",
+          "file": "scenarios.spec.ts",
+          "line": 145,
+          "column": 6,
+          "specs": [
+            {
+              "title": "open a live campaign detail and verify controls",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6084,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-13T16:20:31.866Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/dev-server/test-results/scenarios-Campaign-managem-9edea--detail-and-verify-controls-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/dev-server/test-results/scenarios-Campaign-managem-9edea--detail-and-verify-controls-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "228c869e2a0e583b8177-9c46aeed0de20c24e5f6",
+              "file": "scenarios.spec.ts",
+              "line": 156,
+              "column": 3
+            },
+            {
+              "title": "open an approved-payment-pending campaign and pay with wallet",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7620,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-13T16:20:38.251Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/dev-server/test-results/scenarios-Campaign-managem-40074-ampaign-and-pay-with-wallet-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/dev-server/test-results/scenarios-Campaign-managem-40074-ampaign-and-pay-with-wallet-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "228c869e2a0e583b8177-90d190571e9ef0f12fb4",
+              "file": "scenarios.spec.ts",
+              "line": 168,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Payments & wallet",
+          "file": "scenarios.spec.ts",
+          "line": 196,
+          "column": 6,
+          "specs": [
+            {
+              "title": "transactions and payment methods pages render",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6814,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-13T16:20:46.291Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/dev-server/test-results/scenarios-Payments-wallet--488e2-ayment-methods-pages-render-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/dev-server/test-results/scenarios-Payments-wallet--488e2-ayment-methods-pages-render-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "228c869e2a0e583b8177-8aa1aa2e50f3afaffe10",
+              "file": "scenarios.spec.ts",
+              "line": 205,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Content library",
+          "file": "scenarios.spec.ts",
+          "line": 220,
+          "column": 6,
+          "specs": [
+            {
+              "title": "library page renders and upload dialog opens",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6894,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-13T16:20:53.310Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/dev-server/test-results/scenarios-Content-library--824bd-ers-and-upload-dialog-opens-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/dev-server/test-results/scenarios-Content-library--824bd-ers-and-upload-dialog-opens-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "228c869e2a0e583b8177-1ab9a66957889b7d4dcb",
+              "file": "scenarios.spec.ts",
+              "line": 229,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "System admin console",
+          "file": "scenarios.spec.ts",
+          "line": 246,
+          "column": 6,
+          "specs": [
+            {
+              "title": "moderation queue renders with campaign metadata",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6380,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-13T16:21:00.452Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/dev-server/test-results/scenarios-System-admin-con-a341d-ders-with-campaign-metadata-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/dev-server/test-results/scenarios-System-admin-con-a341d-ders-with-campaign-metadata-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "228c869e2a0e583b8177-f2f1bd27abd9ec357c6f",
+              "file": "scenarios.spec.ts",
+              "line": 255,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Team & settings",
+          "file": "scenarios.spec.ts",
+          "line": 274,
+          "column": 6,
+          "specs": [
+            {
+              "title": "team management page renders with invite flow",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6904,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-13T16:21:07.128Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/dev-server/test-results/scenarios-Team-settings-te-f11d9-ge-renders-with-invite-flow-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/dev-server/test-results/scenarios-Team-settings-te-f11d9-ge-renders-with-invite-flow-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "228c869e2a0e583b8177-a83b8c1deb5a4ed9304b",
+              "file": "scenarios.spec.ts",
+              "line": 283,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Reporting",
+          "file": "scenarios.spec.ts",
+          "line": 300,
+          "column": 6,
+          "specs": [
+            {
+              "title": "performance dashboard renders charts and heatmap",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 10736,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-13T16:21:14.500Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/dev-server/test-results/scenarios-Reporting-perfor-31880--renders-charts-and-heatmap-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/dev-server/test-results/scenarios-Reporting-perfor-31880--renders-charts-and-heatmap-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "228c869e2a0e583b8177-cf9c6d78dbc4e09e5cc1",
+              "file": "scenarios.spec.ts",
+              "line": 309,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-13T16:19:22.820Z",
+    "duration": 122940.402,
+    "expected": 12,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}
