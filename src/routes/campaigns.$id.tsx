@@ -24,6 +24,7 @@ import {
   VideoPlayOverlay,
 } from "@/components/AppShell";
 import { pauseLabel } from "@/components/PauseCampaignDialog";
+import { CheckoutModal, type CheckoutSuccess } from "@/components/CheckoutModal";
 import { RefundDialog } from "@/components/RefundDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -85,7 +86,11 @@ function CampaignDetail() {
     resumeCampaign,
     stopCampaign,
     requestRefund,
+    recordTransaction,
   } = useApp();
+  const [checkout, setCheckout] = useState<{ kind: "campaign" | "extend"; amount: number } | null>(
+    null,
+  );
   const { canWrite } = useAuth();
 
   const campaign = campaigns.find((c) => c.id === id);
@@ -281,7 +286,12 @@ function CampaignDetail() {
   const budgetDelta = Math.max(newBudget, campaign.spendToDate) - campaign.totalBudget;
 
 
-  const doSaveSchedule = () => {
+  // Extending costs money → run it through the mock gateway first.
+  const doSaveSchedule = (payment?: CheckoutSuccess) => {
+    if (budgetDelta > 0 && !payment) {
+      setCheckout({ kind: "extend", amount: budgetDelta });
+      return;
+    }
     if (budgetDelta > 0 && !chargeWallet(budgetDelta)) {
       toast.error(
         `Insufficient wallet balance. You need ₹${budgetDelta.toLocaleString("en-IN")} to extend this campaign.`,
@@ -298,6 +308,16 @@ function CampaignDetail() {
       totalBudget: campaign.totalBudget + budgetDelta,
     });
 
+    if (payment) {
+      recordTransaction({
+        ...payment,
+        status: "success",
+        purpose: `Campaign extension · ${campaign.name}`,
+        purposeType: "campaign",
+        campaignId: campaign.id,
+      });
+    }
+    setCheckout(null);
     setScheduleOpen(false);
     if (budgetDelta > 0) {
       toast.success(
@@ -313,14 +333,32 @@ function CampaignDetail() {
   };
 
 
-  const doPayNow = () => {
+  const doPayNow = (payment?: CheckoutSuccess) => {
+    if (!payment) {
+      setCheckout({ kind: "campaign", amount: campaign.totalBudget });
+      return;
+    }
     if (!chargeWallet(campaign.totalBudget)) {
       toast.error("Insufficient wallet balance. Please top up and try again.");
       return;
     }
     const status =
       new Date(campaign.startDate) <= new Date() ? "live" : "approved_scheduled";
-    updateCampaign(campaign.id, { status, awaitingPayment: false, paymentUnlocked: false });
+    updateCampaign(campaign.id, {
+      status,
+      awaitingPayment: false,
+      paymentUnlocked: false,
+      paymentId: payment.paymentId,
+      orderId: payment.orderId,
+    });
+    recordTransaction({
+      ...payment,
+      status: "success",
+      purpose: `Campaign budget · ${campaign.name}`,
+      purposeType: "campaign",
+      campaignId: campaign.id,
+    });
+    setCheckout(null);
     toast.success("Payment successful — your campaign is confirmed.");
   };
 
@@ -501,6 +539,12 @@ function CampaignDetail() {
             />
             <RefundCell label="Status" value={campaign.refund.status} />
             <RefundCell label="Reference ID" value={campaign.refund.referenceId} />
+            {campaign.refund.refundId && (
+              <RefundCell label="Refund ID" value={campaign.refund.refundId} />
+            )}
+            {campaign.refund.originalPaymentId && (
+              <RefundCell label="Original payment" value={campaign.refund.originalPaymentId} />
+            )}
             <RefundCell
               label="Date"
               value={new Date(campaign.refund.date).toLocaleDateString("en-IN")}
@@ -528,6 +572,18 @@ function CampaignDetail() {
             </div>
           </Card>
         )}
+
+      <CheckoutModal
+        open={!!checkout}
+        onOpenChange={(o) => !o && setCheckout(null)}
+        amount={checkout?.amount ?? 0}
+        description={
+          checkout?.kind === "extend"
+            ? `Campaign extension · ${campaign.name}`
+            : `Campaign budget · ${campaign.name}`
+        }
+        onSuccess={(r) => (checkout?.kind === "extend" ? doSaveSchedule(r) : doPayNow(r))}
+      />
 
       <RefundDialog
         open={refundOpen}
@@ -607,7 +663,7 @@ function CampaignDetail() {
                 {campaign.screenIds.length} selected screens.
               </p>
             </div>
-            <Button size="lg" onClick={doPayNow}>
+            <Button size="lg" onClick={() => doPayNow()}>
               Pay ₹{campaign.totalBudget.toLocaleString("en-IN")}
             </Button>
           </div>
@@ -1129,7 +1185,7 @@ function CampaignDetail() {
                     Cancel
                   </Button>
                   <Button
-                    onClick={doSaveSchedule}
+                    onClick={() => doSaveSchedule()}
                     disabled={
                       !datesValid || staleDays.length > 0 || editDays.length === 0 || noSlots
                     }

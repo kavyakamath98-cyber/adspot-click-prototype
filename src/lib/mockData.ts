@@ -1,3 +1,4 @@
+import { seedPaymentId } from "./payments";
 // Hardcoded mock data for the Additv frontend prototype.
 
 export type ScreenAvailability = "available" | "partial" | "booked";
@@ -148,6 +149,10 @@ export interface CampaignRefund {
   destination: "wallet" | "bank";
   status: "Completed" | "Processing";
   referenceId: string;
+  /** Mock gateway refund id (rfnd_XXXXXXXXXXXXXX). */
+  refundId?: string;
+  /** payment_id of the original charge this refund is against. */
+  originalPaymentId?: string;
   date: string;
   bank?: {
     accountHolder: string;
@@ -177,6 +182,10 @@ export interface Campaign {
   daypartStart?: string;
   daypartEnd?: string;
   totalBudget: number;
+  /** Mock gateway payment id for the original charge. */
+  paymentId?: string;
+  /** Mock gateway order id for the original charge. */
+  orderId?: string;
   spendToDate: number;
   estimatedImpressions: number;
   rejectionReason?: string;
@@ -686,7 +695,7 @@ function daysAhead(n: number) {
   return d.toISOString().slice(0, 10);
 }
 
-export const INITIAL_CAMPAIGNS: Campaign[] = [
+const RAW_CAMPAIGNS: Campaign[] = [
   {
     id: "cmp_1",
     name: "Koramangala Weekend Push",
@@ -1220,3 +1229,24 @@ export const PLATFORM_CREATIVES: Creative[] = [
     uploadedBy: "marketing@sahajfinserv.in",
   },
 ];
+
+/**
+ * Campaigns that were already paid for get a backfilled mock gateway payment id
+ * so the refund flow can reference the original charge.
+ */
+const PAID_STATUSES: CampaignStatus[] = [
+  "live",
+  "paused",
+  "completed",
+  "approved_scheduled",
+];
+
+export const INITIAL_CAMPAIGNS: Campaign[] = RAW_CAMPAIGNS.map((c) =>
+  PAID_STATUSES.includes(c.status) && c.totalBudget > 0
+    ? {
+        ...c,
+        paymentId: c.paymentId ?? seedPaymentId(c.id),
+        orderId: c.orderId ?? `order_${seedPaymentId(`${c.id}-order`).slice(4)}`,
+      }
+    : c,
+);
