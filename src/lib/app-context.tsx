@@ -2,12 +2,14 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import {
   INITIAL_CAMPAIGNS,
   INITIAL_CREATIVES,
+  PLATFORM_CREATIVES,
   REJECTION_REASONS,
   type Campaign,
   type CampaignStatus,
   type CampaignRefund,
   type Creative,
   type PauseDuration,
+  type ReviewLogEntry,
 } from "./mockData";
 
 export interface PauseDetail {
@@ -27,6 +29,13 @@ const MIGRATED_CREATIVES: Creative[] = INITIAL_CREATIVES.map((c) => ({
   ...c,
   ...migrateTag(c.industry, c.subIndustry),
 }));
+
+export interface ModerationDecision {
+  decision: "approve" | "reject";
+  reason?: string;
+  note?: string | null;
+  reviewer: string;
+}
 
 export type DemoMode = "returning" | "new";
 
@@ -65,6 +74,10 @@ interface AppState {
   resumeCampaign: (id: string, mode: "keep_end" | "shift_end") => void;
   stopCampaign: (id: string) => number; // returns refundable amount (claim via requestRefund)
   requestRefund: (id: string, input: RefundInput) => CampaignRefund;
+  /** Every creative on the platform, across all advertiser accounts. */
+  allCreatives: Creative[];
+  /** Moderator decision from the system-admin approval console. */
+  reviewCreative: (id: string, input: ModerationDecision) => void;
 }
 
 const AppCtx = createContext<AppState | null>(null);
@@ -77,6 +90,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [wallet, setWallet] = useState(25000);
   const [campaigns, setCampaigns] = useState<Campaign[]>(INITIAL_CAMPAIGNS);
   const [creatives, setCreatives] = useState<Creative[]>(MIGRATED_CREATIVES);
+  const [otherCreatives, setOtherCreatives] = useState<Creative[]>(PLATFORM_CREATIVES);
 
   const setDemoMode = useCallback((m: DemoMode) => {
     setDemoModeState(m);
@@ -125,6 +139,73 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteCreative = useCallback((id: string) => {
     setCreatives((prev) => prev.filter((c) => c.id !== id));
   }, []);
+
+  const reviewCreative = useCallback(
+    (id: string, input: ModerationDecision) => {
+      const at = new Date().toISOString();
+      const entry: ReviewLogEntry = {
+        action: input.decision === "approve" ? "approved" : "rejected",
+        reason: input.decision === "reject" ? input.reason : undefined,
+        note: input.decision === "reject" ? (input.note ?? null) : undefined,
+        by: input.reviewer,
+        at,
+      };
+      const apply = (cr: Creative): Creative =>
+        cr.id !== id
+          ? cr
+          : input.decision === "approve"
+            ? {
+                ...cr,
+                status: "approved",
+                previouslyApproved: true,
+                rejectionReason: undefined,
+                rejectionNote: null,
+                reviewedBy: input.reviewer,
+                reviewedAt: at,
+                reviewLog: [...(cr.reviewLog ?? []), entry],
+              }
+            : {
+                ...cr,
+                status: "rejected",
+                rejectionReason: input.reason,
+                rejectionNote: input.reason === "Other" ? (input.note ?? "") : null,
+                reviewedBy: input.reviewer,
+                reviewedAt: at,
+                reviewLog: [...(cr.reviewLog ?? []), entry],
+              };
+
+      setCreatives((prev) => prev.map(apply));
+      setOtherCreatives((prev) => prev.map(apply));
+
+      // Keep linked campaigns of the signed-in advertiser in sync.
+      setCampaigns((prev) =>
+        prev.map((c) => {
+          if (c.creativeId !== id && c.pendingCreativeId !== id) return c;
+          if (input.decision === "reject") {
+            if (c.pendingCreativeId === id) {
+              return {
+                ...c,
+                pendingCreativeId: undefined,
+                rejectedCreativeId: id,
+                rejectedCreativeReason: input.reason,
+              };
+            }
+            return c.status === "live" || c.status === "paused" || c.status === "completed"
+              ? c
+              : { ...c, status: "rejected" as CampaignStatus, rejectionReason: input.reason };
+          }
+          if (c.pendingCreativeId === id) {
+            return { ...c, creativeId: id, pendingCreativeId: undefined };
+          }
+          if (c.status === "pending_approval") {
+            return { ...c, paymentUnlocked: true, awaitingPayment: true, rejectionReason: undefined };
+          }
+          return c;
+        }),
+      );
+    },
+    [],
+  );
 
   const chargeWallet = useCallback((amount: number) => {
     let ok = false;
