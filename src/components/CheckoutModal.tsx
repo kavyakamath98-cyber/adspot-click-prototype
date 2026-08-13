@@ -390,14 +390,27 @@ export function CheckoutModal({
                   <dt className="text-muted-foreground">Base amount</dt>
                   <dd className="tabular-nums">{inr(amount)}</dd>
                 </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-primary">
+                    <dt>Coupon {couponCode}</dt>
+                    <dd className="tabular-nums">−{inr(discount)}</dd>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">GST @ 18%</dt>
                   <dd className="tabular-nums">{inr(gst)}</dd>
                 </div>
+                {creditApplied > 0 && (
+                  <div className="flex justify-between text-primary">
+                    <dt>Promotional credit</dt>
+                    <dd className="tabular-nums">−{inr(creditApplied)}</dd>
+                  </div>
+                )}
                 <div className="flex justify-between border-t pt-1.5 text-base font-semibold">
                   <dt>Total payable</dt>
                   <dd className="tabular-nums">{inr(total)}</dd>
                 </div>
+
               </dl>
               <div className="rounded-md bg-background/70 px-3 py-2">
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Order ID</p>
