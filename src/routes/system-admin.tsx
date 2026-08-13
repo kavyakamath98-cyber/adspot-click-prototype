@@ -36,8 +36,12 @@ import { useApp } from "@/lib/app-context";
 import { useAuth } from "@/lib/auth-context";
 import {
   MODERATION_REJECTION_REASONS,
+  PINCODES,
+  SCREENS,
+  type Campaign,
   type Creative,
 } from "@/lib/mockData";
+
 
 export const Route = createFileRoute("/system-admin")({
   head: () => ({
