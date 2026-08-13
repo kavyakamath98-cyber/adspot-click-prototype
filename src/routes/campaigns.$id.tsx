@@ -23,6 +23,8 @@ import {
   StatusBadge,
   VideoPlayOverlay,
 } from "@/components/AppShell";
+import { pauseLabel } from "@/components/PauseCampaignDialog";
+import { RefundDialog } from "@/components/RefundDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -468,7 +470,7 @@ function CampaignDetail() {
 
       {campaign.status === "paused" && campaign.pauseReason && (
         <Alert className="mb-6">
-          <PauseIcon className="h-4 w-4" />
+          <Pause className="h-4 w-4" />
           <AlertTitle>Reason for pause</AlertTitle>
           <AlertDescription>{campaign.pauseReason}</AlertDescription>
         </Alert>
