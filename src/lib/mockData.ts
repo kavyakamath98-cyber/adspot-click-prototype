@@ -1173,7 +1173,7 @@ export const PLATFORM_CREATIVES: Creative[] = [
     uploadedAt: "2026-08-04",
     tags: ["event"],
     industry: "Media & Entertainment",
-    subIndustry: "Events & Ticketing",
+    subIndustry: "Broadcast TV & Radio",
     status: "rejected",
     rejectionReason: "Brand Safety",
     rejectionNote: null,
