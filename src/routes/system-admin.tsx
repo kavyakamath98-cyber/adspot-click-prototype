@@ -111,6 +111,27 @@ function Thumb({ c, className = "" }: { c: Creative; className?: string }) {
   );
 }
 
+type CampaignContext = NonNullable<Creative["campaignContext"]>;
+
+/** Build run context from an in-account campaign linked to this creative. */
+function contextFromCampaign(c: Campaign): CampaignContext {
+  const screens = c.screenIds
+    .map((id) => SCREENS.find((s) => s.id === id))
+    .filter(Boolean) as typeof SCREENS;
+  const pin = PINCODES[c.pincode];
+  return {
+    name: c.name,
+    cities: Array.from(new Set([pin?.city, ...screens.map((s) => s.city)].filter(Boolean) as string[])),
+    pincodes: Array.from(new Set([c.pincode, ...screens.map((s) => s.pincode)])),
+    locationTags: Array.from(new Set(screens.map((s) => s.locationTag))),
+    screenTypes: Array.from(new Set(screens.map((s) => s.venueType))),
+    screenCount: screens.length,
+    startDate: c.startDate,
+    endDate: c.endDate,
+  };
+}
+
+
 function SystemAdminPage() {
   const { allCreatives, reviewCreative, campaigns } = useApp();
   const { member, logout } = useAuth();
