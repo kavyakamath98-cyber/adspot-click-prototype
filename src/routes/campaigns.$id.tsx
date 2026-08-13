@@ -286,8 +286,28 @@ function CampaignDetail() {
   const budgetDelta = Math.max(newBudget, campaign.spendToDate) - campaign.totalBudget;
 
 
+  // While the creative is still under review the campaign hasn't been paid for
+  // (or is running the old creative) — a schedule change only re-estimates the
+  // total; payment stays locked until moderation clears the creative.
+  const paymentLocked =
+    (campaign.awaitingPayment && !campaign.paymentUnlocked) || !!pendingCreative;
+
   // Extending costs money → run it through the mock gateway first.
   const doSaveSchedule = (payment?: CheckoutSuccess) => {
+    if (budgetDelta > 0 && paymentLocked) {
+      updateCampaign(campaign.id, {
+        startDate: editStart,
+        endDate: editEnd,
+        daysOfWeek: editDays,
+        dayparts: editSlots,
+        totalBudget: newBudget,
+      });
+      setScheduleOpen(false);
+      toast.info(
+        `Schedule updated. Updated estimated total: ₹${newBudget.toLocaleString("en-IN")}. You can pay once your creative is approved.`,
+      );
+      return;
+    }
     if (budgetDelta > 0 && !payment) {
       setCheckout({ kind: "extend", amount: budgetDelta });
       return;
@@ -299,6 +319,7 @@ function CampaignDetail() {
       return;
     }
     if (budgetDelta < 0) refundToWallet(-budgetDelta);
+
 
     updateCampaign(campaign.id, {
       startDate: editStart,
