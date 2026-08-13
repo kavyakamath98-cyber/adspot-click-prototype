@@ -4,7 +4,20 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useApp } from "@/lib/app-context";
+import { useState } from "react";
 import { toast } from "sonner";
+import { CheckoutModal } from "@/components/CheckoutModal";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+const TOPUP_PRESETS = [5000, 10000, 25000];
 
 export const Route = createFileRoute("/payments/methods")({
   head: () => ({
@@ -25,7 +38,11 @@ const SAVED_METHODS = [
 ];
 
 function PaymentMethods() {
-  const { wallet } = useApp();
+  const { wallet, creditWallet, recordTransaction } = useApp();
+  const [amountOpen, setAmountOpen] = useState(false);
+  const [amount, setAmount] = useState<number>(10000);
+  const [custom, setCustom] = useState("");
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   return (
     <AppShell title="Payment Methods">
@@ -48,7 +65,7 @@ function PaymentMethods() {
         </div>
         <Button
           className="gap-2"
-          onClick={() => toast.info("Top-up is disabled in this prototype.")}
+          onClick={() => setAmountOpen(true)}
         >
           <Plus className="h-4 w-4" /> Top up wallet
         </Button>
@@ -90,6 +107,71 @@ function PaymentMethods() {
           </Card>
         ))}
       </div>
+      <Dialog open={amountOpen} onOpenChange={setAmountOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Top up your wallet</DialogTitle>
+            <DialogDescription>
+              Choose how much to add. You'll pay through the secure checkout.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-3 gap-2">
+            {TOPUP_PRESETS.map((p) => (
+              <Button
+                key={p}
+                variant={amount === p && !custom ? "default" : "outline"}
+                onClick={() => {
+                  setAmount(p);
+                  setCustom("");
+                }}
+              >
+                ₹{p.toLocaleString("en-IN")}
+              </Button>
+            ))}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="custom">Or enter an amount</Label>
+            <Input
+              id="custom"
+              inputMode="numeric"
+              value={custom}
+              placeholder="e.g. 7500"
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, "").slice(0, 7);
+                setCustom(v);
+                if (v) setAmount(Number(v));
+              }}
+            />
+          </div>
+          <Button
+            className="w-full"
+            disabled={amount < 100}
+            onClick={() => {
+              setAmountOpen(false);
+              setCheckoutOpen(true);
+            }}
+          >
+            Continue to payment
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      <CheckoutModal
+        open={checkoutOpen}
+        onOpenChange={setCheckoutOpen}
+        amount={amount}
+        description="Wallet top-up"
+        onSuccess={(r) => {
+          creditWallet(r.amount);
+          recordTransaction({
+            ...r,
+            status: "success",
+            purpose: "Wallet top-up",
+            purposeType: "topup",
+          });
+          toast.success(`₹${r.amount.toLocaleString("en-IN")} added to your wallet`);
+        }}
+      />
     </AppShell>
   );
 }
