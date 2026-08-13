@@ -90,6 +90,20 @@ interface AppState {
   recordTransaction: (t: PaymentTransaction) => void;
   /** Credit money into the wallet (successful top-up). */
   creditWallet: (amount: number) => void;
+  /** Cards the advertiser saved for faster checkout. */
+  savedCards: SavedCard[];
+  addSavedCard: (c: SavedCard) => void;
+  removeSavedCard: (id: string) => void;
+  makeCardDefault: (id: string) => void;
+  /** Promotional / referral credits available to spend at checkout. */
+  promoCredits: PromoCredit[];
+  promoCreditBalance: number;
+  /** Spend promotional credit (oldest expiring first). */
+  consumePromoCredit: (amount: number) => void;
+  /** Grant credit, e.g. a referral reward. */
+  addPromoCredit: (c: PromoCredit) => void;
+  /** The advertiser's shareable referral code. */
+  referralCode: string;
 }
 
 const AppCtx = createContext<AppState | null>(null);
@@ -104,6 +118,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [creatives, setCreatives] = useState<Creative[]>(MIGRATED_CREATIVES);
   const [otherCreatives, setOtherCreatives] = useState<Creative[]>(PLATFORM_CREATIVES);
   const [transactions, setTransactions] = useState<PaymentTransaction[]>(SEED_TRANSACTIONS);
+  const [savedCards, setSavedCards] = useState<SavedCard[]>(SEED_SAVED_CARDS);
+  const [promoCredits, setPromoCredits] = useState<PromoCredit[]>(SEED_PROMO_CREDITS);
 
   const recordTransaction = useCallback((t: PaymentTransaction) => {
     setTransactions((prev) => [t, ...prev]);
@@ -113,6 +129,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWallet((w) => w + amount);
   }, []);
 
+  const addSavedCard = useCallback((c: SavedCard) => {
+    setSavedCards((prev) =>
+      prev.some((x) => x.last4 === c.last4 && x.expiry === c.expiry)
+        ? prev
+        : [...prev, { ...c, isDefault: prev.length === 0 }],
+    );
+  }, []);
+
+  const removeSavedCard = useCallback((id: string) => {
+    setSavedCards((prev) => {
+      const next = prev.filter((c) => c.id !== id);
+      return next.length && !next.some((c) => c.isDefault)
+        ? next.map((c, i) => (i === 0 ? { ...c, isDefault: true } : c))
+        : next;
+    });
+  }, []);
+
+  const makeCardDefault = useCallback((id: string) => {
+    setSavedCards((prev) => prev.map((c) => ({ ...c, isDefault: c.id === id })));
+  }, []);
+
+  const addPromoCredit = useCallback((c: PromoCredit) => {
+    setPromoCredits((prev) => [...prev, c]);
+  }, []);
+
+  const consumePromoCredit = useCallback((amount: number) => {
+    setPromoCredits((prev) => {
+      let left = Math.max(0, amount);
+      return prev
+        .slice()
+        .sort((a, b) => a.expiresOn.localeCompare(b.expiresOn))
+        .map((c) => {
+          const take = Math.min(left, c.amount);
+          left -= take;
+          return { ...c, amount: c.amount - take };
+        })
+        .filter((c) => c.amount > 0);
+    });
+  }, []);
+
   const setDemoMode = useCallback((m: DemoMode) => {
     setDemoModeState(m);
     if (m === "new") {
@@ -120,13 +176,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCreatives([]);
       setTransactions([]);
       setWallet(25000);
+      setSavedCards([]);
+      setPromoCredits(SEED_PROMO_CREDITS);
     } else {
       setCampaigns(INITIAL_CAMPAIGNS);
       setCreatives(MIGRATED_CREATIVES);
       setTransactions(SEED_TRANSACTIONS);
       setWallet(25000);
+      setSavedCards(SEED_SAVED_CARDS);
+      setPromoCredits(SEED_PROMO_CREDITS);
     }
   }, []);
+
 
 
 
