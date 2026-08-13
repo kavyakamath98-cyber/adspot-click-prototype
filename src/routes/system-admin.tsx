@@ -108,7 +108,7 @@ function Thumb({ c, className = "" }: { c: Creative; className?: string }) {
 }
 
 function SystemAdminPage() {
-  const { allCreatives, reviewCreative } = useApp();
+  const { allCreatives, reviewCreative, campaigns } = useApp();
   const { member, logout } = useAuth();
   const reviewer = member?.email ?? "admin@adittv.com";
 
