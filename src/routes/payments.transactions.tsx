@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { receiptHtml } from "@/components/CheckoutModal";
 import { useApp } from "@/lib/app-context";
-import { METHOD_LABELS } from "@/lib/payments";
+import { methodLabel } from "@/lib/payments";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/payments/transactions")({
@@ -65,7 +65,7 @@ function TransactionHistory() {
       date: t.timestamp,
       kind: t.purposeType,
       label: t.purpose,
-      sublabel: `${METHOD_LABELS[t.method]} · ${t.methodDetail} · ${t.paymentId}`,
+      sublabel: `${methodLabel(t.method)} · ${t.methodDetail} · ${t.paymentId}`,
       amount: t.purposeType === "topup" ? t.total : -t.total,
       status: "Success",
       receipt: () =>
