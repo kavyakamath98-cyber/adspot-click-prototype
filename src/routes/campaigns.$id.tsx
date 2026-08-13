@@ -49,6 +49,8 @@ import {
   Tooltip,
 } from "recharts";
 import { useApp } from "@/lib/app-context";
+import { useAuth } from "@/lib/auth-context";
+import { ReadOnlyAction } from "@/components/ReadOnlyAction";
 import {
   SCREENS,
   PINCODES,
@@ -84,6 +86,7 @@ function CampaignDetail() {
     stopCampaign,
     requestRefund,
   } = useApp();
+  const { canWrite } = useAuth();
 
   const campaign = campaigns.find((c) => c.id === id);
   const currentCreative = creatives.find((c) => c.id === campaign?.creativeId);
