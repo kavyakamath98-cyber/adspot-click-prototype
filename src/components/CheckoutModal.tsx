@@ -711,7 +711,82 @@ export function CheckoutModal({
 
                   {method === "card" && (
                     <div className="space-y-3">
+                      {savedCards.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Saved cards</Label>
+                          {savedCards.map((c) => (
+                            <div
+                              key={c.id}
+                              className={cn(
+                                "rounded-lg border p-3 transition",
+                                savedCardId === c.id
+                                  ? "border-primary bg-primary/5"
+                                  : "border-border",
+                              )}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSavedCardId(c.id);
+                                  setSavedCvv("");
+                                }}
+                                className="flex w-full items-center gap-3 text-left"
+                              >
+                                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm font-medium">
+                                  {c.type} •••• {c.last4}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  Expires {c.expiry}
+                                </span>
+                                {c.isDefault && (
+                                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                    Default
+                                  </span>
+                                )}
+                              </button>
+                              {savedCardId === c.id && (
+                                <div className="mt-2 flex items-center gap-2">
+                                  <Input
+                                    type="password"
+                                    inputMode="numeric"
+                                    className="h-9 w-28"
+                                    value={savedCvv}
+                                    onChange={(e) =>
+                                      setSavedCvv(
+                                        e.target.value
+                                          .replace(/\D/g, "")
+                                          .slice(0, cvvLength(c.type)),
+                                      )
+                                    }
+                                    placeholder={`CVV (${cvvLength(c.type)})`}
+                                  />
+                                  <span className="text-xs text-muted-foreground">
+                                    Enter the CVV to authorise this payment
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSavedCardId(null);
+                              setSavedCvv("");
+                            }}
+                            className={cn(
+                              "text-xs font-medium hover:underline",
+                              savedCardId === null ? "text-primary" : "text-muted-foreground",
+                            )}
+                          >
+                            + Use a new card
+                          </button>
+                        </div>
+                      )}
+                      {!selectedCard && (
+                      <>
                       <div className="space-y-1.5">
+
                         <Label htmlFor="cardno">Card number</Label>
                         <div className="relative">
                           <Input
