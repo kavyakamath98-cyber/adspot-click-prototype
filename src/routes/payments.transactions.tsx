@@ -65,7 +65,7 @@ function TransactionHistory() {
       date: t.timestamp,
       kind: t.purposeType,
       label: t.purpose,
-      sublabel: `${methodLabel(t.method)} · ${t.methodDetail} · ${t.paymentId}`,
+      sublabel: `${methodLabel[t.method]} · ${t.methodDetail} · ${t.paymentId}`,
       amount: t.purposeType === "topup" ? t.total : -t.total,
       status: "Success",
       receipt: () =>
