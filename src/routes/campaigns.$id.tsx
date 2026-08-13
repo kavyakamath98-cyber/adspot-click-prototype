@@ -1230,8 +1230,6 @@ function CampaignDetail() {
                         : "Save schedule"}
                   </Button>
                 </DialogFooter>
-
-                </DialogFooter>
               </>
             );
           })()}
