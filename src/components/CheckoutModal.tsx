@@ -501,9 +501,112 @@ export function CheckoutModal({
 
               {phase === "form" && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {/* Coupons & promotional credits */}
+                  <div className="rounded-lg border p-3">
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-primary" />
+                      <p className="text-sm font-medium">Coupons & offers</p>
+                      <button
+                        type="button"
+                        className="ml-auto text-xs font-medium text-primary hover:underline"
+                        onClick={() => setCouponListOpen((o) => !o)}
+                      >
+                        {couponListOpen ? "Hide offers" : "View offers"}
+                      </button>
+                    </div>
+                    {couponCode ? (
+                      <div className="mt-2 flex items-center justify-between rounded-md bg-primary/10 px-3 py-2 text-sm">
+                        <span className="font-medium text-primary">
+                          {couponCode} applied · you save {inr(discount)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={clearCoupon}
+                          className="text-xs font-medium text-muted-foreground hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex gap-2">
+                        <Input
+                          value={couponInput}
+                          onChange={(e) => {
+                            setCouponInput(e.target.value.toUpperCase());
+                            setCouponError(null);
+                          }}
+                          placeholder="Enter coupon code"
+                          className="h-9"
+                        />
+                        <Button
+                          variant="outline"
+                          className="h-9"
+                          disabled={!couponInput.trim()}
+                          onClick={onApplyCoupon}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    )}
+                    {couponError && (
+                      <p className="mt-1.5 text-xs text-destructive">{couponError}</p>
+                    )}
+                    {couponListOpen && (
+                      <ul className="mt-2 space-y-1.5">
+                        {COUPONS.filter(
+                          (c) => c.appliesTo === "all" || c.appliesTo === context,
+                        ).map((c) => (
+                          <li
+                            key={c.code}
+                            className="flex items-center justify-between gap-3 rounded-md border border-dashed px-3 py-2 text-xs"
+                          >
+                            <span>
+                              <span className="font-mono font-semibold">{c.code}</span> ·{" "}
+                              <span className="text-muted-foreground">{c.label}</span>
+                            </span>
+                            <button
+                              type="button"
+                              className="font-medium text-primary hover:underline"
+                              onClick={() => {
+                                setCouponInput(c.code);
+                                const res = applyCoupon(c.code, amount, context);
+                                if (res.ok) {
+                                  setCouponCode(res.coupon.code);
+                                  setDiscount(res.discount);
+                                  setCouponError(null);
+                                } else {
+                                  setCouponError(res.error);
+                                }
+                              }}
+                            >
+                              Apply
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {promoCreditBalance > 0 && (
+                      <label className="mt-3 flex items-center gap-2 border-t pt-3 text-sm">
+                        <Checkbox
+                          checked={usePromoCredit}
+                          onCheckedChange={(v) => setUsePromoCredit(v === true)}
+                        />
+                        <Gift className="h-4 w-4 text-primary" />
+                        Use promotional credit ({inr(promoCreditBalance)} available)
+                      </label>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                     {(
                       [
+                        ...(walletAllowed
+                          ? ([["additv", "Additv Wallet", WalletIcon]] as [
+                              PayMethod,
+                              string,
+                              typeof Smartphone,
+                            ][])
+                          : []),
                         ["upi", "UPI", Smartphone],
                         ["card", "Cards", CreditCard],
                         ["netbanking", "Netbanking", Banknote],
@@ -525,6 +628,39 @@ export function CheckoutModal({
                       </button>
                     ))}
                   </div>
+
+                  {method === "additv" && (
+                    <div className="space-y-3 rounded-lg border p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
+                            <WalletIcon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">Additv wallet</p>
+                            <p className="text-xs text-muted-foreground">
+                              Balance {inr(wallet)}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-sm tabular-nums text-muted-foreground">
+                          Paying {inr(total)}
+                        </p>
+                      </div>
+                      {walletShort ? (
+                        <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                          Your wallet is short by {inr(total - wallet)}. Top up your wallet or pick
+                          another payment method.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Balance after this payment: {inr(wallet - total)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+
 
                   {method === "upi" && (
                     <div className="space-y-3">
