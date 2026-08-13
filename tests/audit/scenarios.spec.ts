@@ -100,7 +100,8 @@ test.describe("Create campaign wizard", () => {
     // Step 2: Creative
     await page.click('button:has-text("Next")');
     await page.waitForLoadState("networkidle");
-    await page.click('.grid >> button:has(img):first-child');
+    // Select the first creative card in the grid.
+    await page.click('button:has(.aspect-video):first-of-type');
     await screenshot(page, "07-wizard-step2");
 
     // Step 3: Schedule
