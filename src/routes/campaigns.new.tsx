@@ -30,6 +30,7 @@ import {
   LocationTagPill,
   VideoPlayOverlay,
 } from "@/components/AppShell";
+import { CheckoutModal, type CheckoutSuccess } from "@/components/CheckoutModal";
 import { AddCreativeDialog } from "@/components/AddCreativeDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -141,7 +142,7 @@ function NewCampaign() {
     resumeCampaign,
     cancelPendingCampaign,
     stopCampaign,
-
+    recordTransaction,
 
     campaigns,
   } = useApp();
@@ -308,6 +309,7 @@ function NewCampaign() {
   const [payOpen, setPayOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
 
   const canReachStep = (target: Step): boolean => {
@@ -430,11 +432,12 @@ function NewCampaign() {
   const priceDelta = paidEdit ? (pricingChanged ? totalCost - amountPaid : 0) : totalCost;
 
 
-  const handlePaySuccess = () => {
+  const handlePaySuccess = (payment?: CheckoutSuccess) => {
     if (!selectedCreative) return;
     if (priceDelta > 0) {
       if (!chargeWallet(priceDelta)) {
         setPayError("Insufficient wallet balance. Please top up and try again.");
+        toast.error("Insufficient wallet balance. Please top up and try again.");
         return;
       }
     } else if (priceDelta < 0) {
@@ -443,6 +446,10 @@ function NewCampaign() {
     const launchStatus: Campaign["status"] =
       startDate && new Date(startDate) <= new Date() ? "live" : "approved_scheduled";
     const built = buildCampaign(paidEdit ? (editing?.status ?? launchStatus) : launchStatus);
+    if (payment) {
+      built.paymentId = payment.paymentId;
+      built.orderId = payment.orderId;
+    }
     const campaignId = built.id;
     if (editing) {
       updateCampaign(editing.id, { ...built, awaitingPayment: false, paymentUnlocked: false });
@@ -450,7 +457,17 @@ function NewCampaign() {
       addCampaign(built);
     }
     if (resubmit) updateCampaign(resubmit.id, { status: "completed" });
+    if (payment) {
+      recordTransaction({
+        ...payment,
+        status: "success",
+        purpose: `Campaign budget · ${built.name}`,
+        purposeType: "campaign",
+        campaignId,
+      });
+    }
     setPayOpen(false);
+    setCheckoutOpen(false);
     toast.success(
       paidEdit
         ? priceDelta === 0
@@ -842,7 +859,8 @@ function NewCampaign() {
               onSubmitForReview={() => setReviewOpen(true)}
               onPay={() => {
                 setPayError(null);
-                setPayOpen(true);
+                if (priceDelta > 0) setCheckoutOpen(true);
+                else setPayOpen(true);
               }}
             />
           )}
@@ -892,6 +910,18 @@ function NewCampaign() {
       </div>
 
 
+      <CheckoutModal
+        open={checkoutOpen}
+        onOpenChange={setCheckoutOpen}
+        amount={Math.max(priceDelta, 0)}
+        description={
+          paidEdit
+            ? `Campaign changes · ${name || "Untitled campaign"}`
+            : `Campaign budget · ${name || "Untitled campaign"}`
+        }
+        onSuccess={(r) => handlePaySuccess(r)}
+      />
+
       <Dialog open={payOpen} onOpenChange={setPayOpen}>
         <DialogContent>
           <DialogHeader>
@@ -919,7 +949,7 @@ function NewCampaign() {
             <Button variant="outline" onClick={() => setPayError("Card declined by issuing bank. Please try a different method.")}>
               Simulate Failure
             </Button>
-            <Button onClick={handlePaySuccess}>Simulate Success</Button>
+            <Button onClick={() => handlePaySuccess()}>Confirm</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

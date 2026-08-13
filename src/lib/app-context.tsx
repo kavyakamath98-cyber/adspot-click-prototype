@@ -1,3 +1,5 @@
+import type { PaymentTransaction } from "./payments";
+import { SEED_TRANSACTIONS, newRefundId } from "./payments";
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import {
   INITIAL_CAMPAIGNS,
@@ -78,6 +80,11 @@ interface AppState {
   allCreatives: Creative[];
   /** Moderator decision from the system-admin approval console. */
   reviewCreative: (id: string, input: ModerationDecision) => void;
+  /** Successful mock-gateway payments, newest first. */
+  transactions: PaymentTransaction[];
+  recordTransaction: (t: PaymentTransaction) => void;
+  /** Credit money into the wallet (successful top-up). */
+  creditWallet: (amount: number) => void;
 }
 
 const AppCtx = createContext<AppState | null>(null);
@@ -91,16 +98,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [campaigns, setCampaigns] = useState<Campaign[]>(INITIAL_CAMPAIGNS);
   const [creatives, setCreatives] = useState<Creative[]>(MIGRATED_CREATIVES);
   const [otherCreatives, setOtherCreatives] = useState<Creative[]>(PLATFORM_CREATIVES);
+  const [transactions, setTransactions] = useState<PaymentTransaction[]>(SEED_TRANSACTIONS);
+
+  const recordTransaction = useCallback((t: PaymentTransaction) => {
+    setTransactions((prev) => [t, ...prev]);
+  }, []);
+
+  const creditWallet = useCallback((amount: number) => {
+    setWallet((w) => w + amount);
+  }, []);
 
   const setDemoMode = useCallback((m: DemoMode) => {
     setDemoModeState(m);
     if (m === "new") {
       setCampaigns([]);
       setCreatives([]);
+      setTransactions([]);
       setWallet(25000);
     } else {
       setCampaigns(INITIAL_CAMPAIGNS);
       setCreatives(MIGRATED_CREATIVES);
+      setTransactions(SEED_TRANSACTIONS);
       setWallet(25000);
     }
   }, []);
@@ -481,11 +499,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const requestRefund = useCallback(
     (id: string, input: RefundInput) => {
       const referenceId = `RFD-${Date.now().toString(36).toUpperCase()}`;
+      const original = campaigns.find((c) => c.id === id);
       const refund: CampaignRefund = {
         amount: input.amount,
         destination: input.destination,
         status: input.destination === "wallet" ? "Completed" : "Processing",
         referenceId,
+        refundId: newRefundId(),
+        originalPaymentId: original?.paymentId,
         date: new Date().toISOString().slice(0, 10),
         bank: input.bank,
       };
@@ -495,7 +516,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (input.destination === "wallet") setWallet((w) => w + input.amount);
       return refund;
     },
-    [],
+    [campaigns],
   );
 
 
@@ -522,6 +543,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       resumeCampaign,
       stopCampaign,
       requestRefund,
+      transactions,
+      recordTransaction,
+      creditWallet,
       allCreatives: [...creatives, ...otherCreatives],
       reviewCreative,
     }),
@@ -547,6 +571,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       resumeCampaign,
       stopCampaign,
       requestRefund,
+      transactions,
+      recordTransaction,
+      creditWallet,
       otherCreatives,
       reviewCreative,
     ],
