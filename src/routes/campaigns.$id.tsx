@@ -357,19 +357,26 @@ function CampaignDetail() {
                 </Button>
               </Link>
             )}
-            {campaign.status === "draft" && (
-              <Link to="/campaigns/new" search={{ draftId: campaign.id }}>
-                <Button className="gap-1.5">Continue draft</Button>
-              </Link>
-            )}
+            {campaign.status === "draft" &&
+              (canWrite(campaign.id) ? (
+                <Link to="/campaigns/new" search={{ draftId: campaign.id }}>
+                  <Button className="gap-1.5">Continue draft</Button>
+                </Link>
+              ) : (
+                <ReadOnlyAction label="Continue draft" />
+              ))}
             {(campaign.status === "pending_approval" ||
               campaign.status === "live" ||
               campaign.status === "paused" ||
-              campaign.status === "approved_scheduled") && (
-              <Link to="/campaigns/new" search={{ draftId: campaign.id }}>
-                <Button className="gap-1.5">Edit campaign</Button>
-              </Link>
-            )}
+              campaign.status === "approved_scheduled") &&
+              (canWrite(campaign.id) ? (
+                <Link to="/campaigns/new" search={{ draftId: campaign.id }}>
+                  <Button className="gap-1.5">Edit campaign</Button>
+                </Link>
+              ) : (
+                <ReadOnlyAction label="Edit campaign" />
+              ))}
+
 
 
           </div>
