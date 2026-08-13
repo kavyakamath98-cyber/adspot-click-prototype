@@ -436,6 +436,59 @@ function SystemAdminPage() {
                 </div>
               </dl>
 
+              {(() => {
+                const linked = campaigns.find(
+                  (c) => c.creativeId === detail.id || c.pendingCreativeId === detail.id,
+                );
+                const ctx = linked ? contextFromCampaign(linked) : detail.campaignContext;
+                if (!ctx) return null;
+                return (
+                  <div className="rounded-lg border p-3">
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">
+                      Campaign this creative runs in
+                    </p>
+                    <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Campaign</dt>
+                        <dd className="truncate">{ctx.name}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Account</dt>
+                        <dd className="truncate">{detail.advertiser ?? "Ramesh's Kitchen"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Cities</dt>
+                        <dd>
+                          {ctx.cities.join(", ") || "—"}
+                          {ctx.pincodes.length > 0 && (
+                            <span className="text-muted-foreground"> · {ctx.pincodes.join(", ")}</span>
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Location tags</dt>
+                        <dd>{ctx.locationTags.join(", ") || "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Screen types</dt>
+                        <dd>
+                          {ctx.screenTypes.join(", ") || "—"}
+                          <span className="text-muted-foreground"> · {ctx.screenCount} screens</span>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Campaign dates</dt>
+                        <dd>
+                          {fmtDate(ctx.startDate)} – {fmtDate(ctx.endDate)}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                );
+              })()}
+
+
+
               {detail.status === "rejected" && (
                 <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
                   <p className="font-medium text-destructive">
