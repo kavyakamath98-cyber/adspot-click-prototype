@@ -5,8 +5,21 @@ import {
   REJECTION_REASONS,
   type Campaign,
   type CampaignStatus,
+  type CampaignRefund,
   type Creative,
+  type PauseDuration,
 } from "./mockData";
+
+export interface PauseDetail {
+  duration: PauseDuration;
+  reason?: string;
+}
+
+export interface RefundInput {
+  amount: number;
+  destination: "wallet" | "bank";
+  bank?: CampaignRefund["bank"];
+}
 import { migrateTag, restrictionFor } from "@/data/industryTaxonomy";
 
 /** Ensure every seeded creative carries a valid Industry / Sub-Industry pair. */
@@ -48,9 +61,10 @@ interface AppState {
   ) => void;
   chargeWallet: (amount: number) => boolean;
   refundToWallet: (amount: number) => void;
-  pauseCampaign: (id: string) => void;
+  pauseCampaign: (id: string, detail?: PauseDetail) => void;
   resumeCampaign: (id: string, mode: "keep_end" | "shift_end") => void;
-  stopCampaign: (id: string) => number; // returns refund amount
+  stopCampaign: (id: string) => number; // returns refundable amount (claim via requestRefund)
+  requestRefund: (id: string, input: RefundInput) => CampaignRefund;
 }
 
 const AppCtx = createContext<AppState | null>(null);
@@ -426,6 +440,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       pauseCampaign,
       resumeCampaign,
       stopCampaign,
+      requestRefund,
     }),
     [
       wallet,
@@ -448,6 +463,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       pauseCampaign,
       resumeCampaign,
       stopCampaign,
+      requestRefund,
     ],
   );
 
