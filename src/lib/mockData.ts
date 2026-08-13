@@ -18,18 +18,8 @@ export const LOCATION_TAGS: LocationTag[] = [
   "Other",
 ];
 
-export const INDUSTRIES = [
-  "Restaurant",
-  "Clinic/Healthcare",
-  "Retail",
-  "Salon/Beauty",
-  "Gym/Fitness",
-  "Education",
-  "Real Estate",
-  "Insurance",
-  "Other",
-] as const;
-export type Industry = (typeof INDUSTRIES)[number];
+export { INDUSTRIES, type Industry, type SubIndustry } from "@/data/industryTaxonomy";
+import type { Industry } from "@/data/industryTaxonomy";
 
 /** Fixed standard DOOH day-part slots. */
 export interface Daypart {
@@ -60,6 +50,12 @@ export function dowsInRange(start: string, end: string): number[] {
     cursor.setDate(cursor.getDate() + 1);
   }
   return [...out].sort((a, b) => a - b);
+}
+
+export interface ScreenBooking {
+  start: string; // YYYY-MM-DD
+  end: string; // YYYY-MM-DD inclusive
+  slots: string[]; // booked daypart ids
 }
 
 export interface ScreenBooking {
@@ -148,8 +144,8 @@ export interface Creative {
   durationSec?: number;
   uploadedAt: string;
   tags: string[];
-  industry?: Industry;
-  contentTag?: ContentTag;
+  industry: Industry;
+  subIndustry: string;
   status: "approved" | "rejected" | "pending";
   rejectionReason?: string;
   // true if this creative has ever cleared review — enables it to reuse without
@@ -597,8 +593,8 @@ export const INITIAL_CREATIVES: Creative[] = [
     sizeKB: 420,
     uploadedAt: "2026-06-10",
     tags: ["festival", "food"],
-    industry: "Restaurant",
-    contentTag: "General/Info",
+    industry: "Food & Beverage (F&B)",
+    subIndustry: "Restaurants & QSR",
     status: "approved",
     previouslyApproved: true,
   },
@@ -612,8 +608,8 @@ export const INITIAL_CREATIVES: Creative[] = [
     sizeKB: 380,
     uploadedAt: "2026-06-18",
     tags: ["weekend", "food"],
-    industry: "Restaurant",
-    contentTag: "General/Info",
+    industry: "Food & Beverage (F&B)",
+    subIndustry: "Restaurants & QSR",
     status: "approved",
     previouslyApproved: true,
   },
@@ -629,8 +625,8 @@ export const INITIAL_CREATIVES: Creative[] = [
     durationSec: 12,
     uploadedAt: "2026-07-01",
     tags: ["video", "menu"],
-    industry: "Restaurant",
-    contentTag: "General/Info",
+    industry: "Food & Beverage (F&B)",
+    subIndustry: "Restaurants & QSR",
     status: "approved",
     previouslyApproved: true,
   },
@@ -644,8 +640,8 @@ export const INITIAL_CREATIVES: Creative[] = [
     sizeKB: 500,
     uploadedAt: "2026-05-20",
     tags: ["drinks", "night"],
-    industry: "Restaurant",
-    contentTag: "Alcohol",
+    industry: "Food & Beverage (F&B)",
+    subIndustry: "Alcoholic Beverages",
     status: "rejected",
     rejectionReason: "Alcohol or tobacco promotion",
   },
@@ -661,8 +657,8 @@ export const INITIAL_CREATIVES: Creative[] = [
     durationSec: 15,
     uploadedAt: "2026-07-05",
     tags: ["video", "grand-opening"],
-    industry: "Restaurant",
-    contentTag: "General/Info",
+    industry: "Food & Beverage (F&B)",
+    subIndustry: "Restaurants & QSR",
     status: "approved",
     previouslyApproved: true,
   },
